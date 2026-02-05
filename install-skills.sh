@@ -116,4 +116,15 @@ echo "$SKILL_FOLDERS" | while read -r skill; do
     echo -e "  ${GREEN}•${NC} /$skill"
 done
 echo ""
-echo -e "${YELLOW}Skills are auto-discovered. Open a new Claude Code session to use them.${NC}"
+# Create CLAUDE.md if it doesn't exist (may be needed for skills discovery)
+CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+if [ ! -f "$CLAUDE_MD" ]; then
+    echo -e "${YELLOW}Creating ~/.claude/CLAUDE.md...${NC}"
+    echo "# Claude Code Configuration" > "$CLAUDE_MD"
+    echo "" >> "$CLAUDE_MD"
+    echo "# Skills are auto-discovered from ~/.claude/skills/" >> "$CLAUDE_MD"
+    echo -e "  ${GREEN}✓${NC} CLAUDE.md created"
+fi
+
+echo ""
+echo -e "${YELLOW}Open a new Claude Code session to use the skills.${NC}"

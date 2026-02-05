@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Claude Code Skills Installer
-# Downloads skills from the cheat-sheets repository and installs them to ~/.claude/skills
+# Downloads skills from the cheat-sheets repository and installs them to ~/.claude
 
 set -e
 
@@ -9,9 +9,14 @@ set -e
 REPO_OWNER="morphet81"
 REPO_NAME="cheat-sheets"
 BRANCH="main"
-SKILLS_DIR="$HOME/.claude/skills"
+CLAUDE_DIR="$HOME/.claude"
+CLAUDE_MD="$CLAUDE_DIR/CLAUDE.md"
 GITHUB_RAW_BASE="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/$BRANCH"
 GITHUB_API_BASE="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/contents"
+
+# Markers for skill section in CLAUDE.md
+SKILLS_START_MARKER="<!-- CHEAT-SHEETS-SKILLS-START -->"
+SKILLS_END_MARKER="<!-- CHEAT-SHEETS-SKILLS-END -->"
 
 # Colors for output
 RED='\033[0;31m'
@@ -31,9 +36,9 @@ if ! command -v curl &> /dev/null; then
     exit 1
 fi
 
-# Create skills directory if it doesn't exist
-echo -e "${YELLOW}Creating skills directory...${NC}"
-mkdir -p "$SKILLS_DIR"
+# Create .claude directory if it doesn't exist
+echo -e "${YELLOW}Setting up Claude directory...${NC}"
+mkdir -p "$CLAUDE_DIR"
 
 # Fetch list of skill folders from GitHub API
 echo -e "${YELLOW}Fetching available skills...${NC}"
@@ -60,68 +65,96 @@ echo "$SKILL_FOLDERS" | while read -r skill; do
 done
 echo ""
 
-# Download each skill
-echo "$SKILL_FOLDERS" | while read -r SKILL_NAME; do
+# Build skills content
+SKILLS_CONTENT="$SKILLS_START_MARKER
+# Skills (auto-installed from morphet81/cheat-sheets)
+"
+
+# Download and collect each skill
+while read -r SKILL_NAME; do
     if [ -z "$SKILL_NAME" ]; then
         continue
     fi
 
-    echo -e "${YELLOW}Installing skill: ${NC}${BLUE}$SKILL_NAME${NC}"
-
-    SKILL_TARGET_DIR="$SKILLS_DIR/$SKILL_NAME"
-
-    # Remove existing skill folder if it exists
-    if [ -d "$SKILL_TARGET_DIR" ]; then
-        echo -e "  ${YELLOW}Replacing existing skill...${NC}"
-        rm -rf "$SKILL_TARGET_DIR"
-    fi
-
-    # Create skill directory
-    mkdir -p "$SKILL_TARGET_DIR"
+    echo -e "${YELLOW}Downloading skill: ${NC}${BLUE}$SKILL_NAME${NC}"
 
     # Fetch files in the skill folder
     SKILL_FILES_JSON=$(curl -s "$GITHUB_API_BASE/skills/$SKILL_NAME?ref=$BRANCH")
     SKILL_FILES=$(echo "$SKILL_FILES_JSON" | grep -o '"name": "[^"]*"' | grep -o '[^"]*"$' | tr -d '"')
 
-    # Download each file in the skill folder
-    echo "$SKILL_FILES" | while read -r FILE_NAME; do
+    # Download each .md file in the skill folder
+    while read -r FILE_NAME; do
         if [ -z "$FILE_NAME" ]; then
             continue
         fi
 
-        FILE_URL="$GITHUB_RAW_BASE/skills/$SKILL_NAME/$FILE_NAME"
-        TARGET_FILE="$SKILL_TARGET_DIR/$FILE_NAME"
+        # Only process .md files
+        if [[ "$FILE_NAME" == *.md ]]; then
+            FILE_URL="$GITHUB_RAW_BASE/skills/$SKILL_NAME/$FILE_NAME"
 
-        echo -e "  ${YELLOW}Downloading:${NC} $FILE_NAME"
+            echo -e "  ${YELLOW}Fetching:${NC} $FILE_NAME"
 
-        if curl -sL "$FILE_URL" -o "$TARGET_FILE"; then
-            echo -e "  ${GREEN}✓${NC} $FILE_NAME"
-        else
-            echo -e "  ${RED}✗ Failed to download $FILE_NAME${NC}"
+            SKILL_FILE_CONTENT=$(curl -sL "$FILE_URL")
+
+            if [ -n "$SKILL_FILE_CONTENT" ]; then
+                SKILLS_CONTENT="$SKILLS_CONTENT
+$SKILL_FILE_CONTENT
+"
+                echo -e "  ${GREEN}✓${NC} $FILE_NAME"
+            else
+                echo -e "  ${RED}✗ Failed to download $FILE_NAME${NC}"
+            fi
         fi
-    done
+    done <<< "$SKILL_FILES"
 
     echo ""
-done
+done <<< "$SKILL_FOLDERS"
 
+SKILLS_CONTENT="$SKILLS_CONTENT
+$SKILLS_END_MARKER"
+
+# Update CLAUDE.md
+echo -e "${YELLOW}Updating ~/.claude/CLAUDE.md...${NC}"
+
+if [ -f "$CLAUDE_MD" ]; then
+    # Check if skills section already exists
+    if grep -q "$SKILLS_START_MARKER" "$CLAUDE_MD"; then
+        # Replace existing skills section
+        echo -e "  ${YELLOW}Replacing existing skills section...${NC}"
+
+        # Create temp file with content before marker, new skills, and content after marker
+        BEFORE=$(sed -n "1,/$SKILLS_START_MARKER/p" "$CLAUDE_MD" | sed '$d')
+        AFTER=$(sed -n "/$SKILLS_END_MARKER/,\$p" "$CLAUDE_MD" | sed '1d')
+
+        echo "$BEFORE" > "$CLAUDE_MD.tmp"
+        echo "$SKILLS_CONTENT" >> "$CLAUDE_MD.tmp"
+        echo "$AFTER" >> "$CLAUDE_MD.tmp"
+
+        mv "$CLAUDE_MD.tmp" "$CLAUDE_MD"
+    else
+        # Append skills section to existing file
+        echo -e "  ${YELLOW}Appending skills to existing file...${NC}"
+        echo "" >> "$CLAUDE_MD"
+        echo "$SKILLS_CONTENT" >> "$CLAUDE_MD"
+    fi
+else
+    # Create new CLAUDE.md with skills
+    echo -e "  ${YELLOW}Creating new CLAUDE.md...${NC}"
+    echo "$SKILLS_CONTENT" > "$CLAUDE_MD"
+fi
+
+echo -e "  ${GREEN}✓${NC} CLAUDE.md updated"
+
+echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║   Installation complete!               ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "Skills installed to: ${BLUE}$SKILLS_DIR${NC}"
+echo -e "Skills installed to: ${BLUE}$CLAUDE_MD${NC}"
 echo ""
-echo -e "${YELLOW}To use these skills, add the following to your ~/.claude/CLAUDE.md:${NC}"
-echo ""
-echo -e "${BLUE}# Skills${NC}"
-echo ""
-
-# List installed skills with include syntax
-for SKILL_DIR in "$SKILLS_DIR"/*/; do
-    if [ -d "$SKILL_DIR" ]; then
-        SKILL_NAME=$(basename "$SKILL_DIR")
-        echo -e "${BLUE}@skills/$SKILL_NAME/${SKILL_NAME}.md${NC}"
-    fi
+echo -e "${YELLOW}Installed skills:${NC}"
+echo "$SKILL_FOLDERS" | while read -r skill; do
+    echo -e "  ${GREEN}•${NC} /$skill"
 done
-
 echo ""
-echo -e "${YELLOW}Or copy the skill contents directly into your CLAUDE.md file.${NC}"
+echo -e "${YELLOW}Open a new Claude Code session to use the skills.${NC}"

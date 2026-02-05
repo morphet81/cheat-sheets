@@ -2,7 +2,7 @@
 
 # Claude Code Skills Installer
 # Downloads skills from the cheat-sheets repository to ~/.claude/skills
-# and adds references to ~/.claude/CLAUDE.md
+# Skills are auto-discovered by Claude Code - no CLAUDE.md references needed
 
 set -e
 
@@ -10,15 +10,9 @@ set -e
 REPO_OWNER="morphet81"
 REPO_NAME="cheat-sheets"
 BRANCH="main"
-CLAUDE_DIR="$HOME/.claude"
-SKILLS_DIR="$CLAUDE_DIR/skills"
-CLAUDE_MD="$CLAUDE_DIR/CLAUDE.md"
+SKILLS_DIR="$HOME/.claude/skills"
 GITHUB_RAW_BASE="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/$BRANCH"
 GITHUB_API_BASE="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/contents"
-
-# Markers for skill references section in CLAUDE.md
-SKILLS_START_MARKER="<!-- CHEAT-SHEETS-SKILLS-START -->"
-SKILLS_END_MARKER="<!-- CHEAT-SHEETS-SKILLS-END -->"
 
 # Colors for output
 RED='\033[0;31m'
@@ -38,9 +32,8 @@ if ! command -v curl &> /dev/null; then
     exit 1
 fi
 
-# Create directories if they don't exist
-echo -e "${YELLOW}Setting up directories...${NC}"
-mkdir -p "$CLAUDE_DIR"
+# Create skills directory if it doesn't exist
+echo -e "${YELLOW}Setting up skills directory...${NC}"
 mkdir -p "$SKILLS_DIR"
 
 # Fetch list of skill folders from GitHub API
@@ -67,9 +60,6 @@ echo "$SKILL_FOLDERS" | while read -r skill; do
     echo "  - $skill"
 done
 echo ""
-
-# Track installed skills for reference generation
-INSTALLED_SKILLS=""
 
 # Download each skill
 while read -r SKILL_NAME; do
@@ -107,11 +97,6 @@ while read -r SKILL_NAME; do
 
         if curl -sL "$FILE_URL" -o "$TARGET_FILE"; then
             echo -e "  ${GREEN}✓${NC} $FILE_NAME"
-
-            # Track .md files for references
-            if [[ "$FILE_NAME" == *.md ]]; then
-                INSTALLED_SKILLS="$INSTALLED_SKILLS$SKILL_NAME/$FILE_NAME"$'\n'
-            fi
         else
             echo -e "  ${RED}✗ Failed to download $FILE_NAME${NC}"
         fi
@@ -120,65 +105,15 @@ while read -r SKILL_NAME; do
     echo ""
 done <<< "$SKILL_FOLDERS"
 
-# Build skills references section
-echo -e "${YELLOW}Updating ~/.claude/CLAUDE.md...${NC}"
-
-SKILLS_REFS="$SKILLS_START_MARKER
-# Skills (auto-installed from morphet81/cheat-sheets)
-"
-
-while read -r SKILL_PATH; do
-    if [ -n "$SKILL_PATH" ]; then
-        SKILLS_REFS="$SKILLS_REFS
-@skills/$SKILL_PATH"
-    fi
-done <<< "$INSTALLED_SKILLS"
-
-SKILLS_REFS="$SKILLS_REFS
-
-$SKILLS_END_MARKER"
-
-# Update CLAUDE.md
-if [ -f "$CLAUDE_MD" ]; then
-    # Check if skills section already exists
-    if grep -q "$SKILLS_START_MARKER" "$CLAUDE_MD"; then
-        # Replace existing skills section
-        echo -e "  ${YELLOW}Replacing existing skills references...${NC}"
-
-        # Create temp file with content before marker, new refs, and content after marker
-        BEFORE=$(sed -n "1,/$SKILLS_START_MARKER/p" "$CLAUDE_MD" | sed '$d')
-        AFTER=$(sed -n "/$SKILLS_END_MARKER/,\$p" "$CLAUDE_MD" | sed '1d')
-
-        echo "$BEFORE" > "$CLAUDE_MD.tmp"
-        echo "$SKILLS_REFS" >> "$CLAUDE_MD.tmp"
-        echo "$AFTER" >> "$CLAUDE_MD.tmp"
-
-        mv "$CLAUDE_MD.tmp" "$CLAUDE_MD"
-    else
-        # Append skills section to existing file
-        echo -e "  ${YELLOW}Appending skills references to existing file...${NC}"
-        echo "" >> "$CLAUDE_MD"
-        echo "$SKILLS_REFS" >> "$CLAUDE_MD"
-    fi
-else
-    # Create new CLAUDE.md with skills references
-    echo -e "  ${YELLOW}Creating new CLAUDE.md...${NC}"
-    echo "$SKILLS_REFS" > "$CLAUDE_MD"
-fi
-
-echo -e "  ${GREEN}✓${NC} CLAUDE.md updated"
-
-echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║   Installation complete!               ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "Skills downloaded to: ${BLUE}$SKILLS_DIR${NC}"
-echo -e "References added to:  ${BLUE}$CLAUDE_MD${NC}"
+echo -e "Skills installed to: ${BLUE}$SKILLS_DIR${NC}"
 echo ""
 echo -e "${YELLOW}Installed skills:${NC}"
 echo "$SKILL_FOLDERS" | while read -r skill; do
     echo -e "  ${GREEN}•${NC} /$skill"
 done
 echo ""
-echo -e "${YELLOW}Open a new Claude Code session to use the skills.${NC}"
+echo -e "${YELLOW}Skills are auto-discovered. Open a new Claude Code session to use them.${NC}"

@@ -1,4 +1,8 @@
-### /review-changes - Review Current Changes
+---
+name: review-changes
+description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
+argument-hint: "[base-branch]"
+---
 
 Review changes introduced by the current branch compared to a base branch.
 
@@ -9,7 +13,7 @@ Review changes introduced by the current branch compared to a base branch.
 **Instructions:**
 
 1. First, determine the base branch to compare against:
-   - If an argument is provided, use that as the base branch
+   - If an argument is provided via $ARGUMENTS, use that as the base branch
    - Otherwise, default to `main`
 
 2. Get the current branch name and verify we're not on the base branch

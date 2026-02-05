@@ -361,7 +361,7 @@
         <div class="content">
             <div class="install-box">
                 <h2>Quick Install (macOS)</h2>
-                <p>Run this command to download skills to <code>~/.claude/skills/</code> and add references to <code>~/.claude/CLAUDE.md</code>:</p>
+                <p>Run this command to download skills to <code>~/.claude/skills/</code> (auto-discovered by Claude Code):</p>
                 <div class="command-wrapper">
                     <div class="command-box">
                         <code id="install-command">curl -sL https://raw.githubusercontent.com/morphet81/cheat-sheets/main/install-skills.sh -o /tmp/install-skills.sh && bash /tmp/install-skills.sh && rm /tmp/install-skills.sh</code>
@@ -372,16 +372,16 @@
 
             <div class="instructions">
                 <h2>Manual Setup</h2>
-                <p>Alternatively, copy skill contents and add them to your project's <code>CLAUDE.md</code> file or <code>~/.claude/CLAUDE.md</code> for global availability.</p>
+                <p>Skills are stored as <code>SKILL.md</code> files with YAML frontmatter. They are auto-discovered from:</p>
                 <ul>
-                    <li><strong>Project-level:</strong> Create <code>CLAUDE.md</code> in your project root</li>
-                    <li><strong>User-level:</strong> Create <code>~/.claude/CLAUDE.md</code> for global skills</li>
+                    <li><strong>Personal:</strong> <code>~/.claude/skills/&lt;skill-name&gt;/SKILL.md</code></li>
+                    <li><strong>Project:</strong> <code>.claude/skills/&lt;skill-name&gt;/SKILL.md</code></li>
                 </ul>
                 <p style="margin-top: 15px;">Skills are invoked using <code>/skill-name</code> in Claude Code conversations.</p>
             </div>
 
             <div class="skills-list">
-                <!-- Review Skill -->
+                <!-- Review Changes Skill -->
                 <div class="skill-card">
                     <div class="skill-header">
                         <div class="skill-title">
@@ -409,11 +409,15 @@
                     <div class="collapsible-content">
                         <div class="file-container">
                             <div class="file-header">
-                                <span class="file-name">skills/review-changes/review-changes.md</span>
+                                <span class="file-name">skills/review-changes/SKILL.md</span>
                                 <button class="copy-btn" onclick="copyContent(this, 'review-changes-content')">Copy</button>
                             </div>
                             <div class="file-content">
-                                <pre id="review-changes-content">### /review-changes - Review Current Changes
+                                <pre id="review-changes-content">---
+name: review-changes
+description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
+argument-hint: "[base-branch]"
+---
 
 Review changes introduced by the current branch compared to a base branch.
 
@@ -424,7 +428,7 @@ Review changes introduced by the current branch compared to a base branch.
 **Instructions:**
 
 1. First, determine the base branch to compare against:
-   - If an argument is provided, use that as the base branch
+   - If an argument is provided via $ARGUMENTS, use that as the base branch
    - Otherwise, default to `main`
 
 2. Get the current branch name and verify we're not on the base branch
@@ -480,7 +484,7 @@ Summary and recommendation (approve, request changes, etc.)
         </div>
 
         <footer>
-            <p>💡 Tip: Skills are defined with <code>### /skill-name</code> followed by instructions for Claude</p>
+            <p>💡 Tip: Skills use YAML frontmatter with <code>name</code> and <code>description</code> fields</p>
             <p>📚 See <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code documentation</a> for more details</p>
         </footer>
     </div>

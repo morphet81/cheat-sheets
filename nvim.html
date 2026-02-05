@@ -549,8 +549,24 @@
                     <span class="keys">:ls</span>
                 </div>
                 <div class="shortcut">
-                    <span class="description">Delete buffer</span>
+                    <span class="description">Close/delete buffer</span>
                     <span class="keys">:bd</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Force close buffer</span>
+                    <span class="keys">:bd!</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close buffer by number</span>
+                    <span class="keys">:bd {number}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close current, go to next</span>
+                    <span class="keys">:bn | bd #</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Wipe buffer (permanent)</span>
+                    <span class="keys">:bw</span>
                 </div>
             </div>
 
@@ -572,6 +588,34 @@
                 <div class="shortcut">
                     <span class="description">Move to window (h/j/k/l)</span>
                     <span class="keys">Ctrl+w h/j/k/l</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize wider</span>
+                    <span class="keys">Ctrl+w ></span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize narrower</span>
+                    <span class="keys">Ctrl+w <</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize taller</span>
+                    <span class="keys">Ctrl+w +</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize shorter</span>
+                    <span class="keys">Ctrl+w -</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Equal window sizes</span>
+                    <span class="keys">Ctrl+w =</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Max height</span>
+                    <span class="keys">Ctrl+w _</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Max width</span>
+                    <span class="keys">Ctrl+w |</span>
                 </div>
                 <div class="shortcut">
                     <span class="description">Close window</span>
@@ -596,6 +640,35 @@
                 <div class="shortcut">
                     <span class="description">Close tab</span>
                     <span class="keys">:tabclose</span>
+                </div>
+            </div>
+
+            <!-- File Explorer -->
+            <div class="section">
+                <h2>File Explorer</h2>
+                <div class="shortcut">
+                    <span class="description">Open file explorer</span>
+                    <span class="keys">:Ex</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize explorer wider</span>
+                    <span class="keys">Ctrl+w 10></span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize explorer narrower</span>
+                    <span class="keys">Ctrl+w 10<</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Set explorer width to 30</span>
+                    <span class="keys">:vertical resize 30</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle NvimTree</span>
+                    <span class="keys">:NvimTreeToggle</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Focus NvimTree</span>
+                    <span class="keys">:NvimTreeFocus</span>
                 </div>
             </div>
 

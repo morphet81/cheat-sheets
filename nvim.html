@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neovim Cheat Sheet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .search-container {
+            margin-top: 20px;
+            position: relative;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        #searchInput {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            font-size: 1em;
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            background: white;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        #searchInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #718096;
+            pointer-events: none;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+            font-size: 1.1em;
+            display: none;
+        }
+        
+        .section.hidden {
+            display: none;
+        }
+        
+        .content {
+            padding: 30px;
+            column-count: 3;
+            column-gap: 30px;
+        }
+        
+        .section {
+            break-inside: avoid;
+            margin-bottom: 25px;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #2d3748;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section h2::before {
+            content: "▶";
+            margin-right: 10px;
+            color: #667eea;
+            font-size: 0.8em;
+        }
+        
+        .shortcut {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .shortcut:last-child {
+            border-bottom: none;
+        }
+        
+        .keys {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #2d3748;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .description {
+            color: #4a5568;
+            flex: 1;
+            padding-right: 15px;
+            font-size: 0.95em;
+        }
+        
+        .mode-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 1200px) {
+            .content {
+                column-count: 2;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                column-count: 1;
+            }
+            
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+        
+        footer {
+            background: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9em;
+            border-top: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⌨️ Neovim Cheat Sheet</h1>
+            <p>Essential shortcuts for efficient text editing</p>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search shortcuts... (e.g., 'delete', 'visual', 'undo')">
+                <span class="search-icon">🔍</span>
+            </div>
+        </header>
+        
+        <div class="content">
+            <div class="no-results" id="noResults">
+                <p>🔍 No shortcuts found matching your search.</p>
+                <p style="font-size: 0.9em; margin-top: 10px;">Try different keywords or clear your search.</p>
+            </div>
+            <!-- Modes -->
+            <div class="section">
+                <h2>Modes</h2>
+                <div class="shortcut">
+                    <span class="description">Normal mode</span>
+                    <span class="keys">Esc</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Insert mode</span>
+                    <span class="keys">i</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Insert at line start</span>
+                    <span class="keys">I</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Append after cursor</span>
+                    <span class="keys">a</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Append at line end</span>
+                    <span class="keys">A</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Visual mode</span>
+                    <span class="keys">v</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Visual line mode</span>
+                    <span class="keys">V</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Visual block mode</span>
+                    <span class="keys">Ctrl+v</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Command mode</span>
+                    <span class="keys">:</span>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="section">
+                <h2>Navigation</h2>
+                <div class="shortcut">
+                    <span class="description">Move left/down/up/right</span>
+                    <span class="keys">h j k l</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Word forward</span>
+                    <span class="keys">w</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Word backward</span>
+                    <span class="keys">b</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">End of word</span>
+                    <span class="keys">e</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Start of line</span>
+                    <span class="keys">0</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">First non-blank char</span>
+                    <span class="keys">^</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">End of line</span>
+                    <span class="keys">$</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Go to line number</span>
+                    <span class="keys">:n or nG</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Top of file</span>
+                    <span class="keys">gg</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Bottom of file</span>
+                    <span class="keys">G</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Matching bracket</span>
+                    <span class="keys">%</span>
+                </div>
+            </div>
+
+            <!-- Editing -->
+            <div class="section">
+                <h2>Editing</h2>
+                <div class="shortcut">
+                    <span class="description">Delete character</span>
+                    <span class="keys">x</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete line</span>
+                    <span class="keys">dd</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete word</span>
+                    <span class="keys">dw</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete to end of line</span>
+                    <span class="keys">d$</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Change word</span>
+                    <span class="keys">cw</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Change line</span>
+                    <span class="keys">cc</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Replace character</span>
+                    <span class="keys">r</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Replace mode</span>
+                    <span class="keys">R</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Undo</span>
+                    <span class="keys">u</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Redo</span>
+                    <span class="keys">Ctrl+r</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Repeat last command</span>
+                    <span class="keys">.</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">New line below</span>
+                    <span class="keys">o</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">New line above</span>
+                    <span class="keys">O</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Join lines</span>
+                    <span class="keys">J</span>
+                </div>
+            </div>
+
+            <!-- Copy/Paste -->
+            <div class="section">
+                <h2>Copy & Paste</h2>
+                <div class="shortcut">
+                    <span class="description">Yank (copy) line</span>
+                    <span class="keys">yy</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Yank word</span>
+                    <span class="keys">yw</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Yank to end of line</span>
+                    <span class="keys">y$</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Paste after cursor</span>
+                    <span class="keys">p</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Paste before cursor</span>
+                    <span class="keys">P</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Copy to system clipboard</span>
+                    <span class="keys">"+y</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Paste from system clipboard</span>
+                    <span class="keys">"+p</span>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="section">
+                <h2>Search</h2>
+                <div class="shortcut">
+                    <span class="description">Search forward</span>
+                    <span class="keys">/pattern</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Search backward</span>
+                    <span class="keys">?pattern</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next match</span>
+                    <span class="keys">n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Previous match</span>
+                    <span class="keys">N</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Find character forward</span>
+                    <span class="keys">f{char}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Find character backward</span>
+                    <span class="keys">F{char}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Till character forward</span>
+                    <span class="keys">t{char}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Till character backward</span>
+                    <span class="keys">T{char}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clear search highlight</span>
+                    <span class="keys">:noh</span>
+                </div>
+            </div>
+
+            <!-- Replace -->
+            <div class="section">
+                <h2>Search & Replace</h2>
+                <div class="shortcut">
+                    <span class="description">Replace in line</span>
+                    <span class="keys">:s/old/new/</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Replace all in line</span>
+                    <span class="keys">:s/old/new/g</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Replace in file</span>
+                    <span class="keys">:%s/old/new/g</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Replace with confirm</span>
+                    <span class="keys">:%s/old/new/gc</span>
+                </div>
+            </div>
+
+            <!-- Visual Mode -->
+            <div class="section">
+                <h2>Visual Mode</h2>
+                <div class="shortcut">
+                    <span class="description">Delete selection</span>
+                    <span class="keys">d</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Yank selection</span>
+                    <span class="keys">y</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Change selection</span>
+                    <span class="keys">c</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Indent right</span>
+                    <span class="keys">></span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Indent left</span>
+                    <span class="keys"><</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle case</span>
+                    <span class="keys">~</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Uppercase</span>
+                    <span class="keys">U</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Lowercase</span>
+                    <span class="keys">u</span>
+                </div>
+            </div>
+
+            <!-- Marks -->
+            <div class="section">
+                <h2>Marks & Jumps</h2>
+                <div class="shortcut">
+                    <span class="description">Set mark</span>
+                    <span class="keys">m{a-z}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Jump to mark</span>
+                    <span class="keys">'{a-z}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Jump to mark (column)</span>
+                    <span class="keys">`{a-z}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Jump to previous</span>
+                    <span class="keys">Ctrl+o</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Jump to next</span>
+                    <span class="keys">Ctrl+i</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Last change location</span>
+                    <span class="keys">`.</span>
+                </div>
+            </div>
+
+            <!-- Files -->
+            <div class="section">
+                <h2>Files & Buffers</h2>
+                <div class="shortcut">
+                    <span class="description">Save file</span>
+                    <span class="keys">:w</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Save and quit</span>
+                    <span class="keys">:wq or ZZ</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Quit without saving</span>
+                    <span class="keys">:q!</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open file</span>
+                    <span class="keys">:e filename</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next buffer</span>
+                    <span class="keys">:bn</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Previous buffer</span>
+                    <span class="keys">:bp</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">List buffers</span>
+                    <span class="keys">:ls</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete buffer</span>
+                    <span class="keys">:bd</span>
+                </div>
+            </div>
+
+            <!-- Windows -->
+            <div class="section">
+                <h2>Windows & Tabs</h2>
+                <div class="shortcut">
+                    <span class="description">Split horizontal</span>
+                    <span class="keys">:sp</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Split vertical</span>
+                    <span class="keys">:vsp</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Switch windows</span>
+                    <span class="keys">Ctrl+w w</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move to window (h/j/k/l)</span>
+                    <span class="keys">Ctrl+w h/j/k/l</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close window</span>
+                    <span class="keys">Ctrl+w c</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Only this window</span>
+                    <span class="keys">Ctrl+w o</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">New tab</span>
+                    <span class="keys">:tabnew</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next tab</span>
+                    <span class="keys">gt</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Previous tab</span>
+                    <span class="keys">gT</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close tab</span>
+                    <span class="keys">:tabclose</span>
+                </div>
+            </div>
+
+            <!-- Macros -->
+            <div class="section">
+                <h2>Macros</h2>
+                <div class="shortcut">
+                    <span class="description">Start recording</span>
+                    <span class="keys">q{a-z}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stop recording</span>
+                    <span class="keys">q</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Play macro</span>
+                    <span class="keys">@{a-z}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Repeat last macro</span>
+                    <span class="keys">@@</span>
+                </div>
+            </div>
+
+            <!-- Text Objects -->
+            <div class="section">
+                <h2>Text Objects</h2>
+                <div class="shortcut">
+                    <span class="description">Inner word</span>
+                    <span class="keys">iw</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Around word</span>
+                    <span class="keys">aw</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Inner sentence</span>
+                    <span class="keys">is</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Inner paragraph</span>
+                    <span class="keys">ip</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Inner parentheses</span>
+                    <span class="keys">i( or i)</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Around parentheses</span>
+                    <span class="keys">a( or a)</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Inner brackets</span>
+                    <span class="keys">i[ or i]</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Inner braces</span>
+                    <span class="keys">i{ or i}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Inner quotes</span>
+                    <span class="keys">i" or i'</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Inner tag (HTML/XML)</span>
+                    <span class="keys">it</span>
+                </div>
+            </div>
+
+            <!-- Numbers -->
+            <div class="section">
+                <h2>Numbers</h2>
+                <div class="shortcut">
+                    <span class="description">Increment number</span>
+                    <span class="keys">Ctrl+a</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Decrement number</span>
+                    <span class="keys">Ctrl+x</span>
+                </div>
+            </div>
+
+            <!-- Code Folding -->
+            <div class="section">
+                <h2>Code Folding</h2>
+                <div class="shortcut">
+                    <span class="description">Toggle fold</span>
+                    <span class="keys">za</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open fold</span>
+                    <span class="keys">zo</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close fold</span>
+                    <span class="keys">zc</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open all folds</span>
+                    <span class="keys">zR</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close all folds</span>
+                    <span class="keys">zM</span>
+                </div>
+            </div>
+
+            <!-- Scrolling -->
+            <div class="section">
+                <h2>Scrolling</h2>
+                <div class="shortcut">
+                    <span class="description">Scroll down half page</span>
+                    <span class="keys">Ctrl+d</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll up half page</span>
+                    <span class="keys">Ctrl+u</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll down full page</span>
+                    <span class="keys">Ctrl+f</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll up full page</span>
+                    <span class="keys">Ctrl+b</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll down one line</span>
+                    <span class="keys">Ctrl+e</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll up one line</span>
+                    <span class="keys">Ctrl+y</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Cursor to top of screen</span>
+                    <span class="keys">H</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Cursor to middle</span>
+                    <span class="keys">M</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Cursor to bottom</span>
+                    <span class="keys">L</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Center line on screen</span>
+                    <span class="keys">zz</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Top line to screen top</span>
+                    <span class="keys">zt</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Bottom line to screen bottom</span>
+                    <span class="keys">zb</span>
+                </div>
+            </div>
+
+            <!-- Misc -->
+            <div class="section">
+                <h2>Miscellaneous</h2>
+                <div class="shortcut">
+                    <span class="description">Show file info</span>
+                    <span class="keys">Ctrl+g</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Execute shell command</span>
+                    <span class="keys">:!command</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Read command output</span>
+                    <span class="keys">:r !command</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Spell check toggle</span>
+                    <span class="keys">:set spell</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next spelling error</span>
+                    <span class="keys">]s</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Spelling suggestions</span>
+                    <span class="keys">z=</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Show help</span>
+                    <span class="keys">:help keyword</span>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>💡 Tip: Numbers can prefix most commands (e.g., <strong>5dd</strong> deletes 5 lines, <strong>3w</strong> moves forward 3 words)</p>
+            <p>⌨️ Press <strong>/</strong> to search, <strong>Esc</strong> to clear | Print or bookmark this page for quick reference</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const sections = document.querySelectorAll('.section');
+        const noResults = document.getElementById('noResults');
+        
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            let visibleSections = 0;
+            
+            sections.forEach(section => {
+                if (searchTerm === '') {
+                    section.classList.remove('hidden');
+                    visibleSections++;
+                } else {
+                    const sectionTitle = section.querySelector('h2').textContent.toLowerCase();
+                    const shortcuts = section.querySelectorAll('.shortcut');
+                    let hasVisibleShortcut = false;
+                    
+                    shortcuts.forEach(shortcut => {
+                        const description = shortcut.querySelector('.description').textContent.toLowerCase();
+                        const keys = shortcut.querySelector('.keys').textContent.toLowerCase();
+                        
+                        if (description.includes(searchTerm) || 
+                            keys.includes(searchTerm) || 
+                            sectionTitle.includes(searchTerm)) {
+                            shortcut.style.display = 'flex';
+                            hasVisibleShortcut = true;
+                        } else {
+                            shortcut.style.display = 'none';
+                        }
+                    });
+                    
+                    if (hasVisibleShortcut) {
+                        section.classList.remove('hidden');
+                        visibleSections++;
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                }
+            });
+            
+            // Show/hide "no results" message
+            if (visibleSections === 0 && searchTerm !== '') {
+                noResults.style.display = 'block';
+            } else {
+                noResults.style.display = 'none';
+            }
+        });
+        
+        // Focus search input with '/' key (vim-style)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && !searchInput.matches(':focus')) {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            // Clear search with Escape key
+            if (e.key === 'Escape' && searchInput.matches(':focus')) {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.blur();
+            }
+        });
+    </script>
+</body>
+</html>

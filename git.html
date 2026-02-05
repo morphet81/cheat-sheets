@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Cheat Sheet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.7;
+            font-size: 0.9em;
+            display: inline-block;
+            margin-top: 15px;
+            transition: opacity 0.2s;
+        }
+
+        header a:hover {
+            opacity: 1;
+        }
+
+        .search-container {
+            margin-top: 20px;
+            position: relative;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            font-size: 1em;
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            background: white;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #searchInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #718096;
+            pointer-events: none;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+            font-size: 1.1em;
+            display: none;
+        }
+
+        .section.hidden {
+            display: none;
+        }
+
+        .content {
+            padding: 30px;
+            column-count: 3;
+            column-gap: 30px;
+        }
+
+        .section {
+            break-inside: avoid;
+            margin-bottom: 25px;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #2d3748;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section h2::before {
+            content: "▶";
+            margin-right: 10px;
+            color: #667eea;
+            font-size: 0.8em;
+        }
+
+        .shortcut {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .shortcut:last-child {
+            border-bottom: none;
+        }
+
+        .keys {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #2d3748;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .keys.wrap {
+            white-space: normal;
+            word-break: break-all;
+        }
+
+        .description {
+            color: #4a5568;
+            flex: 1;
+            padding-right: 15px;
+            font-size: 0.95em;
+        }
+
+        @media (max-width: 1200px) {
+            .content {
+                column-count: 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                column-count: 1;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+
+        footer {
+            background: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9em;
+            border-top: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌿 Git Cheat Sheet</h1>
+            <p>Version control commands for everyday use</p>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search commands... (e.g., 'branch', 'commit', 'merge')">
+                <span class="search-icon">🔍</span>
+            </div>
+            <a href="index.html">← Back to all cheat sheets</a>
+        </header>
+
+        <div class="content">
+            <div class="no-results" id="noResults">
+                <p>🔍 No commands found matching your search.</p>
+                <p style="font-size: 0.9em; margin-top: 10px;">Try different keywords or clear your search.</p>
+            </div>
+
+            <!-- Setup & Config -->
+            <div class="section">
+                <h2>Setup & Config</h2>
+                <div class="shortcut">
+                    <span class="description">Set username</span>
+                    <span class="keys">git config --global user.name "name"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Set email</span>
+                    <span class="keys">git config --global user.email "email"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Set default editor</span>
+                    <span class="keys">git config --global core.editor vim</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Set default branch name</span>
+                    <span class="keys">git config --global init.defaultBranch main</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">List all config</span>
+                    <span class="keys">git config --list</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Create alias</span>
+                    <span class="keys">git config --global alias.co checkout</span>
+                </div>
+            </div>
+
+            <!-- Create & Clone -->
+            <div class="section">
+                <h2>Create & Clone</h2>
+                <div class="shortcut">
+                    <span class="description">Initialize new repo</span>
+                    <span class="keys">git init</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clone repository</span>
+                    <span class="keys">git clone &lt;url&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clone to folder</span>
+                    <span class="keys">git clone &lt;url&gt; &lt;dir&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clone specific branch</span>
+                    <span class="keys">git clone -b &lt;branch&gt; &lt;url&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Shallow clone (depth 1)</span>
+                    <span class="keys">git clone --depth 1 &lt;url&gt;</span>
+                </div>
+            </div>
+
+            <!-- Basic Workflow -->
+            <div class="section">
+                <h2>Basic Workflow</h2>
+                <div class="shortcut">
+                    <span class="description">Check status</span>
+                    <span class="keys">git status</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Short status</span>
+                    <span class="keys">git status -s</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stage file</span>
+                    <span class="keys">git add &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stage all changes</span>
+                    <span class="keys">git add -A</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stage hunks interactively</span>
+                    <span class="keys">git add -p</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Commit with message</span>
+                    <span class="keys">git commit -m "message"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stage & commit tracked</span>
+                    <span class="keys">git commit -am "message"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Amend last commit</span>
+                    <span class="keys">git commit --amend</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Amend without editing</span>
+                    <span class="keys">git commit --amend --no-edit</span>
+                </div>
+            </div>
+
+            <!-- Branches -->
+            <div class="section">
+                <h2>Branches</h2>
+                <div class="shortcut">
+                    <span class="description">List local branches</span>
+                    <span class="keys">git branch</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">List all branches</span>
+                    <span class="keys">git branch -a</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Create branch</span>
+                    <span class="keys">git branch &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Switch branch</span>
+                    <span class="keys">git checkout &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Create & switch</span>
+                    <span class="keys">git checkout -b &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Switch (new syntax)</span>
+                    <span class="keys">git switch &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Create & switch (new)</span>
+                    <span class="keys">git switch -c &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Rename branch</span>
+                    <span class="keys">git branch -m &lt;new&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete branch</span>
+                    <span class="keys">git branch -d &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Force delete branch</span>
+                    <span class="keys">git branch -D &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete remote branch</span>
+                    <span class="keys">git push origin -d &lt;name&gt;</span>
+                </div>
+            </div>
+
+            <!-- Checkout Files -->
+            <div class="section">
+                <h2>Checkout Files</h2>
+                <div class="shortcut">
+                    <span class="description">Discard file changes</span>
+                    <span class="keys">git checkout -- &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Restore file (new)</span>
+                    <span class="keys">git restore &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">File from branch</span>
+                    <span class="keys">git checkout &lt;branch&gt; -- &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">File from commit</span>
+                    <span class="keys">git checkout &lt;sha&gt; -- &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">File to different path</span>
+                    <span class="keys">git show &lt;branch&gt;:&lt;file&gt; > &lt;dest&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Restore from branch (new)</span>
+                    <span class="keys">git restore -s &lt;branch&gt; &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Restore to location</span>
+                    <span class="keys wrap">git show &lt;branch&gt;:path/file > dest/file</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Unstage file</span>
+                    <span class="keys">git restore --staged &lt;file&gt;</span>
+                </div>
+            </div>
+
+            <!-- Merging -->
+            <div class="section">
+                <h2>Merging</h2>
+                <div class="shortcut">
+                    <span class="description">Merge branch</span>
+                    <span class="keys">git merge &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Merge no fast-forward</span>
+                    <span class="keys">git merge --no-ff &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Squash merge</span>
+                    <span class="keys">git merge --squash &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Abort merge</span>
+                    <span class="keys">git merge --abort</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Continue after conflicts</span>
+                    <span class="keys">git merge --continue</span>
+                </div>
+            </div>
+
+            <!-- Rebasing -->
+            <div class="section">
+                <h2>Rebasing</h2>
+                <div class="shortcut">
+                    <span class="description">Rebase onto branch</span>
+                    <span class="keys">git rebase &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Interactive rebase</span>
+                    <span class="keys">git rebase -i &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Rebase last N commits</span>
+                    <span class="keys">git rebase -i HEAD~N</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Continue rebase</span>
+                    <span class="keys">git rebase --continue</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Abort rebase</span>
+                    <span class="keys">git rebase --abort</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Skip commit</span>
+                    <span class="keys">git rebase --skip</span>
+                </div>
+            </div>
+
+            <!-- Remote -->
+            <div class="section">
+                <h2>Remote</h2>
+                <div class="shortcut">
+                    <span class="description">List remotes</span>
+                    <span class="keys">git remote -v</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Add remote</span>
+                    <span class="keys">git remote add &lt;name&gt; &lt;url&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Remove remote</span>
+                    <span class="keys">git remote remove &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Rename remote</span>
+                    <span class="keys">git remote rename &lt;old&gt; &lt;new&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Show remote info</span>
+                    <span class="keys">git remote show origin</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Change remote URL</span>
+                    <span class="keys">git remote set-url origin &lt;url&gt;</span>
+                </div>
+            </div>
+
+            <!-- Push & Pull -->
+            <div class="section">
+                <h2>Push & Pull</h2>
+                <div class="shortcut">
+                    <span class="description">Push to remote</span>
+                    <span class="keys">git push</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Push & set upstream</span>
+                    <span class="keys">git push -u origin &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Force push (safe)</span>
+                    <span class="keys">git push --force-with-lease</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Push tags</span>
+                    <span class="keys">git push --tags</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Pull from remote</span>
+                    <span class="keys">git pull</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Pull with rebase</span>
+                    <span class="keys">git pull --rebase</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Fetch from remote</span>
+                    <span class="keys">git fetch</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Fetch all remotes</span>
+                    <span class="keys">git fetch --all</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Prune deleted branches</span>
+                    <span class="keys">git fetch --prune</span>
+                </div>
+            </div>
+
+            <!-- Diff -->
+            <div class="section">
+                <h2>Diff</h2>
+                <div class="shortcut">
+                    <span class="description">Unstaged changes</span>
+                    <span class="keys">git diff</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Staged changes</span>
+                    <span class="keys">git diff --staged</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Diff between commits</span>
+                    <span class="keys">git diff &lt;sha1&gt; &lt;sha2&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Diff between branches</span>
+                    <span class="keys">git diff &lt;b1&gt;..&lt;b2&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Diff specific file</span>
+                    <span class="keys">git diff -- &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stats only</span>
+                    <span class="keys">git diff --stat</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Word diff</span>
+                    <span class="keys">git diff --word-diff</span>
+                </div>
+            </div>
+
+            <!-- Log -->
+            <div class="section">
+                <h2>Log & History</h2>
+                <div class="shortcut">
+                    <span class="description">View commit log</span>
+                    <span class="keys">git log</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">One line per commit</span>
+                    <span class="keys">git log --oneline</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Graph view</span>
+                    <span class="keys">git log --oneline --graph</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Last N commits</span>
+                    <span class="keys">git log -n N</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Log with diff</span>
+                    <span class="keys">git log -p</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Search commits</span>
+                    <span class="keys">git log --grep="term"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Log by author</span>
+                    <span class="keys">git log --author="name"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Log for file</span>
+                    <span class="keys">git log -- &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Show commit</span>
+                    <span class="keys">git show &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Who changed what</span>
+                    <span class="keys">git blame &lt;file&gt;</span>
+                </div>
+            </div>
+
+            <!-- Stash -->
+            <div class="section">
+                <h2>Stash</h2>
+                <div class="shortcut">
+                    <span class="description">Stash changes</span>
+                    <span class="keys">git stash</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stash with message</span>
+                    <span class="keys">git stash push -m "msg"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stash including untracked</span>
+                    <span class="keys">git stash -u</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">List stashes</span>
+                    <span class="keys">git stash list</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Apply last stash</span>
+                    <span class="keys">git stash apply</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Apply & drop stash</span>
+                    <span class="keys">git stash pop</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Apply specific stash</span>
+                    <span class="keys">git stash apply stash@{n}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Drop stash</span>
+                    <span class="keys">git stash drop stash@{n}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clear all stashes</span>
+                    <span class="keys">git stash clear</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Show stash contents</span>
+                    <span class="keys">git stash show -p</span>
+                </div>
+            </div>
+
+            <!-- Reset & Revert -->
+            <div class="section">
+                <h2>Reset & Revert</h2>
+                <div class="shortcut">
+                    <span class="description">Unstage file</span>
+                    <span class="keys">git reset HEAD &lt;file&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Soft reset (keep changes)</span>
+                    <span class="keys">git reset --soft &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Mixed reset (default)</span>
+                    <span class="keys">git reset &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Hard reset (discard all)</span>
+                    <span class="keys">git reset --hard &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Reset to remote</span>
+                    <span class="keys">git reset --hard origin/main</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Revert commit (new commit)</span>
+                    <span class="keys">git revert &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Revert without commit</span>
+                    <span class="keys">git revert -n &lt;sha&gt;</span>
+                </div>
+            </div>
+
+            <!-- Cherry Pick -->
+            <div class="section">
+                <h2>Cherry Pick</h2>
+                <div class="shortcut">
+                    <span class="description">Cherry pick commit</span>
+                    <span class="keys">git cherry-pick &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Cherry pick no commit</span>
+                    <span class="keys">git cherry-pick -n &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Cherry pick range</span>
+                    <span class="keys">git cherry-pick &lt;sha1&gt;..&lt;sha2&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Continue cherry pick</span>
+                    <span class="keys">git cherry-pick --continue</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Abort cherry pick</span>
+                    <span class="keys">git cherry-pick --abort</span>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="section">
+                <h2>Tags</h2>
+                <div class="shortcut">
+                    <span class="description">List tags</span>
+                    <span class="keys">git tag</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Create lightweight tag</span>
+                    <span class="keys">git tag &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Create annotated tag</span>
+                    <span class="keys">git tag -a &lt;name&gt; -m "msg"</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Tag specific commit</span>
+                    <span class="keys">git tag &lt;name&gt; &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete local tag</span>
+                    <span class="keys">git tag -d &lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete remote tag</span>
+                    <span class="keys">git push origin :refs/tags/&lt;name&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Push tag to remote</span>
+                    <span class="keys">git push origin &lt;tag&gt;</span>
+                </div>
+            </div>
+
+            <!-- Worktrees -->
+            <div class="section">
+                <h2>Worktrees</h2>
+                <div class="shortcut">
+                    <span class="description">List worktrees</span>
+                    <span class="keys">git worktree list</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Add worktree</span>
+                    <span class="keys">git worktree add &lt;path&gt; &lt;branch&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Add new branch worktree</span>
+                    <span class="keys">git worktree add -b &lt;branch&gt; &lt;path&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Remove worktree</span>
+                    <span class="keys">git worktree remove &lt;path&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Prune worktrees</span>
+                    <span class="keys">git worktree prune</span>
+                </div>
+            </div>
+
+            <!-- Submodules -->
+            <div class="section">
+                <h2>Submodules</h2>
+                <div class="shortcut">
+                    <span class="description">Add submodule</span>
+                    <span class="keys">git submodule add &lt;url&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Init submodules</span>
+                    <span class="keys">git submodule init</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Update submodules</span>
+                    <span class="keys">git submodule update</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clone with submodules</span>
+                    <span class="keys">git clone --recurse-submodules</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Update all submodules</span>
+                    <span class="keys">git submodule update --remote</span>
+                </div>
+            </div>
+
+            <!-- Clean -->
+            <div class="section">
+                <h2>Clean</h2>
+                <div class="shortcut">
+                    <span class="description">Preview clean</span>
+                    <span class="keys">git clean -n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Remove untracked files</span>
+                    <span class="keys">git clean -f</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Remove untracked dirs</span>
+                    <span class="keys">git clean -fd</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Remove ignored files</span>
+                    <span class="keys">git clean -fX</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Remove all untracked</span>
+                    <span class="keys">git clean -fdx</span>
+                </div>
+            </div>
+
+            <!-- Bisect -->
+            <div class="section">
+                <h2>Bisect (Bug Finding)</h2>
+                <div class="shortcut">
+                    <span class="description">Start bisect</span>
+                    <span class="keys">git bisect start</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Mark bad commit</span>
+                    <span class="keys">git bisect bad</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Mark good commit</span>
+                    <span class="keys">git bisect good &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Skip commit</span>
+                    <span class="keys">git bisect skip</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">End bisect</span>
+                    <span class="keys">git bisect reset</span>
+                </div>
+            </div>
+
+            <!-- Reflog -->
+            <div class="section">
+                <h2>Reflog (Recovery)</h2>
+                <div class="shortcut">
+                    <span class="description">Show reflog</span>
+                    <span class="keys">git reflog</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Recover deleted branch</span>
+                    <span class="keys">git checkout -b &lt;name&gt; &lt;sha&gt;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Undo last action</span>
+                    <span class="keys">git reset HEAD@{1}</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Reflog for branch</span>
+                    <span class="keys">git reflog show &lt;branch&gt;</span>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            <p>💡 Tip: Use <strong>git show &lt;branch&gt;:path/to/file > destination/file</strong> to checkout a file from another branch to a specific location</p>
+            <p>⌨️ Press <strong>/</strong> to search, <strong>Esc</strong> to clear | Most commands support <strong>--help</strong> for more info</p>
+        </footer>
+    </div>
+
+    <script>
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const sections = document.querySelectorAll('.section');
+        const noResults = document.getElementById('noResults');
+
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            let visibleSections = 0;
+
+            sections.forEach(section => {
+                if (searchTerm === '') {
+                    section.classList.remove('hidden');
+                    visibleSections++;
+                } else {
+                    const sectionTitle = section.querySelector('h2').textContent.toLowerCase();
+                    const shortcuts = section.querySelectorAll('.shortcut');
+                    let hasVisibleShortcut = false;
+
+                    shortcuts.forEach(shortcut => {
+                        const description = shortcut.querySelector('.description').textContent.toLowerCase();
+                        const keys = shortcut.querySelector('.keys').textContent.toLowerCase();
+
+                        if (description.includes(searchTerm) ||
+                            keys.includes(searchTerm) ||
+                            sectionTitle.includes(searchTerm)) {
+                            shortcut.style.display = 'flex';
+                            hasVisibleShortcut = true;
+                        } else {
+                            shortcut.style.display = 'none';
+                        }
+                    });
+
+                    if (hasVisibleShortcut) {
+                        section.classList.remove('hidden');
+                        visibleSections++;
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                }
+            });
+
+            // Show/hide "no results" message
+            if (visibleSections === 0 && searchTerm !== '') {
+                noResults.style.display = 'block';
+            } else {
+                noResults.style.display = 'none';
+            }
+        });
+
+        // Focus search input with '/' key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && !searchInput.matches(':focus')) {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            // Clear search with Escape key
+            if (e.key === 'Escape' && searchInput.matches(':focus')) {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.blur();
+            }
+        });
+    </script>
+</body>
+</html>

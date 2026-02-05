@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iTerm2 Cheat Sheet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.7;
+            font-size: 0.9em;
+            display: inline-block;
+            margin-top: 15px;
+            transition: opacity 0.2s;
+        }
+
+        header a:hover {
+            opacity: 1;
+        }
+
+        .search-container {
+            margin-top: 20px;
+            position: relative;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            font-size: 1em;
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            background: white;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #searchInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #718096;
+            pointer-events: none;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+            font-size: 1.1em;
+            display: none;
+        }
+
+        .section.hidden {
+            display: none;
+        }
+
+        .content {
+            padding: 30px;
+            column-count: 3;
+            column-gap: 30px;
+        }
+
+        .section {
+            break-inside: avoid;
+            margin-bottom: 25px;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #2d3748;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section h2::before {
+            content: "▶";
+            margin-right: 10px;
+            color: #667eea;
+            font-size: 0.8em;
+        }
+
+        .shortcut {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .shortcut:last-child {
+            border-bottom: none;
+        }
+
+        .keys {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #2d3748;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .description {
+            color: #4a5568;
+            flex: 1;
+            padding-right: 15px;
+            font-size: 0.95em;
+        }
+
+        .note {
+            font-size: 0.85em;
+            color: #718096;
+            margin-top: 10px;
+            padding: 10px;
+            background: #edf2f7;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 1200px) {
+            .content {
+                column-count: 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                column-count: 1;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+
+        footer {
+            background: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9em;
+            border-top: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💻 iTerm2 Cheat Sheet</h1>
+            <p>Terminal emulator shortcuts for macOS</p>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search shortcuts... (e.g., 'cursor', 'tab', 'split')">
+                <span class="search-icon">🔍</span>
+            </div>
+            <a href="index.html">← Back to all cheat sheets</a>
+        </header>
+
+        <div class="content">
+            <div class="no-results" id="noResults">
+                <p>🔍 No shortcuts found matching your search.</p>
+                <p style="font-size: 0.9em; margin-top: 10px;">Try different keywords or clear your search.</p>
+            </div>
+
+            <!-- Cursor Movement -->
+            <div class="section">
+                <h2>Cursor Movement</h2>
+                <div class="shortcut">
+                    <span class="description">Move to beginning of line</span>
+                    <span class="keys">Ctrl+A</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move to end of line</span>
+                    <span class="keys">Ctrl+E</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move forward one char</span>
+                    <span class="keys">Ctrl+F</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move backward one char</span>
+                    <span class="keys">Ctrl+B</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move forward one word</span>
+                    <span class="keys">Esc+F / ⌥→</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move backward one word</span>
+                    <span class="keys">Esc+B / ⌥←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move to previous line</span>
+                    <span class="keys">Ctrl+P</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move to next line</span>
+                    <span class="keys">Ctrl+N</span>
+                </div>
+                <div class="note">💡 Enable "Natural Text Editing" in Preferences → Profiles → Keys → Presets for ⌥← and ⌥→</div>
+            </div>
+
+            <!-- Line Editing -->
+            <div class="section">
+                <h2>Line Editing</h2>
+                <div class="shortcut">
+                    <span class="description">Delete char before cursor</span>
+                    <span class="keys">Ctrl+H / ⌫</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete char at cursor</span>
+                    <span class="keys">Ctrl+D</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete word before cursor</span>
+                    <span class="keys">Ctrl+W</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete word after cursor</span>
+                    <span class="keys">Esc+D / ⌥D</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete to beginning of line</span>
+                    <span class="keys">Ctrl+U</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Delete to end of line</span>
+                    <span class="keys">Ctrl+K</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Transpose characters</span>
+                    <span class="keys">Ctrl+T</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Transpose words</span>
+                    <span class="keys">Esc+T</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Uppercase word</span>
+                    <span class="keys">Esc+U</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Lowercase word</span>
+                    <span class="keys">Esc+L</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Capitalize word</span>
+                    <span class="keys">Esc+C</span>
+                </div>
+            </div>
+
+            <!-- Cut, Copy, Paste (Kill Ring) -->
+            <div class="section">
+                <h2>Cut & Paste (Kill Ring)</h2>
+                <div class="shortcut">
+                    <span class="description">Yank (paste) last killed</span>
+                    <span class="keys">Ctrl+Y</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Cycle through kill ring</span>
+                    <span class="keys">Esc+Y</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Copy selection</span>
+                    <span class="keys">⌘C</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Paste from clipboard</span>
+                    <span class="keys">⌘V</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Paste from history</span>
+                    <span class="keys">⌘⇧H</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Paste slowly (escaped)</span>
+                    <span class="keys">⌘⌥V</span>
+                </div>
+                <div class="note">💡 Ctrl+K, Ctrl+U, Ctrl+W all "kill" text which can be yanked back with Ctrl+Y</div>
+            </div>
+
+            <!-- History -->
+            <div class="section">
+                <h2>Command History</h2>
+                <div class="shortcut">
+                    <span class="description">Previous command</span>
+                    <span class="keys">Ctrl+P / ↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next command</span>
+                    <span class="keys">Ctrl+N / ↓</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Search history backward</span>
+                    <span class="keys">Ctrl+R</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Search history forward</span>
+                    <span class="keys">Ctrl+S</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">First command in history</span>
+                    <span class="keys">Esc+<</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Last command in history</span>
+                    <span class="keys">Esc+></span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Recall last argument</span>
+                    <span class="keys">Esc+.</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clear history</span>
+                    <span class="keys">history -c</span>
+                </div>
+            </div>
+
+            <!-- Control -->
+            <div class="section">
+                <h2>Process Control</h2>
+                <div class="shortcut">
+                    <span class="description">Interrupt (SIGINT)</span>
+                    <span class="keys">Ctrl+C</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Suspend (SIGTSTP)</span>
+                    <span class="keys">Ctrl+Z</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Quit (SIGQUIT)</span>
+                    <span class="keys">Ctrl+\</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">End of file (EOF)</span>
+                    <span class="keys">Ctrl+D</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Clear screen</span>
+                    <span class="keys">Ctrl+L / ⌘K</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Stop output to screen</span>
+                    <span class="keys">Ctrl+S</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resume output to screen</span>
+                    <span class="keys">Ctrl+Q</span>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="section">
+                <h2>Tabs</h2>
+                <div class="shortcut">
+                    <span class="description">New tab</span>
+                    <span class="keys">⌘T</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close tab</span>
+                    <span class="keys">⌘W</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next tab</span>
+                    <span class="keys">⌘⇧] / ⌘→</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Previous tab</span>
+                    <span class="keys">⌘⇧[ / ⌘←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Go to tab 1-9</span>
+                    <span class="keys">⌘1-9</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move tab left</span>
+                    <span class="keys">⌘⇧←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move tab right</span>
+                    <span class="keys">⌘⇧→</span>
+                </div>
+            </div>
+
+            <!-- Panes -->
+            <div class="section">
+                <h2>Split Panes</h2>
+                <div class="shortcut">
+                    <span class="description">Split vertically</span>
+                    <span class="keys">⌘D</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Split horizontally</span>
+                    <span class="keys">⌘⇧D</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close pane</span>
+                    <span class="keys">⌘W</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next pane</span>
+                    <span class="keys">⌘] / ⌘⌥→</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Previous pane</span>
+                    <span class="keys">⌘[ / ⌘⌥←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Navigate to pane</span>
+                    <span class="keys">⌘⌥↑↓←→</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Maximize pane</span>
+                    <span class="keys">⌘⇧↩</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Swap with pane above</span>
+                    <span class="keys">⌘⌃↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move pane to new tab</span>
+                    <span class="keys">⌘⇧⌥T</span>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="section">
+                <h2>Search & Find</h2>
+                <div class="shortcut">
+                    <span class="description">Find</span>
+                    <span class="keys">⌘F</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Find next</span>
+                    <span class="keys">⌘G</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Find previous</span>
+                    <span class="keys">⌘⇧G</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Find with selection</span>
+                    <span class="keys">⌘E</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Find URLs</span>
+                    <span class="keys">⌘⌥U</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Jump to selection</span>
+                    <span class="keys">⌘J</span>
+                </div>
+            </div>
+
+            <!-- Scrolling -->
+            <div class="section">
+                <h2>Scrolling</h2>
+                <div class="shortcut">
+                    <span class="description">Scroll up</span>
+                    <span class="keys">⌘↑ / ⇧PgUp</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll down</span>
+                    <span class="keys">⌘↓ / ⇧PgDn</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll to top</span>
+                    <span class="keys">⌘Home</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll to bottom</span>
+                    <span class="keys">⌘End</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Page up</span>
+                    <span class="keys">Fn+↑ / PgUp</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Page down</span>
+                    <span class="keys">Fn+↓ / PgDn</span>
+                </div>
+            </div>
+
+            <!-- Selection -->
+            <div class="section">
+                <h2>Selection</h2>
+                <div class="shortcut">
+                    <span class="description">Select word</span>
+                    <span class="keys">Double-click</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Select line</span>
+                    <span class="keys">Triple-click</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Select output of last cmd</span>
+                    <span class="keys">⌘⇧A</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Rectangular selection</span>
+                    <span class="keys">⌥+drag</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Select all</span>
+                    <span class="keys">⌘A</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Smart selection</span>
+                    <span class="keys">Quadruple-click</span>
+                </div>
+            </div>
+
+            <!-- Window -->
+            <div class="section">
+                <h2>Window</h2>
+                <div class="shortcut">
+                    <span class="description">New window</span>
+                    <span class="keys">⌘N</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close window</span>
+                    <span class="keys">⌘⇧W</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle fullscreen</span>
+                    <span class="keys">⌘↩</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Minimize</span>
+                    <span class="keys">⌘M</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Cycle windows</span>
+                    <span class="keys">⌘`</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Expose all tabs</span>
+                    <span class="keys">⌘⌥E</span>
+                </div>
+            </div>
+
+            <!-- Font & Appearance -->
+            <div class="section">
+                <h2>Font & Appearance</h2>
+                <div class="shortcut">
+                    <span class="description">Increase font size</span>
+                    <span class="keys">⌘+</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Decrease font size</span>
+                    <span class="keys">⌘-</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Reset font size</span>
+                    <span class="keys">⌘0</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle transparency</span>
+                    <span class="keys">⌘U</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle timestamps</span>
+                    <span class="keys">⌘⇧E</span>
+                </div>
+            </div>
+
+            <!-- Marks & Navigation -->
+            <div class="section">
+                <h2>Marks & Navigation</h2>
+                <div class="shortcut">
+                    <span class="description">Set mark</span>
+                    <span class="keys">⌘⇧M</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Jump to mark</span>
+                    <span class="keys">⌘⇧J</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Previous mark</span>
+                    <span class="keys">⌘⇧↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next mark</span>
+                    <span class="keys">⌘⇧↓</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Add annotation</span>
+                    <span class="keys">⌘⌥A</span>
+                </div>
+            </div>
+
+            <!-- Special Features -->
+            <div class="section">
+                <h2>Special Features</h2>
+                <div class="shortcut">
+                    <span class="description">Hotkey window</span>
+                    <span class="keys">Custom (set in prefs)</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Broadcast to all panes</span>
+                    <span class="keys">⌘⌥I</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open Toolbelt</span>
+                    <span class="keys">⌘⇧B</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Instant replay</span>
+                    <span class="keys">⌘⌥B</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Trigger (autocomplete)</span>
+                    <span class="keys">⌘;</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open command composer</span>
+                    <span class="keys">⌘⇧.</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open recent directories</span>
+                    <span class="keys">⌘⌥/</span>
+                </div>
+            </div>
+
+            <!-- Undo -->
+            <div class="section">
+                <h2>Undo & Misc</h2>
+                <div class="shortcut">
+                    <span class="description">Undo close session</span>
+                    <span class="keys">⌘Z</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open preferences</span>
+                    <span class="keys">⌘,</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Open Profiles</span>
+                    <span class="keys">⌘O</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Edit current session</span>
+                    <span class="keys">⌘I</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Log session to file</span>
+                    <span class="keys">⌘⇧P</span>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            <p>💡 Tip: Shell shortcuts (Ctrl+A, Ctrl+E, etc.) work in bash/zsh. Enable <strong>Natural Text Editing</strong> preset for familiar macOS shortcuts.</p>
+            <p>⌨️ Press <strong>/</strong> to search, <strong>Esc</strong> to clear | ⌘ = Command, ⌥ = Option, ⇧ = Shift, ⌃ = Control</p>
+        </footer>
+    </div>
+
+    <script>
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const sections = document.querySelectorAll('.section');
+        const noResults = document.getElementById('noResults');
+
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            let visibleSections = 0;
+
+            sections.forEach(section => {
+                if (searchTerm === '') {
+                    section.classList.remove('hidden');
+                    visibleSections++;
+                } else {
+                    const sectionTitle = section.querySelector('h2').textContent.toLowerCase();
+                    const shortcuts = section.querySelectorAll('.shortcut');
+                    let hasVisibleShortcut = false;
+
+                    shortcuts.forEach(shortcut => {
+                        const description = shortcut.querySelector('.description').textContent.toLowerCase();
+                        const keys = shortcut.querySelector('.keys').textContent.toLowerCase();
+
+                        if (description.includes(searchTerm) ||
+                            keys.includes(searchTerm) ||
+                            sectionTitle.includes(searchTerm)) {
+                            shortcut.style.display = 'flex';
+                            hasVisibleShortcut = true;
+                        } else {
+                            shortcut.style.display = 'none';
+                        }
+                    });
+
+                    if (hasVisibleShortcut) {
+                        section.classList.remove('hidden');
+                        visibleSections++;
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                }
+            });
+
+            // Show/hide "no results" message
+            if (visibleSections === 0 && searchTerm !== '') {
+                noResults.style.display = 'block';
+            } else {
+                noResults.style.display = 'none';
+            }
+        });
+
+        // Focus search input with '/' key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && !searchInput.matches(':focus')) {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            // Clear search with Escape key
+            if (e.key === 'Escape' && searchInput.matches(':focus')) {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.blur();
+            }
+        });
+    </script>
+</body>
+</html>

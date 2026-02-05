@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zellij Cheat Sheet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.7;
+            font-size: 0.9em;
+            display: inline-block;
+            margin-top: 15px;
+            transition: opacity 0.2s;
+        }
+
+        header a:hover {
+            opacity: 1;
+        }
+
+        .search-container {
+            margin-top: 20px;
+            position: relative;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            font-size: 1em;
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            background: white;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #searchInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #718096;
+            pointer-events: none;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+            font-size: 1.1em;
+            display: none;
+        }
+
+        .section.hidden {
+            display: none;
+        }
+
+        .content {
+            padding: 30px;
+            column-count: 3;
+            column-gap: 30px;
+        }
+
+        .section {
+            break-inside: avoid;
+            margin-bottom: 25px;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #2d3748;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section h2::before {
+            content: "▶";
+            margin-right: 10px;
+            color: #667eea;
+            font-size: 0.8em;
+        }
+
+        .shortcut {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .shortcut:last-child {
+            border-bottom: none;
+        }
+
+        .keys {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #2d3748;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .description {
+            color: #4a5568;
+            flex: 1;
+            padding-right: 15px;
+            font-size: 0.95em;
+        }
+
+        .mode-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1200px) {
+            .content {
+                column-count: 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                column-count: 1;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+
+        footer {
+            background: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9em;
+            border-top: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🖥️ Zellij Cheat Sheet</h1>
+            <p>Terminal workspace and multiplexer shortcuts</p>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search shortcuts... (e.g., 'pane', 'tab', 'resize')">
+                <span class="search-icon">🔍</span>
+            </div>
+            <a href="index.html">← Back to all cheat sheets</a>
+        </header>
+
+        <div class="content">
+            <div class="no-results" id="noResults">
+                <p>🔍 No shortcuts found matching your search.</p>
+                <p style="font-size: 0.9em; margin-top: 10px;">Try different keywords or clear your search.</p>
+            </div>
+
+            <!-- Modes -->
+            <div class="section">
+                <h2>Modes</h2>
+                <div class="shortcut">
+                    <span class="description">Enter Locked mode</span>
+                    <span class="keys">Ctrl+g</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Enter Pane mode</span>
+                    <span class="keys">Ctrl+p</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Enter Tab mode</span>
+                    <span class="keys">Ctrl+t</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Enter Resize mode</span>
+                    <span class="keys">Ctrl+n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Enter Move mode</span>
+                    <span class="keys">Ctrl+h</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Enter Scroll mode</span>
+                    <span class="keys">Ctrl+s</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Enter Session mode</span>
+                    <span class="keys">Ctrl+o</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Enter Search mode</span>
+                    <span class="keys">Ctrl+s s</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Exit current mode</span>
+                    <span class="keys">Esc / Enter</span>
+                </div>
+            </div>
+
+            <!-- Pane Management -->
+            <div class="section">
+                <h2>Pane Management</h2>
+                <div class="shortcut">
+                    <span class="description">New pane (down)</span>
+                    <span class="keys">Ctrl+p n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">New pane (right)</span>
+                    <span class="keys">Ctrl+p r</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">New pane (down)</span>
+                    <span class="keys">Ctrl+p d</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close focused pane</span>
+                    <span class="keys">Ctrl+p x</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle fullscreen</span>
+                    <span class="keys">Ctrl+p f</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle floating pane</span>
+                    <span class="keys">Ctrl+p w</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle embed pane</span>
+                    <span class="keys">Ctrl+p e</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Rename pane</span>
+                    <span class="keys">Ctrl+p c</span>
+                </div>
+            </div>
+
+            <!-- Pane Navigation -->
+            <div class="section">
+                <h2>Pane Navigation</h2>
+                <div class="shortcut">
+                    <span class="description">Move focus left</span>
+                    <span class="keys">Ctrl+p h / ←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move focus down</span>
+                    <span class="keys">Ctrl+p j / ↓</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move focus up</span>
+                    <span class="keys">Ctrl+p k / ↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move focus right</span>
+                    <span class="keys">Ctrl+p l / →</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Switch to next pane</span>
+                    <span class="keys">Ctrl+p p</span>
+                </div>
+            </div>
+
+            <!-- Tab Management -->
+            <div class="section">
+                <h2>Tab Management</h2>
+                <div class="shortcut">
+                    <span class="description">New tab</span>
+                    <span class="keys">Ctrl+t n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Close tab</span>
+                    <span class="keys">Ctrl+t x</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Rename tab</span>
+                    <span class="keys">Ctrl+t r</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Previous tab</span>
+                    <span class="keys">Ctrl+t h / ←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Next tab</span>
+                    <span class="keys">Ctrl+t l / →</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Go to tab 1-9</span>
+                    <span class="keys">Ctrl+t 1-9</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle tab sync</span>
+                    <span class="keys">Ctrl+t s</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Break pane to new tab</span>
+                    <span class="keys">Ctrl+t b</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle tab bar</span>
+                    <span class="keys">Ctrl+t Tab</span>
+                </div>
+            </div>
+
+            <!-- Resize Mode -->
+            <div class="section">
+                <h2>Resize Mode</h2>
+                <div class="shortcut">
+                    <span class="description">Increase left</span>
+                    <span class="keys">Ctrl+n h / ←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Increase down</span>
+                    <span class="keys">Ctrl+n j / ↓</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Increase up</span>
+                    <span class="keys">Ctrl+n k / ↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Increase right</span>
+                    <span class="keys">Ctrl+n l / →</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Decrease size</span>
+                    <span class="keys">Ctrl+n H/J/K/L</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Increase all sides</span>
+                    <span class="keys">Ctrl+n +</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Decrease all sides</span>
+                    <span class="keys">Ctrl+n -</span>
+                </div>
+            </div>
+
+            <!-- Move Mode -->
+            <div class="section">
+                <h2>Move Mode</h2>
+                <div class="shortcut">
+                    <span class="description">Move pane left</span>
+                    <span class="keys">Ctrl+h h / ←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move pane down</span>
+                    <span class="keys">Ctrl+h j / ↓</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move pane up</span>
+                    <span class="keys">Ctrl+h k / ↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move pane right</span>
+                    <span class="keys">Ctrl+h l / →</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move tab left</span>
+                    <span class="keys">Ctrl+h n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move tab right</span>
+                    <span class="keys">Ctrl+h p</span>
+                </div>
+            </div>
+
+            <!-- Scroll Mode -->
+            <div class="section">
+                <h2>Scroll Mode</h2>
+                <div class="shortcut">
+                    <span class="description">Scroll down</span>
+                    <span class="keys">j / ↓</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Scroll up</span>
+                    <span class="keys">k / ↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Page down</span>
+                    <span class="keys">Ctrl+f / PgDn</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Page up</span>
+                    <span class="keys">Ctrl+b / PgUp</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Half page down</span>
+                    <span class="keys">Ctrl+d / d</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Half page up</span>
+                    <span class="keys">Ctrl+u / u</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Edit scrollback in editor</span>
+                    <span class="keys">e</span>
+                </div>
+            </div>
+
+            <!-- Search Mode -->
+            <div class="section">
+                <h2>Search Mode</h2>
+                <div class="shortcut">
+                    <span class="description">Enter search mode</span>
+                    <span class="keys">Ctrl+s s</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Search down</span>
+                    <span class="keys">n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Search up</span>
+                    <span class="keys">p</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle case sensitivity</span>
+                    <span class="keys">c</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle wrap</span>
+                    <span class="keys">w</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Toggle whole word</span>
+                    <span class="keys">o</span>
+                </div>
+            </div>
+
+            <!-- Session Management -->
+            <div class="section">
+                <h2>Session Management</h2>
+                <div class="shortcut">
+                    <span class="description">Detach from session</span>
+                    <span class="keys">Ctrl+o d</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Session manager</span>
+                    <span class="keys">Ctrl+o w</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Quit Zellij</span>
+                    <span class="keys">Ctrl+q</span>
+                </div>
+            </div>
+
+            <!-- CLI Commands -->
+            <div class="section">
+                <h2>CLI Commands</h2>
+                <div class="shortcut">
+                    <span class="description">Start new session</span>
+                    <span class="keys">zellij</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Named session</span>
+                    <span class="keys">zellij -s name</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Attach to session</span>
+                    <span class="keys">zellij a name</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">List sessions</span>
+                    <span class="keys">zellij ls</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Kill session</span>
+                    <span class="keys">zellij kill-session name</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Kill all sessions</span>
+                    <span class="keys">zellij kill-all-sessions</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Run with layout</span>
+                    <span class="keys">zellij --layout file</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Setup wizard</span>
+                    <span class="keys">zellij setup --dump-config</span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="section">
+                <h2>Quick Actions</h2>
+                <div class="shortcut">
+                    <span class="description">New pane down</span>
+                    <span class="keys">Alt+n</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">New pane right</span>
+                    <span class="keys">Alt+|</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move focus left</span>
+                    <span class="keys">Alt+h / Alt+←</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move focus down</span>
+                    <span class="keys">Alt+j / Alt+↓</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move focus up</span>
+                    <span class="keys">Alt+k / Alt+↑</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Move focus right</span>
+                    <span class="keys">Alt+l / Alt+→</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize increase</span>
+                    <span class="keys">Alt+=</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Resize decrease</span>
+                    <span class="keys">Alt+-</span>
+                </div>
+            </div>
+
+            <!-- Plugins -->
+            <div class="section">
+                <h2>Built-in Plugins</h2>
+                <div class="shortcut">
+                    <span class="description">File manager</span>
+                    <span class="keys">strider</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Status bar</span>
+                    <span class="keys">status-bar</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Tab bar</span>
+                    <span class="keys">tab-bar</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Compact bar</span>
+                    <span class="keys">compact-bar</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Session manager</span>
+                    <span class="keys">session-manager</span>
+                </div>
+                <div class="shortcut">
+                    <span class="description">Welcome screen</span>
+                    <span class="keys">welcome-screen</span>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            <p>💡 Tip: Press the mode key to enter that mode, then use the action keys. Press <strong>Esc</strong> or <strong>Enter</strong> to exit the mode.</p>
+            <p>⌨️ Press <strong>/</strong> to search, <strong>Esc</strong> to clear | Default keybindings may vary based on configuration</p>
+        </footer>
+    </div>
+
+    <script>
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const sections = document.querySelectorAll('.section');
+        const noResults = document.getElementById('noResults');
+
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            let visibleSections = 0;
+
+            sections.forEach(section => {
+                if (searchTerm === '') {
+                    section.classList.remove('hidden');
+                    visibleSections++;
+                } else {
+                    const sectionTitle = section.querySelector('h2').textContent.toLowerCase();
+                    const shortcuts = section.querySelectorAll('.shortcut');
+                    let hasVisibleShortcut = false;
+
+                    shortcuts.forEach(shortcut => {
+                        const description = shortcut.querySelector('.description').textContent.toLowerCase();
+                        const keys = shortcut.querySelector('.keys').textContent.toLowerCase();
+
+                        if (description.includes(searchTerm) ||
+                            keys.includes(searchTerm) ||
+                            sectionTitle.includes(searchTerm)) {
+                            shortcut.style.display = 'flex';
+                            hasVisibleShortcut = true;
+                        } else {
+                            shortcut.style.display = 'none';
+                        }
+                    });
+
+                    if (hasVisibleShortcut) {
+                        section.classList.remove('hidden');
+                        visibleSections++;
+                    } else {
+                        section.classList.add('hidden');
+                    }
+                }
+            });
+
+            // Show/hide "no results" message
+            if (visibleSections === 0 && searchTerm !== '') {
+                noResults.style.display = 'block';
+            } else {
+                noResults.style.display = 'none';
+            }
+        });
+
+        // Focus search input with '/' key (vim-style)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && !searchInput.matches(':focus')) {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            // Clear search with Escape key
+            if (e.key === 'Escape' && searchInput.matches(':focus')) {
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+                searchInput.blur();
+            }
+        });
+    </script>
+</body>
+</html>

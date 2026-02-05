@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Skills Reference</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.7;
+            font-size: 0.9em;
+            display: inline-block;
+            margin-top: 15px;
+            transition: opacity 0.2s;
+        }
+
+        header a:hover {
+            opacity: 1;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .install-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .install-box h2 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .install-box p {
+            opacity: 0.9;
+            margin-bottom: 15px;
+        }
+
+        .install-box code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .command-wrapper {
+            display: flex;
+            align-items: stretch;
+            gap: 10px;
+        }
+
+        .command-box {
+            flex: 1;
+            background: #1a202c;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .command-box code {
+            background: none;
+            color: #68d391;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: nowrap;
+            padding: 0;
+        }
+
+        .command-wrapper > .copy-btn {
+            flex-shrink: 0;
+            align-self: center;
+        }
+
+        .instructions {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 25px;
+        }
+
+        .instructions h2 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .instructions p {
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .instructions code {
+            background: #2d3748;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .instructions ul {
+            color: #4a5568;
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .skills-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .skill-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            overflow: hidden;
+        }
+
+        .skill-header {
+            padding: 20px;
+        }
+
+        .skill-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .skill-title h3 {
+            color: #2d3748;
+            font-size: 1.3em;
+            margin: 0;
+        }
+
+        .skill-title code {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .skill-description {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+
+        .skill-usage {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .skill-usage strong {
+            color: #2d3748;
+            font-size: 0.9em;
+        }
+
+        .skill-usage ul {
+            margin: 8px 0 0 20px;
+            color: #4a5568;
+            font-size: 0.95em;
+        }
+
+        .skill-usage li {
+            margin-bottom: 4px;
+        }
+
+        .skill-usage code {
+            background: #2d3748;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .collapsible-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: none;
+            border: none;
+            color: #667eea;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.2s;
+        }
+
+        .collapsible-toggle:hover {
+            color: #5a67d8;
+        }
+
+        .collapsible-toggle .arrow {
+            transition: transform 0.3s;
+            font-size: 0.8em;
+        }
+
+        .collapsible-toggle.active .arrow {
+            transform: rotate(90deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.active {
+            max-height: 2000px;
+        }
+
+        .file-container {
+            background: #1a202c;
+            margin: 0;
+        }
+
+        .file-header {
+            background: #2d3748;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-name {
+            color: #a0aec0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #5a67d8;
+        }
+
+        .copy-btn.copied {
+            background: #48bb78;
+        }
+
+        .file-content {
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .file-content pre {
+            color: #e2e8f0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+        }
+
+        footer {
+            background: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9em;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        footer a {
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .file-content pre {
+                font-size: 0.75em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Claude Code Skills</h1>
+            <p>Custom skills configuration for Claude Code</p>
+            <a href="index.html">← Back to all cheat sheets</a>
+        </header>
+
+        <div class="content">
+            <div class="install-box">
+                <h2>Quick Install (macOS)</h2>
+                <p>Run this command to download and install all skills to <code>~/.claude/skills</code>:</p>
+                <div class="command-wrapper">
+                    <div class="command-box">
+                        <code id="install-command">curl -sL https://raw.githubusercontent.com/morphet81/cheat-sheets/main/install-skills.sh -o /tmp/install-skills.sh && bash /tmp/install-skills.sh && rm /tmp/install-skills.sh</code>
+                    </div>
+                    <button class="copy-btn" onclick="copyInstallCommand()">Copy</button>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h2>Manual Setup</h2>
+                <p>Alternatively, copy skill contents and add them to your project's <code>CLAUDE.md</code> file or <code>~/.claude/CLAUDE.md</code> for global availability.</p>
+                <ul>
+                    <li><strong>Project-level:</strong> Create <code>CLAUDE.md</code> in your project root</li>
+                    <li><strong>User-level:</strong> Create <code>~/.claude/CLAUDE.md</code> for global skills</li>
+                </ul>
+                <p style="margin-top: 15px;">Skills are invoked using <code>/skill-name</code> in Claude Code conversations.</p>
+            </div>
+
+            <div class="skills-list">
+                <!-- Review Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Review Changes</h3>
+                            <code>/review</code>
+                        </div>
+                        <p class="skill-description">
+                            Review changes introduced by the current branch compared to a base branch.
+                            Analyzes code quality, security, performance, best practices, testing coverage, and documentation needs.
+                            Outputs findings categorized by severity with file and line references.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/review</code> — Compare current branch against <code>main</code></li>
+                                <li><code>/review develop</code> — Compare current branch against <code>develop</code></li>
+                                <li><code>/review feature/auth</code> — Compare against any specified branch</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">▶</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/review/review.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'review-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="review-content">### /review - Review Current Changes
+
+Review changes introduced by the current branch compared to a base branch.
+
+**Usage:**
+- `/review` - Compare current branch against `main`
+- `/review <branch>` - Compare current branch against specified branch
+
+**Instructions:**
+
+1. First, determine the base branch to compare against:
+   - If an argument is provided, use that as the base branch
+   - Otherwise, default to `main`
+
+2. Get the current branch name and verify we're not on the base branch
+
+3. Gather the changes:
+   - Run `git diff <base-branch>...HEAD` to see all changes
+   - Run `git log <base-branch>..HEAD --oneline` to see commit history
+
+4. Review the changes and provide feedback on:
+   - **Code Quality**: Look for bugs, edge cases, error handling issues
+   - **Security**: Check for vulnerabilities (injection, XSS, secrets, etc.)
+   - **Performance**: Identify potential performance issues or inefficiencies
+   - **Best Practices**: Verify adherence to coding standards and patterns
+   - **Testing**: Note if tests are missing for new functionality
+   - **Documentation**: Check if changes need documentation updates
+
+5. Format the review as:
+   - Start with a brief summary of what the changes do
+   - List specific issues found with file paths and line references
+   - Categorize feedback by severity: 🔴 Critical, 🟡 Warning, 🔵 Suggestion
+   - End with an overall assessment and recommendation
+
+**Example output format:**
+
+```
+## Summary
+Brief description of what this branch introduces.
+
+## Changes Reviewed
+- `path/to/file.ts` - Description of changes
+- `path/to/other.ts` - Description of changes
+
+## Findings
+
+### 🔴 Critical
+- **file.ts:42** - Description of critical issue
+
+### 🟡 Warnings
+- **other.ts:15** - Description of warning
+
+### 🔵 Suggestions
+- **file.ts:78** - Suggestion for improvement
+
+## Overall Assessment
+Summary and recommendation (approve, request changes, etc.)
+```</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <footer>
+            <p>💡 Tip: Skills are defined with <code>### /skill-name</code> followed by instructions for Claude</p>
+            <p>📚 See <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code documentation</a> for more details</p>
+        </footer>
+    </div>
+
+    <script>
+        function copyInstallCommand() {
+            const command = document.getElementById('install-command').textContent;
+            const button = document.querySelector('.command-wrapper > .copy-btn');
+            navigator.clipboard.writeText(command).then(() => {
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+
+        function toggleCollapsible(button) {
+            button.classList.toggle('active');
+            const content = button.closest('.skill-header').nextElementSibling;
+            content.classList.toggle('active');
+
+            const text = button.querySelector('span:last-child');
+            if (content.classList.contains('active')) {
+                text.textContent = 'Hide raw skill file';
+            } else {
+                text.textContent = 'Show raw skill file';
+            }
+        }
+
+        function copyContent(button, contentId) {
+            const content = document.getElementById(contentId).textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy. Please select and copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>

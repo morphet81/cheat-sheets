@@ -386,7 +386,7 @@
                     <div class="skill-header">
                         <div class="skill-title">
                             <h3>Review Changes</h3>
-                            <code>/review</code>
+                            <code>/review-changes</code>
                         </div>
                         <p class="skill-description">
                             Review changes introduced by the current branch compared to a base branch.
@@ -396,9 +396,9 @@
                         <div class="skill-usage">
                             <strong>Usage:</strong>
                             <ul>
-                                <li><code>/review</code> — Compare current branch against <code>main</code></li>
-                                <li><code>/review develop</code> — Compare current branch against <code>develop</code></li>
-                                <li><code>/review feature/auth</code> — Compare against any specified branch</li>
+                                <li><code>/review-changes</code> — Compare current branch against <code>main</code></li>
+                                <li><code>/review-changes develop</code> — Compare current branch against <code>develop</code></li>
+                                <li><code>/review-changes feature/auth</code> — Compare against any specified branch</li>
                             </ul>
                         </div>
                         <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
@@ -409,17 +409,17 @@
                     <div class="collapsible-content">
                         <div class="file-container">
                             <div class="file-header">
-                                <span class="file-name">skills/review/review.md</span>
-                                <button class="copy-btn" onclick="copyContent(this, 'review-content')">Copy</button>
+                                <span class="file-name">skills/review-changes/review-changes.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'review-changes-content')">Copy</button>
                             </div>
                             <div class="file-content">
-                                <pre id="review-content">### /review - Review Current Changes
+                                <pre id="review-changes-content">### /review-changes - Review Current Changes
 
 Review changes introduced by the current branch compared to a base branch.
 
 **Usage:**
-- `/review` - Compare current branch against `main`
-- `/review <branch>` - Compare current branch against specified branch
+- `/review-changes` - Compare current branch against `main`
+- `/review-changes <branch>` - Compare current branch against specified branch
 
 **Instructions:**
 

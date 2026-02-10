@@ -1,15 +1,17 @@
 ---
 name: cleanup
-description: Review uncommitted changes, verify tests, fix lint and audit issues, then present a change plan for approval before committing.
+description: Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% coverage, then propose fixes for approval before committing.
 argument-hint: ""
 ---
 
-Orchestrate a full cleanup of the current working directory: review changes, verify tests, fix linting and audit issues, and commit.
+Orchestrate a full cleanup of the current working directory: review changes, verify tests, fix linting and audit issues, ensure full test coverage, propose fixes, and commit.
 
 **Usage:**
 - `/cleanup` - Run the full cleanup workflow
 
 **Instructions:**
+
+IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself first, then present the results and proposed fixes to the developer at the end. Do NOT ask the developer questions during the process — only at the final approval step.
 
 1. **Review uncommitted changes:**
    - Run `git status` to see all modified, staged, and untracked files
@@ -20,9 +22,20 @@ Orchestrate a full cleanup of the current working directory: review changes, ver
 2. **Verify new test cases:**
    - Invoke the `/verify-test-cases` skill to check all test files modified since last push
    - Record any issues found (nonsensical tests, duplicates, missing coverage)
-   - These issues will be included in the change plan later
 
-3. **Fix lint issues:**
+3. **Run test coverage (ONCE):**
+   - Run the project's coverage command **exactly once** and save the full output. Do NOT re-run coverage later — reuse this output for all subsequent analysis.
+     - **Node.js:** `npm run test:coverage` or `npx jest --coverage` or `npx vitest run --coverage` (check `package.json` scripts first)
+     - **Python:** `pytest --cov` or `coverage run -m pytest && coverage report`
+     - **Rust:** `cargo tarpaulin` or `cargo llvm-cov`
+     - **Go:** `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out`
+   - Parse the output to identify:
+     - Overall coverage percentage
+     - Files and lines that are NOT covered
+   - If coverage is **100%**: record as passing and move on
+   - If coverage is **below 100%**: for each uncovered file/line, write the missing test cases yourself to bring coverage to 100%. Add tests to existing test files or create new ones following the project's conventions
+
+4. **Fix lint issues:**
    - Auto-detect the project type by checking for configuration files:
      - `package.json` (Node.js/JS/TS)
      - `pyproject.toml`, `setup.py`, `requirements.txt` (Python)
@@ -45,59 +58,60 @@ Orchestrate a full cleanup of the current working directory: review changes, ver
 
    - Record any remaining lint issues that could not be auto-fixed
 
-4. **Run auditing and fix issues:**
+5. **Run auditing and fix issues:**
    - **Node.js:** Run `npm audit`. If vulnerabilities are found, run `npm audit fix`. If that is not enough, note remaining issues but do NOT run `npm audit fix --force` automatically
    - **Python:** Run `pip audit` if available. Note any vulnerabilities found
    - **Rust:** Run `cargo audit` if available. Note any vulnerabilities found
    - **Go:** Run `govulncheck ./...` if available. Note any vulnerabilities found
    - Record any audit issues that could not be auto-fixed
 
-5. **Present the change plan:**
+6. **Present proposed fixes and improvements:**
 
-   Compile all findings into a structured plan and present it to the developer using the `AskUserQuestion` tool with `multiSelect: true`. Each item should be a selectable checkbox so the developer can choose which changes to keep.
+   Display a full summary of everything that was done and found. Then use the `AskUserQuestion` tool with `multiSelect: true` to let the developer choose which fixes and improvements to apply. The developer is NOT choosing which of their own changes to commit — they are choosing which of the agent's proposed fixes/improvements to accept.
 
    Group the items by category:
-   - **Lint fixes applied** — list each file that was modified by the linter
-   - **Audit fixes applied** — list each dependency change from audit fix
-   - **Test issues found** — list each issue from test verification (these are suggestions for the developer to fix manually)
-   - **Remaining issues** — anything that could not be auto-fixed
+   - **Lint fixes applied** — files auto-formatted by the linter
+   - **Coverage fixes** — new or updated test files written to reach 100% coverage
+   - **Audit fixes applied** — dependency changes from audit fix
+   - **Test quality issues** — issues found by verify-test-cases (with proposed corrections)
+   - **Unfixable issues** — anything that could not be auto-fixed (for awareness only)
 
    Example question format:
    ```
-   "Which changes do you want to proceed with?"
+   "Which fixes/improvements do you want to apply?"
    Options:
    - "Lint fixes: 5 files auto-formatted by ESLint"
+   - "Coverage: added tests for 3 uncovered files (85% → 100%)"
    - "Audit fix: updated lodash 4.17.20 → 4.17.21"
-   - "Revert: test changes in user.test.ts (duplicate tests found)"
+   - "Test quality: fixed 2 incorrect test descriptions"
    ```
 
    If there are more items than fit in 4 options, group them logically (e.g., "All lint fixes (8 files)" as one option).
 
-6. **Apply selected changes:**
-   - For items the developer selected: keep the changes staged
-   - For items the developer deselected: revert those specific changes using `git checkout -- <file>` or `git restore <file>`
-   - If the developer deselected lint fixes, revert the linter's modifications to those files
-   - If the developer deselected audit fixes, run `git checkout -- package-lock.json package.json` (or equivalent) to undo dependency changes
+7. **Apply selected fixes:**
+   - For fixes the developer approved: keep the changes
+   - For fixes the developer rejected: revert those specific changes using `git restore <file>` or by undoing the edits
    - Stage all approved changes with `git add`
 
-7. **Propose final action:**
+8. **Propose final action:**
 
    Use `AskUserQuestion` to offer two options:
 
-   - **Commit** — Commit the approved changes locally (generate an appropriate commit message based on the changes)
-   - **Commit and push** — Commit and push to the current remote branch
+   - **Commit** — Commit all changes (the developer's original work + approved fixes) locally with a descriptive message
+   - **Commit and push** — Same as above, then push to the current remote branch
 
    After the developer chooses:
    - If **Commit**: create the commit with a descriptive message
    - If **Commit and push**: create the commit, then push to the remote tracking branch (or `origin/<current-branch>` if no tracking branch is set)
 
-8. **Handle edge cases:**
+9. **Handle edge cases:**
    - If there are no uncommitted changes, inform the user and STOP
-   - If no lint tools are detected, skip the lint step and note it in the plan
-   - If no audit tools are detected, skip the audit step and note it in the plan
-   - If the `/verify-test-cases` skill reports no test files modified, skip that section in the plan
-   - If all checks pass with no issues, skip the change plan and go straight to the commit options
-   - If the developer deselects all changes, inform them that there is nothing to commit and STOP
+   - If no lint tools are detected, skip the lint step and note it in the summary
+   - If no audit tools are detected, skip the audit step and note it in the summary
+   - If no coverage tool is detected, skip the coverage step and note it in the summary
+   - If the `/verify-test-cases` skill reports no test files modified, skip that section in the summary
+   - If all checks pass with no fixes needed, skip the approval step and go straight to the commit options
+   - If the developer rejects all fixes, commit the developer's original changes only (no fixes)
 
 **Example output format:**
 
@@ -117,15 +131,21 @@ Orchestrate a full cleanup of the current working directory: review changes, ver
 ### Test Verification
 ✅ All test cases verified — no issues found
 
+### Coverage (from single run)
+⚠️ Coverage at 87% — missing coverage in:
+  - src/services/auth.ts (lines 45-62)
+  - src/utils/parser.ts (lines 12-18)
+✅ Wrote 2 new test files to cover missing lines
+
 ### Audit
 ✅ npm audit fix applied — resolved 2 vulnerabilities
 ⚠️ 1 moderate vulnerability remains (no auto-fix available)
 
 ---
 
-[Interactive checklist presented to developer]
+[Approval checklist: developer picks which fixes to keep]
 
 ---
 
-✅ Committed: "Add user profile endpoint and fix date parsing"
+✅ Committed: "Add user profile endpoint, fix date parsing, and improve test coverage"
 ```

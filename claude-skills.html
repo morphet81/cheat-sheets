@@ -974,7 +974,8 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                         <p class="skill-description">
                             Create a new branch and worktree from a JIRA ID or URL.
                             Determines branch prefix (<code>fix/</code> for bugs, <code>feat/</code> for everything else) from the JIRA item type,
-                            sets up the worktree one level above the current directory, and runs <code>npm ci</code>.
+                            sets up the worktree one level above the current directory, and auto-detects the package manager to install dependencies.
+                            Creates the branch directly from the remote base branch without disrupting your current worktree.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -997,7 +998,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                             <div class="file-content">
                                 <pre id="setup-branch-content">---
 name: setup-branch
-description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and runs npm ci.
+description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "&lt;JIRA-ID or URL&gt;"
 ---
 
@@ -1009,44 +1010,76 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
 
 **Instructions:**
 
-1. **Parse the JIRA reference from $ARGUMENTS:**
-   - If the argument is a URL (contains `atlassian.net/browse/` or similar), extract the JIRA ID from the URL path (e.g., `https://mycompany.atlassian.net/browse/PROJ-123` &rarr; `PROJ-123`)
-   - If the argument is already a JIRA ID (matches pattern like `PROJ-123`, `ABC-1`, etc.), use it directly
-   - If no argument is provided or it cannot be parsed, inform the user and STOP
+1. **Check prerequisites:**
+   - **JIRA MCP server:** Verify that a JIRA MCP tool is available (e.g., by checking if any MCP tools related to JIRA/Atlassian are accessible). If no JIRA MCP server is configured, display the following message and **STOP**:
+     ```
+     ## Missing Prerequisite: JIRA MCP Server
 
-2. **Fetch the JIRA item type:**
+     No JIRA MCP server is configured. This skill requires a JIRA MCP integration to fetch issue details.
+
+     Please configure a JIRA MCP server in your Claude Code settings before using this skill.
+     ```
+   - **GitHub CLI (`gh`):** Run `gh --version` to check if the `gh` CLI is installed. If the command fails (not found), display the following message and **STOP**:
+     ```
+     ## Missing Prerequisite: GitHub CLI
+
+     The `gh` command is not installed. This skill requires the GitHub CLI for repository operations.
+
+     Install it from: https://cli.github.com/
+     ```
+   - **GitHub CLI authentication:** Run `gh auth status` to check if `gh` is authenticated. If the command indicates the user is not logged in, display the following message and **STOP**:
+     ```
+     ## Missing Prerequisite: GitHub CLI Authentication
+
+     The GitHub CLI is not authenticated. Please run `gh auth login` to authenticate before using this skill.
+     ```
+
+2. **Parse the JIRA reference from $ARGUMENTS:**
+   - If no argument is provided, inform the user of the expected usage and STOP
+   - If the argument is a URL (contains `atlassian.net/browse/` or similar), extract the JIRA ID from the URL path (e.g., `https://mycompany.atlassian.net/browse/PROJ-123` &rarr; `PROJ-123`). If the JIRA ID cannot be extracted, show what was received and STOP
+   - If the argument is already a JIRA ID (matches pattern like `PROJ-123`, `ABC-1`, etc.), use it directly
+   - If the argument cannot be parsed as either a URL or JIRA ID, inform the user and STOP
+
+3. **Fetch the JIRA item type:**
    - Use the JIRA MCP tool or API to fetch the issue details for the extracted JIRA ID
    - Identify the issue type (Bug, Story, Task, Epic, Sub-task, etc.)
    - If the JIRA API is not available or the fetch fails, ask the developer to provide the issue type manually using `AskUserQuestion` with options: "Bug", "Story/Task/Other"
 
-3. **Determine the branch name:**
-   - If the issue type is **Bug**: branch name is `fix/&lt;JIRA-ID&gt;` (e.g., `fix/PROJ-123`)
-   - For **all other types** (Story, Task, Epic, Sub-task, etc.): branch name is `feat/&lt;JIRA-ID&gt;` (e.g., `feat/PROJ-123`)
+4. **Determine the branch name:**
+   - Lowercase the JIRA ID for use in the branch name (e.g., `PROJ-123` &rarr; `proj-123`)
+   - If the issue type is **Bug**: branch name is `fix/&lt;jira-id&gt;` (e.g., `fix/proj-123`)
+   - For **all other types** (Story, Task, Epic, Sub-task, etc.): branch name is `feat/&lt;jira-id&gt;` (e.g., `feat/proj-123`)
 
-4. **Ask which base branch to branch from:**
+5. **Ask which base branch to branch from:**
    - Use `AskUserQuestion` to ask the developer which branch to use as the base
    - Default option should be `main`
    - Let the developer type a different branch name via the "Other" option
 
-5. **Fetch and pull the base branch:**
+6. **Fetch the base branch from remote:**
    - Run `git fetch origin &lt;base-branch&gt;`
-   - If the current branch is not the base branch, run `git checkout &lt;base-branch&gt;`
-   - Run `git pull origin &lt;base-branch&gt;`
-   - **If any of these commands fail, show the error and STOP immediately.** Do not continue with branch or worktree creation.
+   - **If the fetch fails** (e.g., the base branch does not exist on the remote), show the error and STOP immediately. Do not continue with branch or worktree creation.
+   - Do **NOT** checkout or pull the base branch &mdash; this avoids disrupting uncommitted work in the current worktree.
 
-6. **Create the new branch and worktree together:**
+7. **Create the new branch and worktree together:**
+   - If the branch name already exists locally (`git rev-parse --verify &lt;branch-name&gt;` succeeds), inform the user and STOP (do not force-create)
    - Determine the worktree path: take the **parent directory** of the current working directory and append the branch name with `/` replaced by `-`
-     - Example: if CWD is `/Users/dev/my-project` and branch is `fix/PROJ-123`, the worktree path is `/Users/dev/fix-PROJ-123`
-   - Run `git worktree add &lt;worktree-path&gt; -b &lt;branch-name&gt;`
-     - This creates the new branch AND the worktree in a single command
-   - If the command fails (e.g., branch already exists, worktree path conflict), show the error and STOP
+     - Example: if CWD is `/Users/dev/my-project` and branch is `fix/proj-123`, the worktree path is `/Users/dev/fix-proj-123`
+   - If the worktree directory already exists, inform the user and STOP
+   - Run `git worktree add &lt;worktree-path&gt; -b &lt;branch-name&gt; origin/&lt;base-branch&gt;`
+     - This creates the new branch based on the remote base branch AND the worktree in a single command, without touching the current worktree
+   - If the command fails, show the error and STOP
 
-7. **Install dependencies in the new worktree:**
-   - Change to the worktree directory
-   - Run `npm ci`
-   - If `npm ci` fails, show the error but do NOT delete the worktree &mdash; the developer may want to fix the issue manually
+8. **Install dependencies in the new worktree:**
+   - Detect the package manager by checking for lock files in the new worktree directory:
+     - `bun.lockb` or `bun.lock` &rarr; run `bun install --frozen-lockfile`
+     - `pnpm-lock.yaml` &rarr; run `pnpm install --frozen-lockfile`
+     - `yarn.lock` &rarr; run `yarn install --frozen-lockfile`
+     - `package-lock.json` &rarr; run `npm ci`
+     - If none of these lock files exist but a `package.json` is present &rarr; run `npm install` and warn that no lock file was found
+     - If no `package.json` exists &rarr; skip dependency installation entirely
+   - If the install command fails, show the error but do NOT delete the worktree &mdash; the developer may want to fix the issue manually
 
-8. **Show success message:**
+9. **Show success message:**
 
    Display a summary with all relevant information:
 
@@ -1054,22 +1087,17 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
    ## Branch Setup Complete
 
    - JIRA: PROJ-123
-   - Type: Bug &rarr; fix/PROJ-123
-   - Base: main
-   - Worktree: /Users/dev/fix-PROJ-123
+   - Type: Bug &rarr; fix/proj-123
+   - Base: origin/main
+   - Worktree: /Users/dev/fix-proj-123
    - Dependencies: installed (npm ci)
 
    To start working:
-     cd /Users/dev/fix-PROJ-123
-   ```
+     cd /Users/dev/fix-proj-123
 
-9. **Handle edge cases:**
-   - If no argument is provided, inform the user of the expected usage and STOP
-   - If the JIRA ID cannot be parsed from the URL, show what was received and STOP
-   - If the branch name already exists locally, inform the user and STOP (do not force-create)
-   - If the worktree directory already exists, inform the user and STOP
-   - If the base branch does not exist on the remote, show the error and STOP
-   - If `npm ci` fails, still show the success message for branch/worktree creation but warn about the failed install</pre>
+   To push for the first time:
+     git push -u origin fix/proj-123
+   ```</pre>
                             </div>
                         </div>
                     </div>
@@ -1084,8 +1112,10 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                         </div>
                         <p class="skill-description">
                             Read the JIRA ticket associated with the current branch and propose an implementation plan.
-                            Requires JIRA MCP to be configured and a branch named with a conventional commit prefix and JIRA ID
-                            (e.g., <code>fix/PROJ-123</code>, <code>feat/MYAPP-456</code>).
+                            Requires JIRA MCP to be configured and a branch containing a JIRA ID
+                            (e.g., <code>fix/PROJ-123</code>, <code>feat/MYAPP-456</code>, <code>PROJ-123-add-login</code>).
+                            Automatically deduces the conventional commit prefix from the ticket content.
+                            Uses Plan Mode to present the plan for developer approval before implementation.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -1107,11 +1137,11 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
-description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a conventional commit prefix and JIRA ID.
+description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
 
-Read the JIRA ticket for the current branch and propose a plan to address it. The branch must follow the `&lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;` naming convention.
+Read the JIRA ticket for the current branch and propose a plan to address it. The branch must contain a JIRA ID (e.g., `feat/PROJ-123`, `fix/PROJ-123`, or just `PROJ-123`).
 
 **Usage:**
 - `/address-ticket` - Analyze the JIRA ticket and propose an implementation plan
@@ -1119,32 +1149,27 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 **Instructions:**
 
 1. **Validate that JIRA MCP is available:**
-   - Check that a JIRA MCP tool is configured and accessible
-   - If JIRA MCP is NOT available, display the following error and STOP:
+   - Run `/mcp` to list the MCP servers available in the current context
+   - Check that a JIRA (or Atlassian) MCP server is present and shows as connected/authenticated
+   - If JIRA MCP is NOT available or not authenticated, display the following error and STOP:
      ```
-     &#x274C; JIRA MCP is not configured. This skill requires a working JIRA MCP integration.
-     Please configure the JIRA MCP server before using /address-ticket.
+     &#x274C; JIRA MCP is not configured or not authenticated.
+     This skill requires a working JIRA MCP integration.
+     Please configure and authenticate the JIRA MCP server before using /address-ticket.
      ```
 
-2. **Validate the current branch name:**
+2. **Extract the JIRA ID from the current branch name:**
    - Run `git branch --show-current` to get the current branch name
-   - The branch name must match the pattern `&lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;` where:
-     - `&lt;conventional-commit-key&gt;` is one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-     - `&lt;JIRA-ID&gt;` matches the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
-   - Examples of valid branch names: `fix/PROJ-123`, `feat/MYAPP-456`, `refactor/AB-12`, `chore/CORE-99`
-   - If the branch name does not match, display the following error and STOP:
+   - Extract the JIRA ID by matching the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
+   - The JIRA ID can appear anywhere in the branch name (e.g., `fix/PROJ-123`, `feat/PROJ-123`, `PROJ-123-some-description`, `feature/PROJ-123-add-login`)
+   - If no JIRA ID is found in the branch name, display the following error and STOP:
      ```
-     &#x274C; Invalid branch name: "&lt;current-branch&gt;"
-     Expected format: &lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;
-     Valid prefixes: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-     Example: fix/PROJ-123, feat/MYAPP-456
+     &#x274C; No JIRA ID found in branch name: "&lt;current-branch&gt;"
+     Expected a branch name containing a JIRA ID (e.g., PROJ-123).
+     Examples: fix/PROJ-123, feat/MYAPP-456, PROJ-123-add-login
      ```
 
-3. **Extract info from the branch name:**
-   - Parse the conventional commit key (the part before `/`)
-   - Parse the JIRA ID (the part after `/`)
-
-4. **Fetch the JIRA ticket:**
+3. **Fetch the JIRA ticket:**
    - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
    - Fetch the following fields:
      - **Summary** (title)
@@ -1152,32 +1177,51 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      - **Comments** (all comments on the ticket)
      - **Issue type** (Bug, Story, Task, etc.)
      - **Priority**
-     - **Acceptance criteria** (if available, often in description or a custom field)
-   - If the JIRA fetch fails (issue not found, permission denied, etc.), show the error and STOP
+   - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
+
+4. **Determine the conventional commit prefix:**
+   - Based on the ticket's **issue type**, **summary**, and **description**, deduce the most appropriate conventional commit prefix:
+     - `feat` &mdash; new functionality or feature
+     - `fix` &mdash; bug fix
+     - `docs` &mdash; documentation-only changes
+     - `style` &mdash; code style changes (formatting, whitespace, etc.)
+     - `refactor` &mdash; code restructuring without behavior change
+     - `perf` &mdash; performance improvement
+     - `test` &mdash; adding or updating tests only
+     - `build` &mdash; build system or dependency changes
+     - `ci` &mdash; CI/CD configuration changes
+     - `chore` &mdash; maintenance tasks, tooling, etc.
+     - `revert` &mdash; reverting a previous change
+   - Use the issue type as the primary signal (e.g., Bug &rarr; `fix`, Story with new functionality &rarr; `feat`)
+   - Use the summary and description to refine when the issue type is ambiguous (e.g., a Task could be `refactor`, `chore`, `docs`, etc.)
+   - If the branch name already contains a conventional commit prefix (e.g., `fix/PROJ-123`), use it as a hint but verify it makes sense given the ticket content
+   - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
 5. **Analyze the ticket and codebase:**
    - Read the ticket summary, description, and all comments thoroughly
-   - Identify the key requirements, constraints, and acceptance criteria
+   - Identify the key requirements, constraints, and acceptance criteria from the summary and description
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
      - Existing patterns and conventions in the affected areas
      - Any related tests that exist or will need updating
-   - Consider the conventional commit key from the branch name as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
+   - Consider the conventional commit prefix as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
 
-6. **Propose an implementation plan:**
+6. **Propose an implementation plan using Plan Mode:**
 
-   Present a structured plan to the developer:
+   Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
+
+   Structure the plan as follows:
 
    ```
    ## Ticket: &lt;JIRA-ID&gt;
    **&lt;Summary&gt;**
-   Type: &lt;issue-type&gt; | Priority: &lt;priority&gt; | Branch: &lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;
+   Type: &lt;issue-type&gt; | Priority: &lt;priority&gt; | Commit prefix: &lt;conventional-commit-prefix&gt;
 
    ### Understanding
    &lt;Brief summary of what the ticket is asking for, synthesized from the description and comments. Call out any ambiguities or conflicting information in the comments.&gt;
 
    ### Acceptance Criteria
-   &lt;List the acceptance criteria extracted from the ticket. If none are explicit, derive them from the description.&gt;
+   &lt;List the acceptance criteria extracted from the ticket summary and description. If none are explicit, derive them from the description.&gt;
 
    ### Implementation Plan
    1. &lt;Step 1 &mdash; what to do and which files to touch&gt;
@@ -1199,6 +1243,8 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    ### Risks / Open Questions
    - &lt;Any uncertainties, assumptions, or things to clarify with the team&gt;
    ```
+
+   Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
 7. **Handle edge cases:**
    - If the ticket description is empty, note it and base the plan on the summary and comments only

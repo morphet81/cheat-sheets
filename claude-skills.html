@@ -1075,6 +1075,141 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                     </div>
                 </div>
 
+                <!-- Address Ticket Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Address Ticket</h3>
+                            <code>/address-ticket</code>
+                        </div>
+                        <p class="skill-description">
+                            Read the JIRA ticket associated with the current branch and propose an implementation plan.
+                            Requires JIRA MCP to be configured and a branch named with a conventional commit prefix and JIRA ID
+                            (e.g., <code>fix/PROJ-123</code>, <code>feat/MYAPP-456</code>).
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/address-ticket</code> &mdash; Analyze the current branch's JIRA ticket and propose a plan</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/address-ticket/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'address-ticket-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="address-ticket-content">---
+name: address-ticket
+description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a conventional commit prefix and JIRA ID.
+argument-hint: ""
+---
+
+Read the JIRA ticket for the current branch and propose a plan to address it. The branch must follow the `&lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;` naming convention.
+
+**Usage:**
+- `/address-ticket` - Analyze the JIRA ticket and propose an implementation plan
+
+**Instructions:**
+
+1. **Validate that JIRA MCP is available:**
+   - Check that a JIRA MCP tool is configured and accessible
+   - If JIRA MCP is NOT available, display the following error and STOP:
+     ```
+     &#x274C; JIRA MCP is not configured. This skill requires a working JIRA MCP integration.
+     Please configure the JIRA MCP server before using /address-ticket.
+     ```
+
+2. **Validate the current branch name:**
+   - Run `git branch --show-current` to get the current branch name
+   - The branch name must match the pattern `&lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;` where:
+     - `&lt;conventional-commit-key&gt;` is one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+     - `&lt;JIRA-ID&gt;` matches the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
+   - Examples of valid branch names: `fix/PROJ-123`, `feat/MYAPP-456`, `refactor/AB-12`, `chore/CORE-99`
+   - If the branch name does not match, display the following error and STOP:
+     ```
+     &#x274C; Invalid branch name: "&lt;current-branch&gt;"
+     Expected format: &lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;
+     Valid prefixes: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+     Example: fix/PROJ-123, feat/MYAPP-456
+     ```
+
+3. **Extract info from the branch name:**
+   - Parse the conventional commit key (the part before `/`)
+   - Parse the JIRA ID (the part after `/`)
+
+4. **Fetch the JIRA ticket:**
+   - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
+   - Fetch the following fields:
+     - **Summary** (title)
+     - **Description** (full body)
+     - **Comments** (all comments on the ticket)
+     - **Issue type** (Bug, Story, Task, etc.)
+     - **Priority**
+     - **Acceptance criteria** (if available, often in description or a custom field)
+   - If the JIRA fetch fails (issue not found, permission denied, etc.), show the error and STOP
+
+5. **Analyze the ticket and codebase:**
+   - Read the ticket summary, description, and all comments thoroughly
+   - Identify the key requirements, constraints, and acceptance criteria
+   - Explore the codebase to understand:
+     - Which files and modules are relevant to the ticket
+     - Existing patterns and conventions in the affected areas
+     - Any related tests that exist or will need updating
+   - Consider the conventional commit key from the branch name as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
+
+6. **Propose an implementation plan:**
+
+   Present a structured plan to the developer:
+
+   ```
+   ## Ticket: &lt;JIRA-ID&gt;
+   **&lt;Summary&gt;**
+   Type: &lt;issue-type&gt; | Priority: &lt;priority&gt; | Branch: &lt;conventional-commit-key&gt;/&lt;JIRA-ID&gt;
+
+   ### Understanding
+   &lt;Brief summary of what the ticket is asking for, synthesized from the description and comments. Call out any ambiguities or conflicting information in the comments.&gt;
+
+   ### Acceptance Criteria
+   &lt;List the acceptance criteria extracted from the ticket. If none are explicit, derive them from the description.&gt;
+
+   ### Implementation Plan
+   1. &lt;Step 1 &mdash; what to do and which files to touch&gt;
+   2. &lt;Step 2&gt;
+   3. ...
+
+   ### Files to Modify
+   - `path/to/file.ts` &mdash; &lt;what changes are needed&gt;
+   - `path/to/other.ts` &mdash; &lt;what changes are needed&gt;
+
+   ### New Files
+   - `path/to/new-file.ts` &mdash; &lt;purpose&gt;
+   (or "None" if no new files are needed)
+
+   ### Tests
+   - &lt;Which test files to update or create&gt;
+   - &lt;What scenarios to cover&gt;
+
+   ### Risks / Open Questions
+   - &lt;Any uncertainties, assumptions, or things to clarify with the team&gt;
+   ```
+
+7. **Handle edge cases:**
+   - If the ticket description is empty, note it and base the plan on the summary and comments only
+   - If there are no comments, skip that section in the analysis
+   - If the codebase exploration reveals the ticket may already be addressed, inform the developer
+   - If the ticket is too vague to produce a concrete plan, list what is understood and what needs clarification</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

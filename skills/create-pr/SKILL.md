@@ -64,7 +64,8 @@ Push the current branch and create a GitHub pull request with title and descript
 
 6. **Push the branch:**
    - Run `git push -u origin <branch-name>`
-   - If the push fails, show the error and **STOP**
+   - If the branch is already up to date on the remote, that's fine — continue to the next step
+   - If the push fails for any other reason, show the error and **STOP**
 
 7. **Create the pull request:**
    - Build the PR title using the commit prefix convention based on issue type, followed by a concise summary derived from the JIRA ticket summary:

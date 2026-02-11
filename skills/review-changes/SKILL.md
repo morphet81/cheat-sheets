@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 1.0.0
+version: 1.1.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -15,7 +15,8 @@ Review changes introduced by the current branch compared to a base branch.
 
 1. First, determine the base branch to compare against:
    - If an argument is provided via $ARGUMENTS, use that as the base branch
-   - Otherwise, default to `main`
+   - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=<value>` line, use that value as the base branch
+   - If no argument and no `.agent` file, default to `main`
 
 2. Get the current branch name and verify we're not on the base branch
 

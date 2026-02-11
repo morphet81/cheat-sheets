@@ -1,6 +1,6 @@
 ---
 name: create-pr
-version: 1.2.0
+version: 1.3.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -58,8 +58,11 @@ Push the current branch and create a GitHub pull request with title and descript
    - If the fetch fails, ask the developer to provide the issue type and summary manually using `AskUserQuestion`
 
 5. **Determine the base branch:**
+   - Check if a `.agent` file exists in the current directory
+   - If it exists, read it and look for a `baseBranch=<value>` line to extract the base branch
    - Use `AskUserQuestion` to let the developer choose the base branch:
-     - First option: `main` (this is the default for most workflows)
+     - If a base branch was found in `.agent`: first option is that branch with "(from .agent)" suffix, second option is `main` (if different)
+     - If no `.agent` file or no `baseBranch` key: first option is `main`
      - The developer can type a different branch name via the "Other" option if the PR targets a different base branch
 
 6. **Push the branch:**

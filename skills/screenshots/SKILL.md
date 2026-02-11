@@ -1,6 +1,6 @@
 ---
 name: screenshots
-version: 1.0.0
+version: 1.1.0
 description: Take screenshots of components affected by recent changes, from the running app or Storybook.
 argument-hint: ""
 ---
@@ -23,20 +23,24 @@ Take screenshots of components affected by recent changes, either from the runni
      Install it with: npm install -D playwright
      ```
 
-2. **Identify changed components:**
-   - Run `git diff --name-only HEAD~1` to find recently changed files (if on a feature branch, use `git diff --name-only $(git merge-base HEAD main)..HEAD` instead)
+2. **Determine the base branch:**
+   - Check if a `.agent` file exists in the current directory. If it contains a `baseBranch=<value>` line, use that value as the base branch
+   - If no `.agent` file or no `baseBranch` key, default to `main`
+
+3. **Identify changed components:**
+   - Run `git diff --name-only $(git merge-base HEAD <base-branch>)..HEAD` to find recently changed files compared to the base branch
    - Filter for component files: `.tsx`, `.jsx`, `.vue`, `.svelte` extensions
    - Exclude test files (`*.test.*`, `*.spec.*`), story files (`*.stories.*`), and type definition files (`*.d.ts`)
    - If no component files are found in the changes, inform the developer and **STOP**
    - Present the list of changed components to the developer
 
-3. **Ask the developer: App or Storybook?**
+4. **Ask the developer: App or Storybook?**
    - Use `AskUserQuestion` to ask for each component (or batch if many):
      - **Storybook** — component has stories, screenshot from Storybook
      - **App** — component is visible in the running application
      - **Skip** — don't screenshot this component
 
-4. **For components using the Storybook path:**
+5. **For components using the Storybook path:**
 
    a. **Find the corresponding story file:**
       - Look for a `.stories.tsx`, `.stories.jsx`, `.stories.ts`, or `.stories.js` file next to the component or in the same directory
@@ -69,7 +73,7 @@ Take screenshots of components affected by recent changes, either from the runni
    f. **View results:**
       - Use the `Read` tool to view each generated screenshot and present them to the developer
 
-5. **For components using the App path:**
+6. **For components using the App path:**
 
    a. **Ask the developer which URL/route to navigate to:**
       - Use `AskUserQuestion` to get the URL or route where the component is visible in the running app
@@ -84,7 +88,7 @@ Take screenshots of components affected by recent changes, either from the runni
       - Save screenshots to the `.tmp/` directory
       - Use the `Read` tool to view each generated screenshot and present them to the developer
 
-6. **Summary:**
+7. **Summary:**
    - After all screenshots are taken, present a summary:
      ```
      ## Screenshots Complete
@@ -97,7 +101,7 @@ Take screenshots of components affected by recent changes, either from the runni
      Screenshots are stored in the .tmp/ directory of your project.
      ```
 
-7. **Handle edge cases:**
+8. **Handle edge cases:**
    - If a screenshot command fails, show the error and continue with the remaining screenshots
    - If the `.tmp/` directory cannot be created, show the error and **STOP**
    - If a story file has no named exports (no stories), skip it and inform the developer

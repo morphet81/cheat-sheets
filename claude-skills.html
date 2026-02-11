@@ -398,7 +398,7 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v1.0.0</span>
+                            <span class="skill-version">v1.1.0</span>
                         </div>
                         <p class="skill-description">
                             Review changes introduced by the current branch compared to a base branch.
@@ -427,7 +427,7 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 1.0.0
+version: 1.1.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -442,7 +442,8 @@ Review changes introduced by the current branch compared to a base branch.
 
 1. First, determine the base branch to compare against:
    - If an argument is provided via $ARGUMENTS, use that as the base branch
-   - Otherwise, default to `main`
+   - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=&lt;value&gt;` line, use that value as the base branch
+   - If no argument and no `.agent` file, default to `main`
 
 2. Get the current branch name and verify we're not on the base branch
 
@@ -988,7 +989,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                         <div class="skill-title">
                             <h3>Setup Branch</h3>
                             <code>/setup-branch</code>
-                            <span class="skill-version">v1.1.0</span>
+                            <span class="skill-version">v1.2.0</span>
                         </div>
                         <p class="skill-description">
                             Create a new branch and worktree from a JIRA ID or URL.
@@ -1017,7 +1018,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                             <div class="file-content">
                                 <pre id="setup-branch-content">---
 name: setup-branch
-version: 1.1.0
+version: 1.2.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "&lt;JIRA-ID or URL&gt;"
 ---
@@ -1105,7 +1106,14 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
    - If `mise` is not installed (command not found), skip this step silently
    - If the command fails for any other reason, show a warning but continue
 
-10. **Show success message:**
+10. **Create `.agent` file in the new worktree:**
+   - Write a simple config file at `&lt;worktree-path&gt;/.agent` containing the base branch name:
+     ```
+     baseBranch=&lt;base-branch&gt;
+     ```
+   - Example: if the base branch is `main`, the file contents would be `baseBranch=main`
+
+11. **Show success message:**
 
    Display a summary with all relevant information:
 
@@ -1135,7 +1143,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                         <div class="skill-title">
                             <h3>Create PR</h3>
                             <code>/create-pr</code>
-                            <span class="skill-version">v1.2.0</span>
+                            <span class="skill-version">v1.3.0</span>
                         </div>
                         <p class="skill-description">
                             Push the current branch and create a GitHub pull request.
@@ -1164,7 +1172,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                             <div class="file-content">
                                 <pre id="create-pr-content">---
 name: create-pr
-version: 1.2.0
+version: 1.3.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -1222,8 +1230,11 @@ Push the current branch and create a GitHub pull request with title and descript
    - If the fetch fails, ask the developer to provide the issue type and summary manually using `AskUserQuestion`
 
 5. **Determine the base branch:**
+   - Check if a `.agent` file exists in the current directory
+   - If it exists, read it and look for a `baseBranch=&lt;value&gt;` line to extract the base branch
    - Use `AskUserQuestion` to let the developer choose the base branch:
-     - First option: `main` (this is the default for most workflows)
+     - If a base branch was found in `.agent`: first option is that branch with "(from .agent)" suffix, second option is `main` (if different)
+     - If no `.agent` file or no `baseBranch` key: first option is `main`
      - The developer can type a different branch name via the "Other" option if the PR targets a different base branch
 
 6. **Push the branch:**
@@ -1268,7 +1279,7 @@ Push the current branch and create a GitHub pull request with title and descript
                         <div class="skill-title">
                             <h3>Screenshots</h3>
                             <code>/screenshots</code>
-                            <span class="skill-version">v1.0.0</span>
+                            <span class="skill-version">v1.1.0</span>
                         </div>
                         <p class="skill-description">
                             Take screenshots of components affected by recent changes, from the running app or Storybook.
@@ -1295,7 +1306,7 @@ Push the current branch and create a GitHub pull request with title and descript
                             <div class="file-content">
                                 <pre id="screenshots-content">---
 name: screenshots
-version: 1.0.0
+version: 1.1.0
 description: Take screenshots of components affected by recent changes, from the running app or Storybook.
 argument-hint: ""
 ---
@@ -1318,20 +1329,24 @@ Take screenshots of components affected by recent changes, either from the runni
      Install it with: npm install -D playwright
      ```
 
-2. **Identify changed components:**
-   - Run `git diff --name-only HEAD~1` to find recently changed files (if on a feature branch, use `git diff --name-only $(git merge-base HEAD main)..HEAD` instead)
+2. **Determine the base branch:**
+   - Check if a `.agent` file exists in the current directory. If it contains a `baseBranch=&lt;value&gt;` line, use that value as the base branch
+   - If no `.agent` file or no `baseBranch` key, default to `main`
+
+3. **Identify changed components:**
+   - Run `git diff --name-only $(git merge-base HEAD &lt;base-branch&gt;)..HEAD` to find recently changed files compared to the base branch
    - Filter for component files: `.tsx`, `.jsx`, `.vue`, `.svelte` extensions
    - Exclude test files (`*.test.*`, `*.spec.*`), story files (`*.stories.*`), and type definition files (`*.d.ts`)
    - If no component files are found in the changes, inform the developer and **STOP**
    - Present the list of changed components to the developer
 
-3. **Ask the developer: App or Storybook?**
+4. **Ask the developer: App or Storybook?**
    - Use `AskUserQuestion` to ask for each component (or batch if many):
      - **Storybook** &mdash; component has stories, screenshot from Storybook
      - **App** &mdash; component is visible in the running application
      - **Skip** &mdash; don't screenshot this component
 
-4. **For components using the Storybook path:**
+5. **For components using the Storybook path:**
 
    a. **Find the corresponding story file:**
       - Look for a `.stories.tsx`, `.stories.jsx`, `.stories.ts`, or `.stories.js` file next to the component or in the same directory
@@ -1364,7 +1379,7 @@ Take screenshots of components affected by recent changes, either from the runni
    f. **View results:**
       - Use the `Read` tool to view each generated screenshot and present them to the developer
 
-5. **For components using the App path:**
+6. **For components using the App path:**
 
    a. **Ask the developer which URL/route to navigate to:**
       - Use `AskUserQuestion` to get the URL or route where the component is visible in the running app
@@ -1379,7 +1394,7 @@ Take screenshots of components affected by recent changes, either from the runni
       - Save screenshots to the `.tmp/` directory
       - Use the `Read` tool to view each generated screenshot and present them to the developer
 
-6. **Summary:**
+7. **Summary:**
    - After all screenshots are taken, present a summary:
      ```
      ## Screenshots Complete
@@ -1392,7 +1407,7 @@ Take screenshots of components affected by recent changes, either from the runni
      Screenshots are stored in the .tmp/ directory of your project.
      ```
 
-7. **Handle edge cases:**
+8. **Handle edge cases:**
    - If a screenshot command fails, show the error and continue with the remaining screenshots
    - If the `.tmp/` directory cannot be created, show the error and **STOP**
    - If a story file has no named exports (no stories), skip it and inform the developer

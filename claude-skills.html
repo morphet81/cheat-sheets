@@ -382,6 +382,25 @@
             </div>
 
             <div class="instructions">
+                <h2>MCP Servers</h2>
+                <p>Some skills rely on MCP servers for browser automation. Install them scoped to local development ports for security:</p>
+                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Playwright</strong> <span style="opacity: 0.7;">(used by <code>/screenshots</code>)</span></p>
+                <div class="command-wrapper" style="margin-bottom: 0;">
+                    <div class="command-box">
+                        <code id="mcp-playwright-command">claude mcp add --scope user playwright -- npx @playwright/mcp@latest --allowed-origins="http://localhost:6006,http://localhost:3000,http://localhost:5173"</code>
+                    </div>
+                    <button class="copy-btn" onclick="copyContent(this, 'mcp-playwright-command')">Copy</button>
+                </div>
+                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Figma</strong></p>
+                <div class="command-wrapper" style="margin-bottom: 0;">
+                    <div class="command-box">
+                        <code id="mcp-figma-command">claude mcp add --scope user --transport http figma https://mcp.figma.com/mc</code>
+                    </div>
+                    <button class="copy-btn" onclick="copyContent(this, 'mcp-figma-command')">Copy</button>
+                </div>
+            </div>
+
+            <div class="instructions">
                 <h2>Manual Setup</h2>
                 <p>Skills are stored as <code>SKILL.md</code> files with YAML frontmatter. They are auto-discovered from:</p>
                 <ul>

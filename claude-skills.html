@@ -964,6 +964,117 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                     </div>
                 </div>
 
+                <!-- Setup Branch Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Setup Branch</h3>
+                            <code>/setup-branch</code>
+                        </div>
+                        <p class="skill-description">
+                            Create a new branch and worktree from a JIRA ID or URL.
+                            Determines branch prefix (<code>fix/</code> for bugs, <code>feat/</code> for everything else) from the JIRA item type,
+                            sets up the worktree one level above the current directory, and runs <code>npm ci</code>.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/setup-branch PROJ-123</code> &mdash; Create branch from a JIRA ID</li>
+                                <li><code>/setup-branch https://mycompany.atlassian.net/browse/PROJ-123</code> &mdash; Create branch from a JIRA URL</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/setup-branch/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'setup-branch-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="setup-branch-content">---
+name: setup-branch
+description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and runs npm ci.
+argument-hint: "&lt;JIRA-ID or URL&gt;"
+---
+
+Create a new git branch and worktree from a JIRA ticket. Automatically names the branch based on the JIRA item type and sets up the worktree ready to work in.
+
+**Usage:**
+- `/setup-branch PROJ-123` - Create branch from JIRA ID
+- `/setup-branch https://mycompany.atlassian.net/browse/PROJ-123` - Create branch from JIRA URL
+
+**Instructions:**
+
+1. **Parse the JIRA reference from $ARGUMENTS:**
+   - If the argument is a URL (contains `atlassian.net/browse/` or similar), extract the JIRA ID from the URL path (e.g., `https://mycompany.atlassian.net/browse/PROJ-123` &rarr; `PROJ-123`)
+   - If the argument is already a JIRA ID (matches pattern like `PROJ-123`, `ABC-1`, etc.), use it directly
+   - If no argument is provided or it cannot be parsed, inform the user and STOP
+
+2. **Fetch the JIRA item type:**
+   - Use the JIRA MCP tool or API to fetch the issue details for the extracted JIRA ID
+   - Identify the issue type (Bug, Story, Task, Epic, Sub-task, etc.)
+   - If the JIRA API is not available or the fetch fails, ask the developer to provide the issue type manually using `AskUserQuestion` with options: "Bug", "Story/Task/Other"
+
+3. **Determine the branch name:**
+   - If the issue type is **Bug**: branch name is `fix/&lt;JIRA-ID&gt;` (e.g., `fix/PROJ-123`)
+   - For **all other types** (Story, Task, Epic, Sub-task, etc.): branch name is `feat/&lt;JIRA-ID&gt;` (e.g., `feat/PROJ-123`)
+
+4. **Ask which base branch to branch from:**
+   - Use `AskUserQuestion` to ask the developer which branch to use as the base
+   - Default option should be `main`
+   - Let the developer type a different branch name via the "Other" option
+
+5. **Fetch and pull the base branch:**
+   - Run `git fetch origin &lt;base-branch&gt;`
+   - If the current branch is not the base branch, run `git checkout &lt;base-branch&gt;`
+   - Run `git pull origin &lt;base-branch&gt;`
+   - **If any of these commands fail, show the error and STOP immediately.** Do not continue with branch or worktree creation.
+
+6. **Create the new branch and worktree together:**
+   - Determine the worktree path: take the **parent directory** of the current working directory and append the branch name with `/` replaced by `-`
+     - Example: if CWD is `/Users/dev/my-project` and branch is `fix/PROJ-123`, the worktree path is `/Users/dev/fix-PROJ-123`
+   - Run `git worktree add &lt;worktree-path&gt; -b &lt;branch-name&gt;`
+     - This creates the new branch AND the worktree in a single command
+   - If the command fails (e.g., branch already exists, worktree path conflict), show the error and STOP
+
+7. **Install dependencies in the new worktree:**
+   - Change to the worktree directory
+   - Run `npm ci`
+   - If `npm ci` fails, show the error but do NOT delete the worktree &mdash; the developer may want to fix the issue manually
+
+8. **Show success message:**
+
+   Display a summary with all relevant information:
+
+   ```
+   ## Branch Setup Complete
+
+   - JIRA: PROJ-123
+   - Type: Bug &rarr; fix/PROJ-123
+   - Base: main
+   - Worktree: /Users/dev/fix-PROJ-123
+   - Dependencies: installed (npm ci)
+
+   To start working:
+     cd /Users/dev/fix-PROJ-123
+   ```
+
+9. **Handle edge cases:**
+   - If no argument is provided, inform the user of the expected usage and STOP
+   - If the JIRA ID cannot be parsed from the URL, show what was received and STOP
+   - If the branch name already exists locally, inform the user and STOP (do not force-create)
+   - If the worktree directory already exists, inform the user and STOP
+   - If the base branch does not exist on the remote, show the error and STOP
+   - If `npm ci` fails, still show the success message for branch/worktree creation but warn about the failed install</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

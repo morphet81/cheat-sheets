@@ -1,5 +1,6 @@
 ---
 name: setup-branch
+version: 1.0.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "<JIRA-ID or URL>"
 ---

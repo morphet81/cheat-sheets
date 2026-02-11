@@ -1,5 +1,6 @@
 ---
 name: pre-push
+version: 1.0.0
 description: Run pre-push checks including tests and linting to ensure code is clean and ready to push. Automatically detects project type and available scripts.
 argument-hint: ""
 ---

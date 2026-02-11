@@ -195,6 +195,16 @@
             font-weight: 600;
         }
 
+        .skill-version {
+            background: #48bb78;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
         .skill-description {
             color: #4a5568;
             margin-bottom: 15px;
@@ -388,6 +398,7 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
+                            <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
                             Review changes introduced by the current branch compared to a base branch.
@@ -416,6 +427,7 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
+version: 1.0.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -487,6 +499,7 @@ Summary and recommendation (approve, request changes, etc.)
                         <div class="skill-title">
                             <h3>Pre-Push</h3>
                             <code>/pre-push</code>
+                            <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
                             Run pre-push checks including tests and linting to ensure code is clean and ready to push.
@@ -513,6 +526,7 @@ Summary and recommendation (approve, request changes, etc.)
                             <div class="file-content">
                                 <pre id="pre-push-content">---
 name: pre-push
+version: 1.0.0
 description: Run pre-push checks including tests and linting to ensure code is clean and ready to push. Automatically detects project type and available scripts.
 argument-hint: ""
 ---
@@ -643,6 +657,7 @@ Error in src/components/Button.tsx:
                         <div class="skill-title">
                             <h3>Verify Test Cases</h3>
                             <code>/verify-test-cases</code>
+                            <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
                             Verify test cases in all test files modified since last push.
@@ -669,6 +684,7 @@ Error in src/components/Button.tsx:
                             <div class="file-content">
                                 <pre id="verify-test-cases-content">---
 name: verify-test-cases
+version: 1.0.0
 description: Verify test cases in all test files modified since last push. Checks that test cases make sense, have no duplications, and provide meaningful coverage.
 argument-hint: ""
 ---
@@ -784,6 +800,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
                         <div class="skill-title">
                             <h3>Cleanup</h3>
                             <code>/cleanup</code>
+                            <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
                             Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% test coverage, then propose fixes for approval before committing.
@@ -810,6 +827,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
                             <div class="file-content">
                                 <pre id="cleanup-content">---
 name: cleanup
+version: 1.0.0
 description: Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% coverage, then propose fixes for approval before committing.
 argument-hint: ""
 ---
@@ -970,6 +988,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                         <div class="skill-title">
                             <h3>Setup Branch</h3>
                             <code>/setup-branch</code>
+                            <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
                             Create a new branch and worktree from a JIRA ID or URL.
@@ -998,6 +1017,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                             <div class="file-content">
                                 <pre id="setup-branch-content">---
 name: setup-branch
+version: 1.0.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "&lt;JIRA-ID or URL&gt;"
 ---
@@ -1110,6 +1130,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                         <div class="skill-title">
                             <h3>Create PR</h3>
                             <code>/create-pr</code>
+                            <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
                             Push the current branch and create a GitHub pull request.
@@ -1138,6 +1159,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                             <div class="file-content">
                                 <pre id="create-pr-content">---
 name: create-pr
+version: 1.0.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -1247,6 +1269,7 @@ Push the current branch and create a GitHub pull request with title and descript
                         <div class="skill-title">
                             <h3>Address Ticket</h3>
                             <code>/address-ticket</code>
+                            <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
                             Read the JIRA ticket associated with the current branch and propose an implementation plan.
@@ -1275,6 +1298,7 @@ Push the current branch and create a GitHub pull request with title and descript
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
+version: 1.0.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -1315,6 +1339,12 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      - **Comments** (all comments on the ticket)
      - **Issue type** (Bug, Story, Task, etc.)
      - **Priority**
+   - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
+   - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
+     ```
+     &#x26A0;&#xFE0F; Could not analyze attachment: "&lt;filename&gt;" (&lt;reason: too large / unsupported format / etc.&gt;)
+     Proceeding with the available information.
+     ```
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
 
 4. **Determine the conventional commit prefix:**
@@ -1337,6 +1367,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
 5. **Analyze the ticket and codebase:**
    - Read the ticket summary, description, and all comments thoroughly
+   - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
    - Identify the key requirements, constraints, and acceptance criteria from the summary and description
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket

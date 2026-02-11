@@ -1,5 +1,6 @@
 ---
 name: review-changes
+version: 1.0.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---

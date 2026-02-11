@@ -1,5 +1,6 @@
 ---
 name: address-ticket
+version: 1.0.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -40,6 +41,12 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      - **Comments** (all comments on the ticket)
      - **Issue type** (Bug, Story, Task, etc.)
      - **Priority**
+   - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
+   - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
+     ```
+     ⚠️ Could not analyze attachment: "<filename>" (<reason: too large / unsupported format / etc.>)
+     Proceeding with the available information.
+     ```
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
 
 4. **Determine the conventional commit prefix:**
@@ -62,6 +69,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
 5. **Analyze the ticket and codebase:**
    - Read the ticket summary, description, and all comments thoroughly
+   - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
    - Identify the key requirements, constraints, and acceptance criteria from the summary and description
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket

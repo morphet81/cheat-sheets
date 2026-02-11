@@ -19,7 +19,19 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+DIM='\033[2m'
 NC='\033[0m' # No Color
+
+# Extract version from a SKILL.md file (reads the version: field from YAML frontmatter)
+extract_version() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        grep -m1 '^version:' "$file" 2>/dev/null | sed 's/^version:[[:space:]]*//' | tr -d '"' || echo "unknown"
+    else
+        echo "not installed"
+    fi
+}
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   Claude Code Skills Installer         ║${NC}"
@@ -61,15 +73,32 @@ echo "$SKILL_FOLDERS" | while read -r skill; do
 done
 echo ""
 
+# Show currently installed versions
+echo -e "${CYAN}Currently installed versions:${NC}"
+HAS_INSTALLED=false
+while read -r skill; do
+    [ -z "$skill" ] && continue
+    CURRENT_VER=$(extract_version "$SKILLS_DIR/$skill/SKILL.md")
+    if [ "$CURRENT_VER" = "not installed" ]; then
+        echo -e "  ${DIM}$skill — not installed${NC}"
+    else
+        echo -e "  $skill — ${BLUE}v$CURRENT_VER${NC}"
+        HAS_INSTALLED=true
+    fi
+done <<< "$SKILL_FOLDERS"
+echo ""
+
 # Download each skill
+declare -A INSTALLED_VERSIONS
 while read -r SKILL_NAME; do
     if [ -z "$SKILL_NAME" ]; then
         continue
     fi
 
-    echo -e "${YELLOW}Installing skill: ${NC}${BLUE}$SKILL_NAME${NC}"
-
     SKILL_TARGET_DIR="$SKILLS_DIR/$SKILL_NAME"
+    OLD_VER=$(extract_version "$SKILL_TARGET_DIR/SKILL.md")
+
+    echo -e "${YELLOW}Installing skill: ${NC}${BLUE}$SKILL_NAME${NC}"
 
     # Remove existing skill folder if it exists
     if [ -d "$SKILL_TARGET_DIR" ]; then
@@ -102,6 +131,18 @@ while read -r SKILL_NAME; do
         fi
     done <<< "$SKILL_FILES"
 
+    # Read new version after download
+    NEW_VER=$(extract_version "$SKILL_TARGET_DIR/SKILL.md")
+
+    # Show version transition
+    if [ "$OLD_VER" = "not installed" ]; then
+        echo -e "  ${GREEN}NEW${NC} → v$NEW_VER"
+    elif [ "$OLD_VER" != "$NEW_VER" ]; then
+        echo -e "  ${YELLOW}UPDATED${NC} v$OLD_VER → v$NEW_VER"
+    else
+        echo -e "  ${DIM}unchanged${NC} v$NEW_VER"
+    fi
+
     echo ""
 done <<< "$SKILL_FOLDERS"
 
@@ -111,9 +152,11 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "Skills installed to: ${BLUE}$SKILLS_DIR${NC}"
 echo ""
-echo -e "${YELLOW}Installed skills:${NC}"
-echo "$SKILL_FOLDERS" | while read -r skill; do
-    echo -e "  ${GREEN}•${NC} /$skill"
-done
+echo -e "${CYAN}Installed skill versions:${NC}"
+while read -r skill; do
+    [ -z "$skill" ] && continue
+    VER=$(extract_version "$SKILLS_DIR/$skill/SKILL.md")
+    echo -e "  ${GREEN}•${NC} /$skill ${BLUE}v$VER${NC}"
+done <<< "$SKILL_FOLDERS"
 echo ""
 echo -e "${YELLOW}Skills are auto-discovered. Open a new Claude Code session to use them.${NC}"

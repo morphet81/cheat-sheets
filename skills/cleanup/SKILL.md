@@ -1,5 +1,6 @@
 ---
 name: cleanup
+version: 1.0.0
 description: Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% coverage, then propose fixes for approval before committing.
 argument-hint: ""
 ---

@@ -1,5 +1,6 @@
 ---
 name: verify-test-cases
+version: 1.0.0
 description: Verify test cases in all test files modified since last push. Checks that test cases make sense, have no duplications, and provide meaningful coverage.
 argument-hint: ""
 ---

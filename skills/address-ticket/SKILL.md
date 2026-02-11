@@ -1,10 +1,10 @@
 ---
 name: address-ticket
-description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a conventional commit prefix and JIRA ID.
+description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
 
-Read the JIRA ticket for the current branch and propose a plan to address it. The branch must follow the `<conventional-commit-key>/<JIRA-ID>` naming convention.
+Read the JIRA ticket for the current branch and propose a plan to address it. The branch must contain a JIRA ID (e.g., `feat/PROJ-123`, `fix/PROJ-123`, or just `PROJ-123`).
 
 **Usage:**
 - `/address-ticket` - Analyze the JIRA ticket and propose an implementation plan
@@ -12,32 +12,27 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 **Instructions:**
 
 1. **Validate that JIRA MCP is available:**
-   - Check that a JIRA MCP tool is configured and accessible
-   - If JIRA MCP is NOT available, display the following error and STOP:
+   - Run `/mcp` to list the MCP servers available in the current context
+   - Check that a JIRA (or Atlassian) MCP server is present and shows as connected/authenticated
+   - If JIRA MCP is NOT available or not authenticated, display the following error and STOP:
      ```
-     ❌ JIRA MCP is not configured. This skill requires a working JIRA MCP integration.
-     Please configure the JIRA MCP server before using /address-ticket.
+     ❌ JIRA MCP is not configured or not authenticated.
+     This skill requires a working JIRA MCP integration.
+     Please configure and authenticate the JIRA MCP server before using /address-ticket.
      ```
 
-2. **Validate the current branch name:**
+2. **Extract the JIRA ID from the current branch name:**
    - Run `git branch --show-current` to get the current branch name
-   - The branch name must match the pattern `<conventional-commit-key>/<JIRA-ID>` where:
-     - `<conventional-commit-key>` is one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-     - `<JIRA-ID>` matches the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
-   - Examples of valid branch names: `fix/PROJ-123`, `feat/MYAPP-456`, `refactor/AB-12`, `chore/CORE-99`
-   - If the branch name does not match, display the following error and STOP:
+   - Extract the JIRA ID by matching the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
+   - The JIRA ID can appear anywhere in the branch name (e.g., `fix/PROJ-123`, `feat/PROJ-123`, `PROJ-123-some-description`, `feature/PROJ-123-add-login`)
+   - If no JIRA ID is found in the branch name, display the following error and STOP:
      ```
-     ❌ Invalid branch name: "<current-branch>"
-     Expected format: <conventional-commit-key>/<JIRA-ID>
-     Valid prefixes: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-     Example: fix/PROJ-123, feat/MYAPP-456
+     ❌ No JIRA ID found in branch name: "<current-branch>"
+     Expected a branch name containing a JIRA ID (e.g., PROJ-123).
+     Examples: fix/PROJ-123, feat/MYAPP-456, PROJ-123-add-login
      ```
 
-3. **Extract info from the branch name:**
-   - Parse the conventional commit key (the part before `/`)
-   - Parse the JIRA ID (the part after `/`)
-
-4. **Fetch the JIRA ticket:**
+3. **Fetch the JIRA ticket:**
    - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
    - Fetch the following fields:
      - **Summary** (title)
@@ -45,32 +40,51 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      - **Comments** (all comments on the ticket)
      - **Issue type** (Bug, Story, Task, etc.)
      - **Priority**
-     - **Acceptance criteria** (if available, often in description or a custom field)
-   - If the JIRA fetch fails (issue not found, permission denied, etc.), show the error and STOP
+   - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
+
+4. **Determine the conventional commit prefix:**
+   - Based on the ticket's **issue type**, **summary**, and **description**, deduce the most appropriate conventional commit prefix:
+     - `feat` — new functionality or feature
+     - `fix` — bug fix
+     - `docs` — documentation-only changes
+     - `style` — code style changes (formatting, whitespace, etc.)
+     - `refactor` — code restructuring without behavior change
+     - `perf` — performance improvement
+     - `test` — adding or updating tests only
+     - `build` — build system or dependency changes
+     - `ci` — CI/CD configuration changes
+     - `chore` — maintenance tasks, tooling, etc.
+     - `revert` — reverting a previous change
+   - Use the issue type as the primary signal (e.g., Bug → `fix`, Story with new functionality → `feat`)
+   - Use the summary and description to refine when the issue type is ambiguous (e.g., a Task could be `refactor`, `chore`, `docs`, etc.)
+   - If the branch name already contains a conventional commit prefix (e.g., `fix/PROJ-123`), use it as a hint but verify it makes sense given the ticket content
+   - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
 5. **Analyze the ticket and codebase:**
    - Read the ticket summary, description, and all comments thoroughly
-   - Identify the key requirements, constraints, and acceptance criteria
+   - Identify the key requirements, constraints, and acceptance criteria from the summary and description
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
      - Existing patterns and conventions in the affected areas
      - Any related tests that exist or will need updating
-   - Consider the conventional commit key from the branch name as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
+   - Consider the conventional commit prefix as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
 
-6. **Propose an implementation plan:**
+6. **Propose an implementation plan using Plan Mode:**
 
-   Present a structured plan to the developer:
+   Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
+
+   Structure the plan as follows:
 
    ```
    ## Ticket: <JIRA-ID>
    **<Summary>**
-   Type: <issue-type> | Priority: <priority> | Branch: <conventional-commit-key>/<JIRA-ID>
+   Type: <issue-type> | Priority: <priority> | Commit prefix: <conventional-commit-prefix>
 
    ### Understanding
    <Brief summary of what the ticket is asking for, synthesized from the description and comments. Call out any ambiguities or conflicting information in the comments.>
 
    ### Acceptance Criteria
-   <List the acceptance criteria extracted from the ticket. If none are explicit, derive them from the description.>
+   <List the acceptance criteria extracted from the ticket summary and description. If none are explicit, derive them from the description.>
 
    ### Implementation Plan
    1. <Step 1 — what to do and which files to touch>
@@ -92,6 +106,8 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    ### Risks / Open Questions
    - <Any uncertainties, assumptions, or things to clarify with the team>
    ```
+
+   Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
 7. **Handle edge cases:**
    - If the ticket description is empty, note it and base the plan on the summary and comments only

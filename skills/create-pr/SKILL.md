@@ -1,6 +1,6 @@
 ---
 name: create-pr
-version: 1.0.0
+version: 1.1.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -59,13 +59,22 @@ Push the current branch and create a GitHub pull request with title and descript
 
 5. **Determine the base branch:**
    - Run `git fetch origin` to ensure remote refs are up to date
-   - Find candidate base branches by checking which remote branches (`origin/*`) share a merge-base with HEAD:
-     - For each remote branch, run `git merge-base HEAD origin/<branch>` and `git rev-list --count <merge-base>..HEAD` to measure how close it is
-     - Exclude the current branch itself from the candidates
-     - Sort candidates by commit distance (fewest commits = closest match)
+   - Get the current branch name and list all remote branches excluding it:
+     ```bash
+     CURRENT=$(git branch --show-current)
+     CANDIDATES=$(git branch -r | sed 's/^ *//' | grep -v "^origin/HEAD" | grep -v "origin/$CURRENT$" | sed 's|^origin/||')
+     ```
+   - For each candidate, find the merge-base and count commits ahead. Use this pattern to score each branch efficiently:
+     ```bash
+     MERGE_BASE=$(git merge-base HEAD "origin/<candidate>" 2>/dev/null) && \
+     COUNT=$(git rev-list --count "$MERGE_BASE..HEAD")
+     ```
+     - If `git merge-base` fails (no common ancestor), skip that candidate
+     - The candidate with the **fewest commits ahead** is the closest match (best base branch)
+   - Sort candidates by commit count (ascending) and keep the top results
    - Use `AskUserQuestion` to let the developer choose the base branch:
-     - First option: `main` (recommended) — always present even if not the closest match
-     - Additional options: other candidate branches found above, ordered by closest match (up to 3 candidates)
+     - First option: the closest-match branch with "(Recommended)" suffix — this is the most likely correct base
+     - Additional options: next closest candidates (up to 3 total)
      - The developer can also type a different branch name via the "Other" option
 
 6. **Push the branch:**

@@ -1,6 +1,6 @@
 ---
 name: setup-branch
-description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, installs dependencies, pushes the branch, and creates a draft PR.
+description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "<JIRA-ID or URL>"
 ---
 
@@ -82,23 +82,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
      - If no `package.json` exists → skip dependency installation entirely
    - If the install command fails, show the error but do NOT delete the worktree — the developer may want to fix the issue manually
 
-9. **Push the branch and create a draft PR:**
-   - **All commands in this step must run from the new worktree directory**
-   - Run `git push -u origin <branch-name>`
-   - If the push fails, show the error but do NOT delete the worktree — continue to the success message without a PR
-   - If the push succeeds, create a draft PR using `gh pr create --draft`:
-     - **Title:** Use the commit prefix convention based on issue type, followed by a concise summary derived from the JIRA ticket summary:
-       - Bug → `fix: <summary>` (e.g., `fix: resolve null pointer in user lookup`)
-       - All other types → `feat: <summary>` (e.g., `feat: add bulk export for reports`)
-       - The summary part should be lowercase, imperative mood, and concise
-     - **Description:** Build the body from the JIRA ticket details:
-       - Start with a `## Summary` section with a brief description based on the JIRA ticket description
-       - Add a `## JIRA` section with a link to the ticket: `[PROJ-123](https://<site>.atlassian.net/browse/PROJ-123)`
-       - Use a HEREDOC to pass the body to `gh pr create`
-     - **Base branch:** Use the base branch selected in step 5
-   - If PR creation fails, show the error but do NOT treat it as a fatal failure — the branch and worktree are still usable
-
-10. **Show success message:**
+9. **Show success message:**
 
    Display a summary with all relevant information:
 
@@ -110,17 +94,10 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
    - Base: origin/main
    - Worktree: /Users/dev/fix-proj-123
    - Dependencies: installed (npm ci)
-   - PR: https://github.com/org/repo/pull/42 (draft)
 
    To start working:
      cd /Users/dev/fix-proj-123
-   ```
 
-   If the PR was not created (push or PR creation failed), omit the PR line and add:
-
-   ```
-   To push and create a PR manually:
-     cd /Users/dev/fix-proj-123
+   To push for the first time:
      git push -u origin fix/proj-123
-     gh pr create --draft
    ```

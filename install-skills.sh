@@ -27,7 +27,7 @@ NC='\033[0m' # No Color
 extract_version() {
     local file="$1"
     if [ -f "$file" ]; then
-        grep -m1 '^version:' "$file" 2>/dev/null | sed 's/^version:[[:space:]]*//' | tr -d '"' || echo "unknown"
+        awk '/^version:/{gsub(/[" ]/, "", $2); print $2; exit}' "$file" 2>/dev/null || echo "unknown"
     else
         echo "not installed"
     fi
@@ -89,7 +89,6 @@ done <<< "$SKILL_FOLDERS"
 echo ""
 
 # Download each skill
-declare -A INSTALLED_VERSIONS
 while read -r SKILL_NAME; do
     if [ -z "$SKILL_NAME" ]; then
         continue

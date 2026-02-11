@@ -56,11 +56,16 @@ Push the current branch and create a GitHub pull request with title and descript
    - Fetch: **summary**, **description**, **issue type** (Bug, Story, Task, etc.)
    - If the fetch fails, ask the developer to provide the issue type and summary manually using `AskUserQuestion`
 
-5. **Determine the base branch from git history:**
+5. **Determine the base branch:**
    - Run `git fetch origin` to ensure remote refs are up to date
-   - Run `git log --oneline --decorate --simplify-by-decoration HEAD` and look for the most recent commit that is also on a remote branch (e.g., `origin/main`, `origin/develop`, `origin/master`)
-   - Alternatively, check common base branches in order: find which of `origin/main`, `origin/master`, `origin/develop` has the closest merge-base to HEAD using `git merge-base HEAD origin/<branch>`, and pick the one with the fewest commits between the merge-base and HEAD (`git rev-list --count <merge-base>..HEAD`)
-   - If none of the common branches exist on the remote, use `AskUserQuestion` to ask the developer which base branch to use
+   - Find candidate base branches by checking which remote branches (`origin/*`) share a merge-base with HEAD:
+     - For each remote branch, run `git merge-base HEAD origin/<branch>` and `git rev-list --count <merge-base>..HEAD` to measure how close it is
+     - Exclude the current branch itself from the candidates
+     - Sort candidates by commit distance (fewest commits = closest match)
+   - Use `AskUserQuestion` to let the developer choose the base branch:
+     - First option: `main` (recommended) — always present even if not the closest match
+     - Additional options: other candidate branches found above, ordered by closest match (up to 3 candidates)
+     - The developer can also type a different branch name via the "Other" option
 
 6. **Push the branch:**
    - Run `git push -u origin <branch-name>`

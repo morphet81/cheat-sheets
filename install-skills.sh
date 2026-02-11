@@ -67,15 +67,7 @@ if [ -z "$SKILL_FOLDERS" ]; then
     exit 1
 fi
 
-echo -e "${GREEN}Found skills:${NC}"
-echo "$SKILL_FOLDERS" | while read -r skill; do
-    echo "  - $skill"
-done
-echo ""
-
-# Show currently installed versions
-echo -e "${CYAN}Currently installed versions:${NC}"
-HAS_INSTALLED=false
+echo -e "${CYAN}Current versions:${NC}"
 while read -r skill; do
     [ -z "$skill" ] && continue
     CURRENT_VER=$(extract_version "$SKILLS_DIR/$skill/SKILL.md")
@@ -83,10 +75,14 @@ while read -r skill; do
         echo -e "  ${DIM}$skill — not installed${NC}"
     else
         echo -e "  $skill — ${BLUE}v$CURRENT_VER${NC}"
-        HAS_INSTALLED=true
     fi
 done <<< "$SKILL_FOLDERS"
 echo ""
+
+# Track results per category
+NEW_SKILLS=""
+UPDATED_SKILLS=""
+UNCHANGED_SKILLS=""
 
 # Download each skill
 while read -r SKILL_NAME; do
@@ -133,13 +129,16 @@ while read -r SKILL_NAME; do
     # Read new version after download
     NEW_VER=$(extract_version "$SKILL_TARGET_DIR/SKILL.md")
 
-    # Show version transition
+    # Track version transition
     if [ "$OLD_VER" = "not installed" ]; then
-        echo -e "  ${GREEN}NEW${NC} → v$NEW_VER"
+        echo -e "  ${GREEN}NEW${NC} v$NEW_VER"
+        NEW_SKILLS="${NEW_SKILLS}${SKILL_NAME}|${NEW_VER}\n"
     elif [ "$OLD_VER" != "$NEW_VER" ]; then
         echo -e "  ${YELLOW}UPDATED${NC} v$OLD_VER → v$NEW_VER"
+        UPDATED_SKILLS="${UPDATED_SKILLS}${SKILL_NAME}|${OLD_VER}|${NEW_VER}\n"
     else
         echo -e "  ${DIM}unchanged${NC} v$NEW_VER"
+        UNCHANGED_SKILLS="${UNCHANGED_SKILLS}${SKILL_NAME}|${NEW_VER}\n"
     fi
 
     echo ""
@@ -151,11 +150,30 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "Skills installed to: ${BLUE}$SKILLS_DIR${NC}"
 echo ""
-echo -e "${CYAN}Installed skill versions:${NC}"
-while read -r skill; do
-    [ -z "$skill" ] && continue
-    VER=$(extract_version "$SKILLS_DIR/$skill/SKILL.md")
-    echo -e "  ${GREEN}•${NC} /$skill ${BLUE}v$VER${NC}"
-done <<< "$SKILL_FOLDERS"
+
+if [ -n "$NEW_SKILLS" ]; then
+    echo -e "${GREEN}New:${NC}"
+    echo -e "$NEW_SKILLS" | while IFS='|' read -r name ver; do
+        [ -z "$name" ] && continue
+        echo -e "  ${GREEN}+${NC} /$name ${BLUE}v$ver${NC}"
+    done
+fi
+
+if [ -n "$UPDATED_SKILLS" ]; then
+    echo -e "${YELLOW}Updated:${NC}"
+    echo -e "$UPDATED_SKILLS" | while IFS='|' read -r name old new; do
+        [ -z "$name" ] && continue
+        echo -e "  ${YELLOW}↑${NC} /$name ${DIM}v$old${NC} → ${BLUE}v$new${NC}"
+    done
+fi
+
+if [ -n "$UNCHANGED_SKILLS" ]; then
+    echo -e "${DIM}Unchanged:${NC}"
+    echo -e "$UNCHANGED_SKILLS" | while IFS='|' read -r name ver; do
+        [ -z "$name" ] && continue
+        echo -e "  ${DIM}  /$name v$ver${NC}"
+    done
+fi
+
 echo ""
 echo -e "${YELLOW}Skills are auto-discovered. Open a new Claude Code session to use them.${NC}"

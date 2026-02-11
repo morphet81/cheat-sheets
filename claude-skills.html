@@ -989,13 +989,14 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                         <div class="skill-title">
                             <h3>Setup Branch</h3>
                             <code>/setup-branch</code>
-                            <span class="skill-version">v1.2.0</span>
+                            <span class="skill-version">v1.3.0</span>
                         </div>
                         <p class="skill-description">
                             Create a new branch and worktree from a JIRA ID or URL.
                             Determines branch prefix (<code>fix/</code> for bugs, <code>feat/</code> for everything else) from the JIRA item type,
                             sets up the worktree one level above the current directory, and auto-detects the package manager to install dependencies.
                             Creates the branch directly from the remote base branch without disrupting your current worktree.
+                            Copies <code>.env</code> from the source directory if present.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -1018,7 +1019,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                             <div class="file-content">
                                 <pre id="setup-branch-content">---
 name: setup-branch
-version: 1.2.0
+version: 1.3.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "&lt;JIRA-ID or URL&gt;"
 ---
@@ -1106,14 +1107,19 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
    - If `mise` is not installed (command not found), skip this step silently
    - If the command fails for any other reason, show a warning but continue
 
-10. **Create `.agent` file in the new worktree:**
+10. **Copy `.env` file to the new worktree:**
+   - Check if a `.env` file exists in the current working directory
+   - If it exists, copy it to the root of the new worktree directory (`cp .env &lt;worktree-path&gt;/.env`)
+   - If it does not exist, skip this step silently
+
+11. **Create `.agent` file in the new worktree:**
    - Write a simple config file at `&lt;worktree-path&gt;/.agent` containing the base branch name:
      ```
      baseBranch=&lt;base-branch&gt;
      ```
    - Example: if the base branch is `main`, the file contents would be `baseBranch=main`
 
-11. **Show success message:**
+12. **Show success message:**
 
    Display a summary with all relevant information:
 

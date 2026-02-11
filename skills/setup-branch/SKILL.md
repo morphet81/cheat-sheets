@@ -1,6 +1,6 @@
 ---
 name: setup-branch
-version: 1.0.0
+version: 1.1.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "<JIRA-ID or URL>"
 ---
@@ -83,7 +83,12 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
      - If no `package.json` exists → skip dependency installation entirely
    - If the install command fails, show the error but do NOT delete the worktree — the developer may want to fix the issue manually
 
-9. **Show success message:**
+9. **Trust mise configuration:**
+   - Run `mise trust` from the new worktree directory to trust any `.mise.toml` or `.tool-versions` file present
+   - If `mise` is not installed (command not found), skip this step silently
+   - If the command fails for any other reason, show a warning but continue
+
+10. **Show success message:**
 
    Display a summary with all relevant information:
 

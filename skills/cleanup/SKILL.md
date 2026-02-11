@@ -1,6 +1,6 @@
 ---
 name: cleanup
-version: 1.0.0
+version: 1.1.0
 description: Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% coverage, then propose fixes for approval before committing.
 argument-hint: ""
 ---
@@ -94,18 +94,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
    - For fixes the developer rejected: revert those specific changes using `git restore <file>` or by undoing the edits
    - Stage all approved changes with `git add`
 
-8. **Propose final action:**
-
-   Use `AskUserQuestion` to offer two options:
-
-   - **Commit** — Commit all changes (the developer's original work + approved fixes) locally with a descriptive message
-   - **Commit and push** — Same as above, then push to the current remote branch
-
-   After the developer chooses:
-   - If **Commit**: create the commit with a descriptive message
-   - If **Commit and push**: create the commit, then push to the remote tracking branch (or `origin/<current-branch>` if no tracking branch is set)
-
-9. **Handle edge cases:**
+8. **Handle edge cases:**
    - If there are no uncommitted changes, inform the user and STOP
    - If no lint tools are detected, skip the lint step and note it in the summary
    - If no audit tools are detected, skip the audit step and note it in the summary

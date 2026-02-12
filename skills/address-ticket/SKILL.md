@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.3.0
+version: 1.4.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -45,8 +45,32 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
 
 4. **Retrieve Figma designs (if referenced):**
-   - Check all ticket fields (description, comments, attachments, custom fields) for Figma URLs (e.g., `https://www.figma.com/design/...`, `https://www.figma.com/file/...`, `https://www.figma.com/proto/...`)
-   - If Figma URLs are found:
+
+   Figma design links can appear in two places: directly as URLs in ticket fields, or as issue-level entity properties set by the Figma for Jira app ("Add Design" button). Check both sources.
+
+   **a) Check ticket fields for Figma URLs:**
+   - Search all ticket fields (description, comments, attachments, custom fields) for Figma URLs (e.g., `https://www.figma.com/design/...`, `https://www.figma.com/file/...`, `https://www.figma.com/proto/...`)
+
+   **b) Check issue-level entity properties (Figma for Jira app):**
+   - Figma designs added via the "Add Design" button are **not** stored in standard issue fields, remote links, or attachments. They are stored as **issue-level entity properties** — a separate data layer that the standard `GET /rest/api/3/issue/{key}` call does not return.
+   - The Atlassian MCP tools do not include a "get issue properties" endpoint, so you must hit the REST API directly using the Bash tool:
+     1. **List the issue's entity properties:**
+        ```bash
+        curl -s -H "Authorization: Bearer $ATLASSIAN_TOKEN" \
+          "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/"
+        ```
+        Or use the `gh` CLI or any available HTTP tool. The Cloud ID and auth credentials should match the Atlassian MCP configuration.
+     2. **Identify the Figma property key:** In the response, look for a property key related to Figma (the exact key name varies by installation, but typically contains "figma" or "design").
+     3. **Fetch the Figma URL data:**
+        ```bash
+        curl -s -H "Authorization: Bearer $ATLASSIAN_TOKEN" \
+          "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/<figma-property-key>"
+        ```
+        The response will contain the Figma design URL(s) and metadata.
+   - If the REST API calls fail (auth issues, no properties found, etc.), **continue** with the remaining information — this is a best-effort retrieval.
+
+   **c) Use retrieved Figma designs:**
+   - If Figma URLs are found from either source:
      - Use the Figma MCP tools to retrieve design information (component structure, layout, spacing, colors, typography, assets, etc.)
      - Use the retrieved design data as visual and structural context for the implementation plan
      - If the Figma MCP is not installed or the request fails, display the following message and **continue** with the remaining ticket information:
@@ -56,7 +80,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
        Please review the design manually and share relevant details if needed.
        Continuing with the available ticket information.
        ```
-   - If no Figma URLs are found, skip this step silently
+   - If no Figma URLs are found from either source, skip this step silently
 
 5. **Determine the conventional commit prefix:**
    - Based on all available ticket fields (issue type, summary, description, custom fields, etc.), deduce the most appropriate conventional commit prefix:

@@ -384,7 +384,8 @@
             <div class="instructions">
                 <h2>MCP Servers</h2>
                 <p>Some skills rely on MCP servers for browser automation. Install them scoped to local development ports for security:</p>
-                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Playwright</strong> <span style="opacity: 0.7;">(used by <code>/screenshots</code>)</span></p>
+                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Playwright</strong> <span style="opacity: 0.7;">(official Microsoft MCP server, used by <code>/screenshots</code>)</span></p>
+                <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">Uses stdio transport &mdash; the server runs as a local child process communicating over stdin/stdout, so no network port is opened and no inbound traffic is possible.</p>
                 <div class="command-wrapper" style="margin-bottom: 0;">
                     <div class="command-box">
                         <code id="mcp-playwright-command">claude mcp add --scope user playwright -- npx @playwright/mcp@latest --allowed-origins="http://localhost:6006,http://localhost:3000,http://localhost:5173"</code>
@@ -1480,12 +1481,13 @@ Take screenshots of components affected by recent changes, either from the runni
                         <div class="skill-title">
                             <h3>Address Ticket</h3>
                             <code>/address-ticket</code>
-                            <span class="skill-version">v1.0.0</span>
+                            <span class="skill-version">v1.1.0</span>
                         </div>
                         <p class="skill-description">
                             Read the JIRA ticket associated with the current branch and propose an implementation plan.
                             Requires JIRA MCP to be configured and a branch containing a JIRA ID
                             (e.g., <code>fix/PROJ-123</code>, <code>feat/MYAPP-456</code>, <code>PROJ-123-add-login</code>).
+                            Reads all available ticket fields (including custom fields like expected/actual behavior) for full context.
                             Automatically deduces the conventional commit prefix from the ticket content.
                             Uses Plan Mode to present the plan for developer approval before implementation.
                         </p>
@@ -1509,7 +1511,7 @@ Take screenshots of components affected by recent changes, either from the runni
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
-version: 1.0.0
+version: 1.1.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -1544,12 +1546,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
 3. **Fetch the JIRA ticket:**
    - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
-   - Fetch the following fields:
-     - **Summary** (title)
-     - **Description** (full body)
-     - **Comments** (all comments on the ticket)
-     - **Issue type** (Bug, Story, Task, etc.)
-     - **Priority**
+   - Fetch **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context &mdash; for example, bugs often have &ldquo;Expected Behavior&rdquo; and &ldquo;Actual Behavior&rdquo; fields, stories may have &ldquo;Acceptance Criteria&rdquo; fields, etc. Custom fields vary by project, so read whatever the ticket provides.
    - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
    - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
      ```
@@ -1559,7 +1556,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
 
 4. **Determine the conventional commit prefix:**
-   - Based on the ticket's **issue type**, **summary**, and **description**, deduce the most appropriate conventional commit prefix:
+   - Based on all available ticket fields (issue type, summary, description, custom fields, etc.), deduce the most appropriate conventional commit prefix:
      - `feat` &mdash; new functionality or feature
      - `fix` &mdash; bug fix
      - `docs` &mdash; documentation-only changes
@@ -1577,9 +1574,9 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
 5. **Analyze the ticket and codebase:**
-   - Read the ticket summary, description, and all comments thoroughly
+   - Read all available ticket fields thoroughly &mdash; summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
    - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
-   - Identify the key requirements, constraints, and acceptance criteria from the summary and description
+   - Identify the key requirements, constraints, and acceptance criteria from all available fields
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
      - Existing patterns and conventions in the affected areas
@@ -1598,10 +1595,10 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    Type: &lt;issue-type&gt; | Priority: &lt;priority&gt; | Commit prefix: &lt;conventional-commit-prefix&gt;
 
    ### Understanding
-   &lt;Brief summary of what the ticket is asking for, synthesized from the description and comments. Call out any ambiguities or conflicting information in the comments.&gt;
+   &lt;Brief summary of what the ticket is asking for, synthesized from all available fields and comments. Call out any ambiguities or conflicting information.&gt;
 
    ### Acceptance Criteria
-   &lt;List the acceptance criteria extracted from the ticket summary and description. If none are explicit, derive them from the description.&gt;
+   &lt;List the acceptance criteria extracted from the ticket fields. If none are explicit, derive them from the description and other fields.&gt;
 
    ### Implementation Plan
    1. &lt;Step 1 &mdash; what to do and which files to touch&gt;
@@ -1627,7 +1624,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
 7. **Handle edge cases:**
-   - If the ticket description is empty, note it and base the plan on the summary and comments only
+   - If the ticket description is empty, note it and base the plan on the summary, comments, and other available fields
    - If there are no comments, skip that section in the analysis
    - If the codebase exploration reveals the ticket may already be addressed, inform the developer
    - If the ticket is too vague to produce a concrete plan, list what is understood and what needs clarification</pre>

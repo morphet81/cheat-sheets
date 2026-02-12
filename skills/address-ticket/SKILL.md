@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.0.0
+version: 1.1.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -35,12 +35,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
 3. **Fetch the JIRA ticket:**
    - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
-   - Fetch the following fields:
-     - **Summary** (title)
-     - **Description** (full body)
-     - **Comments** (all comments on the ticket)
-     - **Issue type** (Bug, Story, Task, etc.)
-     - **Priority**
+   - Fetch **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context — for example, bugs often have "Expected Behavior" and "Actual Behavior" fields, stories may have "Acceptance Criteria" fields, etc. Custom fields vary by project, so read whatever the ticket provides.
    - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
    - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
      ```
@@ -50,7 +45,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
 
 4. **Determine the conventional commit prefix:**
-   - Based on the ticket's **issue type**, **summary**, and **description**, deduce the most appropriate conventional commit prefix:
+   - Based on all available ticket fields (issue type, summary, description, custom fields, etc.), deduce the most appropriate conventional commit prefix:
      - `feat` — new functionality or feature
      - `fix` — bug fix
      - `docs` — documentation-only changes
@@ -68,9 +63,9 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
 5. **Analyze the ticket and codebase:**
-   - Read the ticket summary, description, and all comments thoroughly
+   - Read all available ticket fields thoroughly — summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
    - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
-   - Identify the key requirements, constraints, and acceptance criteria from the summary and description
+   - Identify the key requirements, constraints, and acceptance criteria from all available fields
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
      - Existing patterns and conventions in the affected areas

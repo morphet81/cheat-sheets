@@ -1,5 +1,5 @@
 ---
-name: lokalise-translations
+name: localise
 version: 1.0.0
 description: Generate an HTML translation helper page for Lokalise. Use when the user provides English text (singular/plural) and wants translations across all 23 supported languages, rendered as an interactive HTML page with copy buttons. Triggers on phrases like "translate for Lokalise", "generate translations", "translation table", or when the user provides English strings and mentions languages/i18n/localization.
 argument-hint: "<english singular> [| <english plural>]"

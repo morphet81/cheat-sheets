@@ -1676,12 +1676,12 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
                     </div>
                 </div>
 
-                <!-- Lokalise Translations Skill -->
+                <!-- Localise Skill -->
                 <div class="skill-card">
                     <div class="skill-header">
                         <div class="skill-title">
-                            <h3>Lokalise Translations</h3>
-                            <code>/lokalise-translations</code>
+                            <h3>Localise</h3>
+                            <code>/localise</code>
                             <span class="skill-version">v1.0.0</span>
                         </div>
                         <p class="skill-description">
@@ -1692,8 +1692,8 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
                         <div class="skill-usage">
                             <strong>Usage:</strong>
                             <ul>
-                                <li><code>/lokalise-translations %{count} table selected | %{count} tables selected</code> &mdash; Generate translations with singular and plural forms</li>
-                                <li><code>/lokalise-translations Save changes</code> &mdash; Generate translations for a single string (no plural)</li>
+                                <li><code>/localise %{count} table selected | %{count} tables selected</code> &mdash; Generate translations with singular and plural forms</li>
+                                <li><code>/localise Save changes</code> &mdash; Generate translations for a single string (no plural)</li>
                             </ul>
                         </div>
                         <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
@@ -1704,12 +1704,12 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
                     <div class="collapsible-content">
                         <div class="file-container">
                             <div class="file-header">
-                                <span class="file-name">skills/lokalise-translations/SKILL.md</span>
-                                <button class="copy-btn" onclick="copyContent(this, 'lokalise-translations-content')">Copy</button>
+                                <span class="file-name">skills/localise/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'localise-content')">Copy</button>
                             </div>
                             <div class="file-content">
-                                <pre id="lokalise-translations-content">---
-name: lokalise-translations
+                                <pre id="localise-content">---
+name: localise
 version: 1.0.0
 description: Generate an HTML translation helper page for Lokalise. Use when the user provides English text (singular/plural) and wants translations across all 23 supported languages, rendered as an interactive HTML page with copy buttons. Triggers on phrases like &quot;translate for Lokalise&quot;, &quot;generate translations&quot;, &quot;translation table&quot;, or when the user provides English strings and mentions languages/i18n/localization.
 argument-hint: &quot;&lt;english singular&gt; [| &lt;english plural&gt;]&quot;

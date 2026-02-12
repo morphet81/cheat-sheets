@@ -1,6 +1,6 @@
 ---
 name: cleanup
-version: 1.1.0
+version: 1.2.0
 description: Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% coverage, then propose fixes for approval before committing.
 argument-hint: ""
 ---
@@ -14,11 +14,14 @@ Orchestrate a full cleanup of the current working directory: review changes, ver
 
 IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself first, then present the results and proposed fixes to the developer at the end. Do NOT ask the developer questions during the process — only at the final approval step.
 
+**SCOPE: Focus exclusively on changes introduced by the current branch.** Determine the base branch first (check `.agent` file for `baseBranch=<value>`, default to `main`). All review, coverage analysis, lint fixes, and test writing should target only the files and code changed between the base branch and the current state — do not flag or fix pre-existing issues in unchanged code.
+
 1. **Review uncommitted changes:**
    - Run `git status` to see all modified, staged, and untracked files
    - Run `git diff` to see unstaged changes and `git diff --cached` to see staged changes
+   - Also run `git diff <base-branch>...HEAD` to understand the full scope of changes on this branch
    - Read each changed file to understand the full context of modifications
-   - Produce a brief summary of all uncommitted changes grouped by category (new features, bug fixes, refactoring, etc.)
+   - Produce a brief summary of all changes on this branch grouped by category (new features, bug fixes, refactoring, etc.)
 
 2. **Verify new test cases:**
    - Invoke the `/verify-test-cases` skill to check all test files modified since last push
@@ -34,7 +37,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
      - Overall coverage percentage
      - Files and lines that are NOT covered
    - If coverage is **100%**: record as passing and move on
-   - If coverage is **below 100%**: for each uncovered file/line, write the missing test cases yourself to bring coverage to 100%. Add tests to existing test files or create new ones following the project's conventions
+   - If coverage is **below 100%**: for each uncovered file/line **in files changed by this branch**, write the missing test cases yourself to bring coverage to 100%. Add tests to existing test files or create new ones following the project's conventions. Do not write tests for uncovered lines in files that were not touched by this branch.
 
 4. **Fix lint issues:**
    - Auto-detect the project type by checking for configuration files:

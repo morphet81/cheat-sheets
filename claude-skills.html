@@ -418,7 +418,7 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v1.1.0</span>
+                            <span class="skill-version">v1.2.0</span>
                         </div>
                         <p class="skill-description">
                             Review changes introduced by the current branch compared to a base branch.
@@ -447,7 +447,7 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 1.1.0
+version: 1.2.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -472,12 +472,15 @@ Review changes introduced by the current branch compared to a base branch.
    - Run `git log <base-branch>..HEAD --oneline` to see commit history
 
 4. Review the changes and provide feedback on:
-   - **Code Quality**: Look for bugs, edge cases, error handling issues
-   - **Security**: Check for vulnerabilities (injection, XSS, secrets, etc.)
-   - **Performance**: Identify potential performance issues or inefficiencies
-   - **Best Practices**: Verify adherence to coding standards and patterns
-   - **Testing**: Note if tests are missing for new functionality
-   - **Documentation**: Check if changes need documentation updates
+
+   **IMPORTANT: Focus exclusively on the changes introduced by the current branch.** Only review code that was added or modified in the diff &mdash; do not flag pre-existing issues in surrounding code that was not changed. The goal is to review what this branch introduces, not to audit the entire codebase.
+
+   - **Code Quality**: Look for bugs, edge cases, error handling issues in the changed code
+   - **Security**: Check for vulnerabilities (injection, XSS, secrets, etc.) introduced by the changes
+   - **Performance**: Identify potential performance issues or inefficiencies in the new/modified code
+   - **Best Practices**: Verify adherence to coding standards and patterns in the changed code
+   - **Testing**: Note if tests are missing for new functionality introduced by this branch
+   - **Documentation**: Check if the changes need documentation updates
 
 5. Format the review as:
    - Start with a brief summary of what the changes do
@@ -821,7 +824,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
                         <div class="skill-title">
                             <h3>Cleanup</h3>
                             <code>/cleanup</code>
-                            <span class="skill-version">v1.1.0</span>
+                            <span class="skill-version">v1.2.0</span>
                         </div>
                         <p class="skill-description">
                             Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% test coverage, then propose fixes for approval before committing.
@@ -848,7 +851,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
                             <div class="file-content">
                                 <pre id="cleanup-content">---
 name: cleanup
-version: 1.1.0
+version: 1.2.0
 description: Review uncommitted changes, verify tests, fix lint and audit issues, ensure 100% coverage, then propose fixes for approval before committing.
 argument-hint: ""
 ---
@@ -862,11 +865,14 @@ Orchestrate a full cleanup of the current working directory: review changes, ver
 
 IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself first, then present the results and proposed fixes to the developer at the end. Do NOT ask the developer questions during the process &mdash; only at the final approval step.
 
+**SCOPE: Focus exclusively on changes introduced by the current branch.** Determine the base branch first (check `.agent` file for `baseBranch=&lt;value&gt;`, default to `main`). All review, coverage analysis, lint fixes, and test writing should target only the files and code changed between the base branch and the current state &mdash; do not flag or fix pre-existing issues in unchanged code.
+
 1. **Review uncommitted changes:**
    - Run `git status` to see all modified, staged, and untracked files
    - Run `git diff` to see unstaged changes and `git diff --cached` to see staged changes
+   - Also run `git diff &lt;base-branch&gt;...HEAD` to understand the full scope of changes on this branch
    - Read each changed file to understand the full context of modifications
-   - Produce a brief summary of all uncommitted changes grouped by category (new features, bug fixes, refactoring, etc.)
+   - Produce a brief summary of all changes on this branch grouped by category (new features, bug fixes, refactoring, etc.)
 
 2. **Verify new test cases:**
    - Invoke the `/verify-test-cases` skill to check all test files modified since last push
@@ -882,7 +888,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
      - Overall coverage percentage
      - Files and lines that are NOT covered
    - If coverage is **100%**: record as passing and move on
-   - If coverage is **below 100%**: for each uncovered file/line, write the missing test cases yourself to bring coverage to 100%. Add tests to existing test files or create new ones following the project's conventions
+   - If coverage is **below 100%**: for each uncovered file/line **in files changed by this branch**, write the missing test cases yourself to bring coverage to 100%. Add tests to existing test files or create new ones following the project's conventions. Do not write tests for uncovered lines in files that were not touched by this branch.
 
 4. **Fix lint issues:**
    - Auto-detect the project type by checking for configuration files:

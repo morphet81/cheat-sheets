@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 1.1.0
+version: 1.2.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -25,12 +25,15 @@ Review changes introduced by the current branch compared to a base branch.
    - Run `git log <base-branch>..HEAD --oneline` to see commit history
 
 4. Review the changes and provide feedback on:
-   - **Code Quality**: Look for bugs, edge cases, error handling issues
-   - **Security**: Check for vulnerabilities (injection, XSS, secrets, etc.)
-   - **Performance**: Identify potential performance issues or inefficiencies
-   - **Best Practices**: Verify adherence to coding standards and patterns
-   - **Testing**: Note if tests are missing for new functionality
-   - **Documentation**: Check if changes need documentation updates
+
+   **IMPORTANT: Focus exclusively on the changes introduced by the current branch.** Only review code that was added or modified in the diff — do not flag pre-existing issues in surrounding code that was not changed. The goal is to review what this branch introduces, not to audit the entire codebase.
+
+   - **Code Quality**: Look for bugs, edge cases, error handling issues in the changed code
+   - **Security**: Check for vulnerabilities (injection, XSS, secrets, etc.) introduced by the changes
+   - **Performance**: Identify potential performance issues or inefficiencies in the new/modified code
+   - **Best Practices**: Verify adherence to coding standards and patterns in the changed code
+   - **Testing**: Note if tests are missing for new functionality introduced by this branch
+   - **Documentation**: Check if the changes need documentation updates
 
 5. Format the review as:
    - Start with a brief summary of what the changes do

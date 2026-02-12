@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.1.0
+version: 1.2.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -44,7 +44,21 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      ```
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
 
-4. **Determine the conventional commit prefix:**
+4. **Retrieve Figma designs (if referenced):**
+   - Check all ticket fields (description, comments, attachments, custom fields) for Figma URLs (e.g., `https://www.figma.com/design/...`, `https://www.figma.com/file/...`, `https://www.figma.com/proto/...`)
+   - If Figma URLs are found:
+     - Use the Figma MCP tools to retrieve design information (component structure, layout, spacing, colors, typography, assets, etc.)
+     - Use the retrieved design data as visual and structural context for the implementation plan
+     - If the Figma MCP is not installed or the request fails, display the following message and **continue** with the remaining ticket information:
+       ```
+       ⚠️ Figma MCP is not available or failed to retrieve design data.
+       Figma reference found: <URL>
+       Please review the design manually and share relevant details if needed.
+       Continuing with the available ticket information.
+       ```
+   - If no Figma URLs are found, skip this step silently
+
+5. **Determine the conventional commit prefix:**
    - Based on all available ticket fields (issue type, summary, description, custom fields, etc.), deduce the most appropriate conventional commit prefix:
      - `feat` — new functionality or feature
      - `fix` — bug fix
@@ -62,7 +76,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If the branch name already contains a conventional commit prefix (e.g., `fix/PROJ-123`), use it as a hint but verify it makes sense given the ticket content
    - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
-5. **Analyze the ticket and codebase:**
+6. **Analyze the ticket and codebase:**
    - Read all available ticket fields thoroughly — summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
    - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
    - Identify the key requirements, constraints, and acceptance criteria from all available fields
@@ -72,7 +86,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      - Any related tests that exist or will need updating
    - Consider the conventional commit prefix as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
 
-6. **Propose an implementation plan using Plan Mode:**
+7. **Propose an implementation plan using Plan Mode:**
 
    Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
 
@@ -112,7 +126,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
    Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
-7. **Handle edge cases:**
+8. **Handle edge cases:**
    - If the ticket description is empty, note it and base the plan on the summary and comments only
    - If there are no comments, skip that section in the analysis
    - If the codebase exploration reveals the ticket may already be addressed, inform the developer

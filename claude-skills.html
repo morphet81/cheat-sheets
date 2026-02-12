@@ -1524,7 +1524,7 @@ Take screenshots of components affected by recent changes, either from the runni
                         <div class="skill-title">
                             <h3>Address Ticket</h3>
                             <code>/address-ticket</code>
-                            <span class="skill-version">v1.1.0</span>
+                            <span class="skill-version">v1.2.0</span>
                         </div>
                         <p class="skill-description">
                             Read the JIRA ticket associated with the current branch and propose an implementation plan.
@@ -1554,9 +1554,9 @@ Take screenshots of components affected by recent changes, either from the runni
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
-version: 1.1.0
+version: 1.2.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
-argument-hint: ""
+argument-hint: &quot;&quot;
 ---
 
 Read the JIRA ticket for the current branch and propose a plan to address it. The branch must contain a JIRA ID (e.g., `feat/PROJ-123`, `fix/PROJ-123`, or just `PROJ-123`).
@@ -1571,7 +1571,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - Check that a JIRA (or Atlassian) MCP server is present and shows as connected/authenticated
    - If JIRA MCP is NOT available or not authenticated, display the following error and STOP:
      ```
-     &#x274C; JIRA MCP is not configured or not authenticated.
+     ❌ JIRA MCP is not configured or not authenticated.
      This skill requires a working JIRA MCP integration.
      Please configure and authenticate the JIRA MCP server before using /address-ticket.
      ```
@@ -1582,42 +1582,56 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - The JIRA ID can appear anywhere in the branch name (e.g., `fix/PROJ-123`, `feat/PROJ-123`, `PROJ-123-some-description`, `feature/PROJ-123-add-login`)
    - If no JIRA ID is found in the branch name, display the following error and STOP:
      ```
-     &#x274C; No JIRA ID found in branch name: "&lt;current-branch&gt;"
+     ❌ No JIRA ID found in branch name: &quot;&lt;current-branch&gt;&quot;
      Expected a branch name containing a JIRA ID (e.g., PROJ-123).
      Examples: fix/PROJ-123, feat/MYAPP-456, PROJ-123-add-login
      ```
 
 3. **Fetch the JIRA ticket:**
    - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
-   - Fetch **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context &mdash; for example, bugs often have &ldquo;Expected Behavior&rdquo; and &ldquo;Actual Behavior&rdquo; fields, stories may have &ldquo;Acceptance Criteria&rdquo; fields, etc. Custom fields vary by project, so read whatever the ticket provides.
+   - Fetch **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context — for example, bugs often have &quot;Expected Behavior&quot; and &quot;Actual Behavior&quot; fields, stories may have &quot;Acceptance Criteria&quot; fields, etc. Custom fields vary by project, so read whatever the ticket provides.
    - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
    - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
      ```
-     &#x26A0;&#xFE0F; Could not analyze attachment: "&lt;filename&gt;" (&lt;reason: too large / unsupported format / etc.&gt;)
+     ⚠️ Could not analyze attachment: &quot;&lt;filename&gt;&quot; (&lt;reason: too large / unsupported format / etc.&gt;)
      Proceeding with the available information.
      ```
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
 
-4. **Determine the conventional commit prefix:**
+4. **Retrieve Figma designs (if referenced):**
+   - Check all ticket fields (description, comments, attachments, custom fields) for Figma URLs (e.g., `https://www.figma.com/design/...`, `https://www.figma.com/file/...`, `https://www.figma.com/proto/...`)
+   - If Figma URLs are found:
+     - Use the Figma MCP tools to retrieve design information (component structure, layout, spacing, colors, typography, assets, etc.)
+     - Use the retrieved design data as visual and structural context for the implementation plan
+     - If the Figma MCP is not installed or the request fails, display the following message and **continue** with the remaining ticket information:
+       ```
+       ⚠️ Figma MCP is not available or failed to retrieve design data.
+       Figma reference found: &lt;URL&gt;
+       Please review the design manually and share relevant details if needed.
+       Continuing with the available ticket information.
+       ```
+   - If no Figma URLs are found, skip this step silently
+
+5. **Determine the conventional commit prefix:**
    - Based on all available ticket fields (issue type, summary, description, custom fields, etc.), deduce the most appropriate conventional commit prefix:
-     - `feat` &mdash; new functionality or feature
-     - `fix` &mdash; bug fix
-     - `docs` &mdash; documentation-only changes
-     - `style` &mdash; code style changes (formatting, whitespace, etc.)
-     - `refactor` &mdash; code restructuring without behavior change
-     - `perf` &mdash; performance improvement
-     - `test` &mdash; adding or updating tests only
-     - `build` &mdash; build system or dependency changes
-     - `ci` &mdash; CI/CD configuration changes
-     - `chore` &mdash; maintenance tasks, tooling, etc.
-     - `revert` &mdash; reverting a previous change
-   - Use the issue type as the primary signal (e.g., Bug &rarr; `fix`, Story with new functionality &rarr; `feat`)
+     - `feat` — new functionality or feature
+     - `fix` — bug fix
+     - `docs` — documentation-only changes
+     - `style` — code style changes (formatting, whitespace, etc.)
+     - `refactor` — code restructuring without behavior change
+     - `perf` — performance improvement
+     - `test` — adding or updating tests only
+     - `build` — build system or dependency changes
+     - `ci` — CI/CD configuration changes
+     - `chore` — maintenance tasks, tooling, etc.
+     - `revert` — reverting a previous change
+   - Use the issue type as the primary signal (e.g., Bug → `fix`, Story with new functionality → `feat`)
    - Use the summary and description to refine when the issue type is ambiguous (e.g., a Task could be `refactor`, `chore`, `docs`, etc.)
    - If the branch name already contains a conventional commit prefix (e.g., `fix/PROJ-123`), use it as a hint but verify it makes sense given the ticket content
    - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
-5. **Analyze the ticket and codebase:**
-   - Read all available ticket fields thoroughly &mdash; summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
+6. **Analyze the ticket and codebase:**
+   - Read all available ticket fields thoroughly — summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
    - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
    - Identify the key requirements, constraints, and acceptance criteria from all available fields
    - Explore the codebase to understand:
@@ -1626,7 +1640,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      - Any related tests that exist or will need updating
    - Consider the conventional commit prefix as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
 
-6. **Propose an implementation plan using Plan Mode:**
+7. **Propose an implementation plan using Plan Mode:**
 
    Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
 
@@ -1638,23 +1652,23 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    Type: &lt;issue-type&gt; | Priority: &lt;priority&gt; | Commit prefix: &lt;conventional-commit-prefix&gt;
 
    ### Understanding
-   &lt;Brief summary of what the ticket is asking for, synthesized from all available fields and comments. Call out any ambiguities or conflicting information.&gt;
+   &lt;Brief summary of what the ticket is asking for, synthesized from the description and comments. Call out any ambiguities or conflicting information in the comments.&gt;
 
    ### Acceptance Criteria
-   &lt;List the acceptance criteria extracted from the ticket fields. If none are explicit, derive them from the description and other fields.&gt;
+   &lt;List the acceptance criteria extracted from the ticket summary and description. If none are explicit, derive them from the description.&gt;
 
    ### Implementation Plan
-   1. &lt;Step 1 &mdash; what to do and which files to touch&gt;
+   1. &lt;Step 1 — what to do and which files to touch&gt;
    2. &lt;Step 2&gt;
    3. ...
 
    ### Files to Modify
-   - `path/to/file.ts` &mdash; &lt;what changes are needed&gt;
-   - `path/to/other.ts` &mdash; &lt;what changes are needed&gt;
+   - `path/to/file.ts` — &lt;what changes are needed&gt;
+   - `path/to/other.ts` — &lt;what changes are needed&gt;
 
    ### New Files
-   - `path/to/new-file.ts` &mdash; &lt;purpose&gt;
-   (or "None" if no new files are needed)
+   - `path/to/new-file.ts` — &lt;purpose&gt;
+   (or &quot;None&quot; if no new files are needed)
 
    ### Tests
    - &lt;Which test files to update or create&gt;
@@ -1666,8 +1680,8 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
    Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
-7. **Handle edge cases:**
-   - If the ticket description is empty, note it and base the plan on the summary, comments, and other available fields
+8. **Handle edge cases:**
+   - If the ticket description is empty, note it and base the plan on the summary and comments only
    - If there are no comments, skip that section in the analysis
    - If the codebase exploration reveals the ticket may already be addressed, inform the developer
    - If the ticket is too vague to produce a concrete plan, list what is understood and what needs clarification</pre>

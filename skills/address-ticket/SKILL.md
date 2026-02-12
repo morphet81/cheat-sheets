@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.2.0
+version: 1.3.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -83,7 +83,8 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
      - Existing patterns and conventions in the affected areas
-     - Any related tests that exist or will need updating
+     - Any related unit tests that exist or will need updating
+     - The e2e test setup: look for Playwright config (`playwright.config.ts`), existing e2e test files, test directory structure, authentication patterns (storage state, global setup), and helper utilities
    - Consider the conventional commit prefix as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
 
 7. **Propose an implementation plan using Plan Mode:**
@@ -116,13 +117,27 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - `path/to/new-file.ts` — <purpose>
    (or "None" if no new files are needed)
 
-   ### Tests
-   - <Which test files to update or create>
+   ### Unit Tests
+   - <Which unit test files to update or create>
    - <What scenarios to cover>
+
+   ### E2E Tests
+   - <Which e2e test files to update or create>
+   - <User flows to cover: describe each flow as a sequence of actions and expected outcomes>
+   - <Authentication requirements for the test scenarios>
+   (or "None — changes are not user-facing" if e2e tests are not applicable)
 
    ### Risks / Open Questions
    - <Any uncertainties, assumptions, or things to clarify with the team>
    ```
+
+   **E2E test planning guidelines:**
+   - Include e2e tests for any user-facing changes: new pages, new UI flows, modified interactions, form submissions, navigation changes, etc.
+   - Follow the project's existing e2e conventions: file naming, directory structure, authentication approach, helper utilities, and assertion patterns
+   - Each e2e test should cover a complete user flow (e.g., "navigate to settings, change profile name, save, verify success toast and updated name")
+   - For bug fixes, add an e2e test that reproduces the original bug scenario and verifies it is resolved
+   - If the project has no e2e test setup, note this in the plan and propose setting one up as part of the implementation
+   - Skip e2e tests only for non-user-facing changes (e.g., pure refactors with no behavior change, CI config, build tooling)
 
    Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 

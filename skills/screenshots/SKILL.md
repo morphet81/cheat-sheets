@@ -1,7 +1,7 @@
 ---
 name: screenshots
-version: 1.2.0
-description: Take screenshots of components affected by recent changes, from the running app or Storybook. Supports custom instructions for pages to visit and actions to perform.
+version: 1.3.0
+description: Take screenshots of components affected by recent changes, from the running app or Storybook. Supports custom instructions for pages to visit and actions to perform. App screenshots are captured via temporary e2e tests.
 argument-hint: "[custom instructions]"
 ---
 
@@ -47,27 +47,38 @@ Take screenshots of components affected by recent changes, either from the runni
 
 6. **Custom instructions mode (when `$ARGUMENTS` is provided):**
 
-   This mode gives the developer full control over what to screenshot. The developer's instructions in `$ARGUMENTS` describe which pages to visit, which actions to perform (click buttons, fill forms, open menus, etc.), and when to take screenshots.
+   This mode gives the developer full control over what to screenshot. The developer's instructions in `$ARGUMENTS` describe which pages to visit, which actions to perform (click buttons, fill forms, open menus, etc.), and when to take screenshots. Screenshots are captured by writing a temporary e2e test, running it, then reverting the test file.
 
-   a. **Authenticate if needed:**
-      - Look for the project's e2e authentication setup (e.g., search for `auth.setup.ts`, `global-setup.ts`, or similar Playwright auth files)
-      - Use Playwright MCP browser tools to navigate to the app, fill in credentials, and authenticate
-      - If no auth setup is found, ask the developer if authentication is needed and how to proceed
+   a. **Explore the e2e test setup:**
+      - Search the codebase for existing e2e/Playwright test files (e.g., `*.e2e.ts`, `*.e2e-spec.ts`, files under `e2e/`, `tests/`, or a Playwright test directory)
+      - Identify the test runner config (e.g., `playwright.config.ts`) to understand the base URL, test directory, and any global setup (authentication, storage state, etc.)
+      - Note how existing tests handle authentication — reuse the same approach (e.g., `storageState`, global setup, `beforeEach` login)
 
-   b. **Follow the developer's instructions:**
-      - Parse and execute the instructions from `$ARGUMENTS` step by step
-      - Use Playwright MCP browser tools to:
-        - Navigate to the specified pages/routes
-        - Perform any requested actions (click elements, fill inputs, select options, hover, scroll, wait, etc.)
-        - Take a screenshot with `browser_take_screenshot` whenever the instructions indicate (explicitly or implicitly after completing an action sequence)
-      - Save all screenshots to the `.tmp/` directory (`mkdir -p .tmp` first)
-      - Use descriptive filenames based on the page/action context (e.g., `.tmp/settings-profile-tab.png`, `.tmp/dashboard-after-filter.png`)
+   b. **Write a temporary e2e test file:**
+      - Create a new test file in the project's e2e test directory following existing conventions (e.g., `e2e/tmp-screenshots.e2e.ts`)
+      - The test should:
+        - Handle authentication using the project's existing auth pattern
+        - Navigate to the specified pages/routes from `$ARGUMENTS`
+        - Perform any requested actions (click elements, fill inputs, select options, hover, scroll, etc.)
+        - **Wait for animations/transitions to complete** before taking each screenshot — use `page.waitForTimeout()` or wait for specific CSS states (e.g., wait for an element to have `opacity: 1`, or for a transition class to be removed, or for the element to be stable). For modals and overlays, ensure the opening animation has fully finished before capturing.
+        - Take screenshots using `page.screenshot({ path: '.tmp/<descriptive-name>.png' })` or `element.screenshot()` for targeted captures
+        - Use descriptive filenames based on the page/action context (e.g., `.tmp/settings-profile-tab.png`, `.tmp/modal-confirm-delete.png`)
+      - Create the `.tmp/` directory if it doesn't exist: `mkdir -p .tmp`
 
-   c. **View results:**
+   c. **Run the temporary test:**
+      - Run only the temporary test file using the project's Playwright test command (e.g., `npx playwright test e2e/tmp-screenshots.e2e.ts`)
+      - If the test fails, show the error, attempt to fix the test, and re-run. If it still fails after a reasonable attempt, show the error and continue to cleanup.
+
+   d. **View results:**
       - Use the `Read` tool to view each generated screenshot and present them to the developer
 
-   d. **Summary:**
-      - After all screenshots are taken, present a summary listing saved files and what each one shows
+   e. **Cleanup — revert the temporary test file:**
+      - Run `git restore <test-file-path>` to revert the temporary test file if it was an existing file that was modified
+      - If the test file was newly created, run `rm <test-file-path>` to delete it
+      - Verify with `git status` that no temporary test changes remain
+
+   f. **Summary:**
+      - After all screenshots are taken and cleanup is done, present a summary listing saved files and what each one shows
       - Then **STOP** (do not continue to the automatic detection steps)
 
 7. **For components using the Storybook path:**
@@ -105,18 +116,36 @@ Take screenshots of components affected by recent changes, either from the runni
 
 8. **For components using the App path:**
 
+   Screenshots from the running app are captured by writing a temporary e2e test, running it, then reverting the changes.
+
    a. **Ask the developer which URL/route to navigate to:**
       - Use `AskUserQuestion` to get the URL or route where the component is visible in the running app
+      - Also ask if any actions are needed to reach the desired state (e.g., "click the Edit button", "open the dropdown")
 
-   b. **Authenticate if needed:**
-      - Look for the project's e2e authentication setup (e.g., search for `auth.setup.ts`, `global-setup.ts`, or similar Playwright auth files)
-      - Use Playwright MCP browser tools to navigate to the app, fill in credentials, and authenticate
-      - If no auth setup is found, ask the developer if authentication is needed and how to proceed
+   b. **Explore the e2e test setup:**
+      - Search for existing e2e/Playwright test files and config (same as step 6a)
+      - Note how existing tests handle authentication — reuse the same approach
 
-   c. **Take the screenshot:**
-      - Use Playwright MCP browser tools for the app path: navigate to the URL, wait for the page to load, and take a screenshot
-      - Save screenshots to the `.tmp/` directory
+   c. **Write a temporary e2e test file:**
+      - Create a new test file in the project's e2e test directory (e.g., `e2e/tmp-screenshots.e2e.ts`)
+      - The test should:
+        - Handle authentication using the project's existing auth pattern
+        - Navigate to the specified URL/route
+        - Perform any actions needed to reach the desired component state
+        - **Wait for animations/transitions to complete** before capturing — use `page.waitForTimeout()` or wait for specific CSS states (e.g., `opacity: 1`, transition classes removed, element stable). For modals, dropdowns, and overlays, ensure the opening animation has fully finished.
+        - Take a screenshot using `page.screenshot({ path: '.tmp/<component-name>-app.png' })` or `element.screenshot()` for targeted captures
+      - Create the `.tmp/` directory if it doesn't exist: `mkdir -p .tmp`
+
+   d. **Run the temporary test:**
+      - Run only the temporary test file (e.g., `npx playwright test e2e/tmp-screenshots.e2e.ts`)
+      - If the test fails, show the error, attempt to fix, and re-run
+
+   e. **View results:**
       - Use the `Read` tool to view each generated screenshot and present them to the developer
+
+   f. **Cleanup — revert the temporary test file:**
+      - If the file was newly created, run `rm <test-file-path>`
+      - Verify with `git status` that no temporary test changes remain
 
 9. **Summary:**
    - After all screenshots are taken, present a summary:

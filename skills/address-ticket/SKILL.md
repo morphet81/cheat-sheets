@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.4.0
+version: 1.5.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -111,7 +111,45 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      - The e2e test setup: look for Playwright config (`playwright.config.ts`), existing e2e test files, test directory structure, authentication patterns (storage state, global setup), and helper utilities
    - Consider the conventional commit prefix as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
 
-7. **Propose an implementation plan using Plan Mode:**
+7. **Maintain the epic lore file:**
+
+   Before entering plan mode, check whether the current ticket belongs to a parent epic and maintain a lore file that captures accumulated context about the epic and its child tickets.
+
+   **a) Identify the parent epic:**
+   - From the ticket fields fetched in step 3, look for the parent epic link (e.g., the `Epic Link` field, `parent` field, or any field that references an epic).
+   - If the ticket has a parent epic, fetch the epic using the JIRA MCP to get its summary, description, and acceptance criteria.
+   - If the ticket has no parent epic, skip this step entirely.
+
+   **b) Check for an existing lore file:**
+   - Look for a `lore/` directory at the root of the project.
+   - Check if a lore file already exists for this epic. The file should be named after the epic key: `lore/<EPIC-KEY>.md` (e.g., `lore/PROJ-42.md`).
+
+   **c) Create or update the lore file:**
+   - **If no `lore/` directory exists**, create it.
+   - **If no lore file exists for this epic**, create `lore/<EPIC-KEY>.md` with the following structure:
+     ```markdown
+     # <EPIC-KEY>: <Epic Summary>
+
+     ## Epic Description
+     <Epic description and acceptance criteria from the epic ticket>
+
+     ## Tickets
+
+     ### <JIRA-ID>: <Ticket Summary>
+     - **Type:** <issue-type> | **Priority:** <priority>
+     - **Description:** <Brief summary of the ticket>
+     - **Acceptance Criteria:** <Key acceptance criteria>
+     ```
+   - **If a lore file already exists for this epic**, append a new entry under the `## Tickets` section for the current ticket:
+     ```markdown
+     ### <JIRA-ID>: <Ticket Summary>
+     - **Type:** <issue-type> | **Priority:** <priority>
+     - **Description:** <Brief summary of the ticket>
+     - **Acceptance Criteria:** <Key acceptance criteria>
+     ```
+   - The lore file serves as a living document that builds context as tickets in the epic are worked on. Each ticket entry should be concise but capture enough detail to understand the ticket's purpose within the broader epic.
+
+8. **Propose an implementation plan using Plan Mode:**
 
    Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
 
@@ -165,7 +203,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
    Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
-8. **Handle edge cases:**
+9. **Handle edge cases:**
    - If the ticket description is empty, note it and base the plan on the summary and comments only
    - If there are no comments, skip that section in the analysis
    - If the codebase exploration reveals the ticket may already be addressed, inform the developer

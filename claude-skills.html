@@ -399,7 +399,7 @@
                     </div>
                     <button class="copy-btn" onclick="copyContent(this, 'mcp-figma-command')">Copy</button>
                 </div>
-                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Atlassian (JIRA &amp; Confluence)</strong> <span style="opacity: 0.7;">(used by <code>/address-ticket</code>, <code>/setup-branch</code>, <code>/create-pr</code>)</span></p>
+                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Atlassian (JIRA &amp; Confluence)</strong> <span style="opacity: 0.7;">(used by <code>/address-ticket</code>, <code>/setup-branch</code>, <code>/create-pr</code>, <code>/create-ticket</code>)</span></p>
                 <div class="command-wrapper" style="margin-bottom: 0;">
                     <div class="command-box">
                         <code id="mcp-atlassian-command">claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/sse</code>
@@ -1307,6 +1307,183 @@ Push the current branch and create a GitHub pull request with title and descript
    - PR: https://github.com/org/repo/pull/42 (draft)
    - Title: fix: resolve null pointer in user lookup
    ```</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Ticket Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Create Ticket</h3>
+                            <code>/create-ticket</code>
+                            <span class="skill-version">v1.0.0</span>
+                        </div>
+                        <p class="skill-description">
+                            Create a JIRA ticket from developer instructions.
+                            Previews the ticket description before creation for review and editing.
+                            Supports attaching Figma design links via the Figma for Jira &quot;Add Design&quot; integration.
+                            Automatically infers issue type, structures the description, and determines the target project from the current branch.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/create-ticket &lt;description&gt;</code> &mdash; Create a JIRA ticket from the provided description</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/create-ticket/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'create-ticket-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="create-ticket-content">---
+name: create-ticket
+version: 1.0.0
+description: Create a JIRA ticket from developer instructions. Previews the ticket before creation. Supports attaching Figma design links via the Figma for Jira integration.
+argument-hint: &quot;&lt;description of the ticket&gt;&quot;
+---
+
+Create a JIRA ticket based on instructions provided by the developer. Shows a preview of the ticket before creating it. Supports attaching Figma design links.
+
+**Usage:**
+- `/create-ticket &lt;description&gt;` - Create a JIRA ticket from the provided description
+
+**Instructions:**
+
+1. **Validate that JIRA MCP is available:**
+   - Run `/mcp` to list the MCP servers available in the current context
+   - Check that a JIRA (or Atlassian) MCP server is present and shows as connected/authenticated
+   - If JIRA MCP is NOT available or not authenticated, display the following error and STOP:
+     ```
+     ❌ JIRA MCP is not configured or not authenticated.
+     This skill requires a working JIRA MCP integration.
+     Please configure and authenticate the JIRA MCP server before using /create-ticket.
+     ```
+
+2. **Determine the target project:**
+   - Check if the current branch contains a JIRA ID (pattern `[A-Z][A-Z0-9]+-[0-9]+`). If so, extract the project key from it (e.g., `PROJ` from `PROJ-123`).
+   - If no JIRA ID is found in the branch, use the JIRA MCP to list available projects and ask the developer to choose one using `AskUserQuestion`.
+
+3. **Parse the developer&#x27;s instructions from $ARGUMENTS:**
+   - The developer provides a free-text description of the ticket they want to create.
+   - Extract or infer the following from the instructions:
+     - **Summary**: A concise title for the ticket (one line, imperative mood)
+     - **Issue type**: Bug, Story, Task, Sub-task, etc. — infer from context (e.g., &quot;fix&quot; or &quot;broken&quot; suggests Bug, &quot;add&quot; or &quot;new&quot; suggests Story, etc.)
+     - **Description**: A detailed description in JIRA-compatible markdown
+     - **Priority**: If mentioned; otherwise omit (let JIRA use the default)
+     - **Parent epic or ticket**: If the developer mentions a parent epic or references a ticket to create a sub-task under
+     - **Figma URLs**: Any `https://www.figma.com/...` links included in the instructions
+   - If the instructions are too vague to produce a meaningful summary or description, use `AskUserQuestion` to ask for clarification.
+
+4. **Compose the ticket description:**
+   - Write a well-structured JIRA description based on the developer&#x27;s instructions.
+   - For **Bugs**, use this structure when applicable:
+     ```
+     ## Description
+     &lt;What is happening&gt;
+
+     ## Steps to Reproduce
+     1. &lt;Step 1&gt;
+     2. &lt;Step 2&gt;
+
+     ## Expected Behavior
+     &lt;What should happen&gt;
+
+     ## Actual Behavior
+     &lt;What happens instead&gt;
+     ```
+   - For **Stories/Tasks**, use this structure when applicable:
+     ```
+     ## Description
+     &lt;What needs to be done and why&gt;
+
+     ## Acceptance Criteria
+     - [ ] &lt;Criterion 1&gt;
+     - [ ] &lt;Criterion 2&gt;
+     ```
+   - Adapt the structure to the content — not every section is needed for every ticket. Keep it concise and relevant.
+
+5. **Preview the ticket:**
+   - Display a preview of the ticket to the developer for review before creating it:
+     ```
+     ## Ticket Preview
+
+     **Project:** PROJ
+     **Type:** Story
+     **Summary:** Add bulk export for reports
+     **Priority:** Medium (or &quot;Default&quot; if not specified)
+     **Parent:** PROJ-42 (if applicable, otherwise omit this line)
+
+     ### Description
+     &lt;The composed description from step 4&gt;
+
+     ### Figma Designs
+     - &lt;URL 1&gt;
+     - &lt;URL 2&gt;
+     (or omit this section if no Figma URLs)
+     ```
+   - Use `AskUserQuestion` to ask the developer to confirm or request changes:
+     - **&quot;Create ticket&quot;** — proceed with creation
+     - **&quot;Edit&quot;** — the developer provides corrections, go back to step 4 with the feedback
+   - Do NOT create the ticket until the developer confirms.
+
+6. **Create the ticket:**
+   - Use the JIRA MCP `createJiraIssue` tool to create the ticket with the confirmed details:
+     - `projectKey`: the project key from step 2
+     - `issueTypeName`: the issue type from step 3
+     - `summary`: the summary from step 3
+     - `description`: the description from step 4
+     - `parent`: the parent key if creating a sub-task
+   - If creation fails, display the error and STOP.
+
+7. **Attach Figma designs (if provided):**
+   - If the developer included Figma URLs in their instructions, attach them to the newly created ticket using the Figma for Jira &quot;Add Design&quot; mechanism.
+   - Figma designs attached via &quot;Add Design&quot; are stored as **issue-level entity properties**, not as standard fields or remote links. To set them via the REST API:
+     1. **Determine the Figma property key:** List the issue&#x27;s entity properties to check if a Figma property key already exists:
+        ```bash
+        curl -s -H &quot;Authorization: Bearer $ATLASSIAN_TOKEN&quot; \
+          &quot;https://&lt;site&gt;.atlassian.net/rest/api/3/issue/&lt;JIRA-ID&gt;/properties/&quot;
+        ```
+     2. **Set the Figma design property:** Use a PUT request to set the design link as an entity property. The property key and value format depend on the Figma for Jira app installation, but typically:
+        ```bash
+        curl -s -X PUT -H &quot;Authorization: Bearer $ATLASSIAN_TOKEN&quot; \
+          -H &quot;Content-Type: application/json&quot; \
+          &quot;https://&lt;site&gt;.atlassian.net/rest/api/3/issue/&lt;JIRA-ID&gt;/properties/&lt;figma-property-key&gt;&quot; \
+          -d &#x27;{&quot;figmaDesigns&quot;: [{&quot;url&quot;: &quot;&lt;figma-url&gt;&quot;, &quot;name&quot;: &quot;&lt;design-name&gt;&quot;}]}&#x27;
+        ```
+   - If the REST API calls fail (auth issues, property key unknown, etc.), fall back to including the Figma URLs as links in the ticket description and notify the developer:
+     ```
+     ⚠️ Could not attach Figma designs via the &quot;Add Design&quot; integration.
+     Figma URLs have been included in the ticket description instead.
+     You can manually attach them using the &quot;Add Design&quot; button in JIRA.
+     ```
+
+8. **Show success message:**
+
+   Display a summary with all relevant information:
+
+   ```
+   ## Ticket Created
+
+   - Key: PROJ-456
+   - Type: Story
+   - Summary: Add bulk export for reports
+   - URL: https://&lt;site&gt;.atlassian.net/browse/PROJ-456
+   - Figma: 2 design(s) attached (or &quot;None&quot; if no Figma URLs)
+   ```
+
+9. **Handle edge cases:**
+   - If `$ARGUMENTS` is empty, use `AskUserQuestion` to ask the developer to describe the ticket they want to create
+   - If the JIRA project has required custom fields that weren&#x27;t provided, display them and ask the developer to fill them in before retrying
+   - If the developer cancels at the preview step, display &quot;Ticket creation cancelled.&quot; and STOP</pre>
                             </div>
                         </div>
                     </div>

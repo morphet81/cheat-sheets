@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 1.2.0
+version: 1.3.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -39,6 +39,7 @@ Review changes introduced by the current branch compared to a base branch.
    - Start with a brief summary of what the changes do
    - List specific issues found with file paths and line references
    - Categorize feedback by severity: 🔴 Critical, 🟡 Warning, 🔵 Suggestion
+   - **Assign a sequential number to each finding** (e.g., #1, #2, #3) across all severity categories, so the developer can easily reference specific findings (e.g., "fix #3, dismiss #5")
    - End with an overall assessment and recommendation
 
 **Example output format:**
@@ -54,13 +55,15 @@ Brief description of what this branch introduces.
 ## Findings
 
 ### 🔴 Critical
-- **file.ts:42** - Description of critical issue
+- **#1** — **file.ts:42** - Description of critical issue
+- **#2** — **file.ts:58** - Description of another critical issue
 
 ### 🟡 Warnings
-- **other.ts:15** - Description of warning
+- **#3** — **other.ts:15** - Description of warning
 
 ### 🔵 Suggestions
-- **file.ts:78** - Suggestion for improvement
+- **#4** — **file.ts:78** - Suggestion for improvement
+- **#5** — **other.ts:90** - Another suggestion
 
 ## Overall Assessment
 Summary and recommendation (approve, request changes, etc.)

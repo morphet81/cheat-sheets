@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.7.0
+version: 1.8.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -155,20 +155,47 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
    **a) Detect availability:**
    - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
-   - If the value is not `1`, Claude Teams is not enabled — skip this step silently
+   - If the value is not `1`, Claude Teams is not enabled — skip this step silently and proceed to step 9
 
    **b) Ask the developer:**
    - If the environment variable is `1`, use `AskUserQuestion` to ask:
-     > Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will split independent implementation steps across multiple agents for faster execution.
+     > Claude Teams is available on this machine. Would you like to use a team of agents for this task? Teams mode will first collaborate to design the best approach, then parallelize the implementation.
    - Provide two options: **Yes — use Teams** and **No — single agent**
+   - If the developer declines, proceed to step 9 as usual
 
-   **c) Enable teams:**
-   - If the developer chooses to use Teams, note this decision internally. When implementation begins after plan approval, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent implementation steps (e.g., separate agents for source changes, unit tests, and e2e tests when they don't depend on each other)
-   - If the developer declines, proceed as usual with single-agent execution
+   **c) Teams planning phase — design the best approach:**
+
+   If the developer chooses Teams, use the `Task` tool to spawn a team of agents that collaborate on designing the approach **before** entering plan mode. The goal is to leverage multiple agents exploring different angles simultaneously to produce a higher-quality plan.
+
+   **For bugs (commit prefix `fix`):**
+   - Spawn 2-3 agents in parallel with `run_in_background: true`, each investigating a different candidate root cause or solution:
+     - **Agent 1 — Root cause investigation:** Trace the bug from the symptoms described in the ticket through the codebase. Identify the most likely root cause, the call chain involved, and where the fix should go.
+     - **Agent 2 — Alternative approach:** Explore a different angle — could the bug be caused by a different component? Is there a simpler fix at a higher level (e.g., input validation vs. deep logic fix)?
+     - **Agent 3 (optional, for complex bugs):** Look at related tests, recent changes to the affected area (`git log` on relevant files), and similar past bugs to see if there's a pattern.
+   - Wait for all agents to complete, then synthesize their findings into a single plan. Note which approach is recommended and why, mentioning alternatives that were considered.
+
+   **For features/stories/tasks (commit prefix `feat`, `refactor`, etc.):**
+   - Spawn 2-3 agents in parallel with `run_in_background: true`, each exploring a different aspect of the design:
+     - **Agent 1 — Architecture & approach:** Explore the codebase to understand existing patterns, determine the best architectural approach, and identify which modules/files need changes.
+     - **Agent 2 — Test strategy & edge cases:** Analyze what tests exist, what test patterns the project uses, identify edge cases and potential regressions, and outline the test plan.
+     - **Agent 3 (optional, for complex features):** Research related features in the codebase for consistency, check for reusable components/utilities, and identify integration points.
+   - Wait for all agents to complete, then synthesize their findings into a single cohesive plan.
+
+   **Synthesize the team's findings:**
+   - Collect the output from all agents
+   - Merge their insights into a unified understanding: best approach, files to modify, risks identified, test strategy
+   - Resolve any contradictions between agents (prefer the more thorough analysis)
+   - Use this synthesized knowledge as input for step 9 (plan mode)
+
+   **d) Remember Teams decision for implementation:**
+   - After the plan is approved by the developer in step 9, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent implementation steps (e.g., separate agents for source changes, unit tests, and e2e tests when they don't depend on each other)
+   - Wait for all agents to complete, then verify there are no conflicts between their changes
 
 9. **Propose an implementation plan using Plan Mode:**
 
    Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
+
+   If Teams was used in step 8c, incorporate the synthesized findings from the team into the plan. The plan should reference the approaches that were considered and explain why the recommended approach was chosen.
 
    Structure the plan as follows:
 

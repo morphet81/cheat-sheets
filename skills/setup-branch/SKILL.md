@@ -1,6 +1,6 @@
 ---
 name: setup-branch
-version: 1.3.0
+version: 1.4.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "<JIRA-ID or URL>"
 ---
@@ -54,8 +54,10 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
    - For **all other types** (Story, Task, Epic, Sub-task, etc.): branch name is `feat/<jira-id>` (e.g., `feat/proj-123`)
 
 5. **Ask which base branch to branch from:**
+   - Run `git branch --show-current` to get the current working directory's branch name
    - Use `AskUserQuestion` to ask the developer which branch to use as the base
-   - Default option should be `main`
+   - The first (default) option should be the current branch name (e.g., if you're on `develop`, suggest `develop`)
+   - If the current branch is different from `main`, include `main` as a second option
    - Let the developer type a different branch name via the "Other" option
 
 6. **Fetch the base branch from remote:**

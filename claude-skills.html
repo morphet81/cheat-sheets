@@ -1076,7 +1076,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                         <div class="skill-title">
                             <h3>Setup Branch</h3>
                             <code>/setup-branch</code>
-                            <span class="skill-version">v1.3.0</span>
+                            <span class="skill-version">v1.4.0</span>
                         </div>
                         <p class="skill-description">
                             Create a new branch and worktree from a JIRA ID or URL.
@@ -1106,7 +1106,7 @@ IMPORTANT: This is an autonomous workflow. Run ALL checks and fixes yourself fir
                             <div class="file-content">
                                 <pre id="setup-branch-content">---
 name: setup-branch
-version: 1.3.0
+version: 1.4.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "&lt;JIRA-ID or URL&gt;"
 ---
@@ -1160,9 +1160,11 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
    - For **all other types** (Story, Task, Epic, Sub-task, etc.): branch name is `feat/&lt;jira-id&gt;` (e.g., `feat/proj-123`)
 
 5. **Ask which base branch to branch from:**
+   - Run `git branch --show-current` to get the current working directory&#x27;s branch name
    - Use `AskUserQuestion` to ask the developer which branch to use as the base
-   - Default option should be `main`
-   - Let the developer type a different branch name via the "Other" option
+   - The first (default) option should be the current branch name (e.g., if you&#x27;re on `develop`, suggest `develop`)
+   - If the current branch is different from `main`, include `main` as a second option
+   - Let the developer type a different branch name via the &quot;Other&quot; option
 
 6. **Fetch the base branch from remote:**
    - Run `git fetch origin &lt;base-branch&gt;`

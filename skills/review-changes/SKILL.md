@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 1.3.0
+version: 1.4.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -13,18 +13,35 @@ Review changes introduced by the current branch compared to a base branch.
 
 **Instructions:**
 
-1. First, determine the base branch to compare against:
+1. **Check for Claude Teams:**
+
+   Before reviewing, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
+
+   **a) Detect availability:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
+   - If the value is not `1`, Claude Teams is not enabled — skip this step silently
+
+   **b) Ask the developer:**
+   - If the environment variable is `1`, use `AskUserQuestion` to ask:
+     > Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will review different files or review categories in parallel for faster execution.
+   - Provide two options: **Yes — use Teams** and **No — single agent**
+
+   **c) Enable teams:**
+   - If the developer chooses to use Teams, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent review tasks (e.g., separate agents reviewing different files or different review categories like security, performance, and code quality)
+   - If the developer declines, proceed as usual with single-agent execution
+
+2. First, determine the base branch to compare against:
    - If an argument is provided via $ARGUMENTS, use that as the base branch
    - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=<value>` line, use that value as the base branch
    - If no argument and no `.agent` file, default to `main`
 
-2. Get the current branch name and verify we're not on the base branch
+3. Get the current branch name and verify we're not on the base branch
 
-3. Gather the changes:
+4. Gather the changes:
    - Run `git diff <base-branch>...HEAD` to see all changes
    - Run `git log <base-branch>..HEAD --oneline` to see commit history
 
-4. Review the changes and provide feedback on:
+5. Review the changes and provide feedback on:
 
    **IMPORTANT: Focus exclusively on the changes introduced by the current branch.** Only review code that was added or modified in the diff — do not flag pre-existing issues in surrounding code that was not changed. The goal is to review what this branch introduces, not to audit the entire codebase.
 
@@ -35,7 +52,7 @@ Review changes introduced by the current branch compared to a base branch.
    - **Testing**: Note if tests are missing for new functionality introduced by this branch
    - **Documentation**: Check if the changes need documentation updates
 
-5. Format the review as:
+6. Format the review as:
    - Start with a brief summary of what the changes do
    - List specific issues found with file paths and line references
    - Categorize feedback by severity: 🔴 Critical, 🟡 Warning, 🔵 Suggestion

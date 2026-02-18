@@ -425,7 +425,7 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v1.3.0</span>
+                            <span class="skill-version">v1.4.0</span>
                         </div>
                         <p class="skill-description">
                             Review changes introduced by the current branch compared to a base branch.
@@ -454,7 +454,7 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 1.3.0
+version: 1.4.0
 description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
@@ -467,18 +467,35 @@ Review changes introduced by the current branch compared to a base branch.
 
 **Instructions:**
 
-1. First, determine the base branch to compare against:
+1. **Check for Claude Teams:**
+
+   Before reviewing, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
+
+   **a) Detect availability:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
+   - If the value is not `1`, Claude Teams is not enabled &mdash; skip this step silently
+
+   **b) Ask the developer:**
+   - If the environment variable is `1`, use `AskUserQuestion` to ask:
+     &gt; Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will review different files or review categories in parallel for faster execution.
+   - Provide two options: **Yes &mdash; use Teams** and **No &mdash; single agent**
+
+   **c) Enable teams:**
+   - If the developer chooses to use Teams, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent review tasks (e.g., separate agents reviewing different files or different review categories like security, performance, and code quality)
+   - If the developer declines, proceed as usual with single-agent execution
+
+2. First, determine the base branch to compare against:
    - If an argument is provided via $ARGUMENTS, use that as the base branch
    - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=&lt;value&gt;` line, use that value as the base branch
    - If no argument and no `.agent` file, default to `main`
 
-2. Get the current branch name and verify we're not on the base branch
+3. Get the current branch name and verify we&#x27;re not on the base branch
 
-3. Gather the changes:
-   - Run `git diff <base-branch>...HEAD` to see all changes
-   - Run `git log <base-branch>..HEAD --oneline` to see commit history
+4. Gather the changes:
+   - Run `git diff &lt;base-branch&gt;...HEAD` to see all changes
+   - Run `git log &lt;base-branch&gt;..HEAD --oneline` to see commit history
 
-4. Review the changes and provide feedback on:
+5. Review the changes and provide feedback on:
 
    **IMPORTANT: Focus exclusively on the changes introduced by the current branch.** Only review code that was added or modified in the diff &mdash; do not flag pre-existing issues in surrounding code that was not changed. The goal is to review what this branch introduces, not to audit the entire codebase.
 
@@ -489,7 +506,7 @@ Review changes introduced by the current branch compared to a base branch.
    - **Testing**: Note if tests are missing for new functionality introduced by this branch
    - **Documentation**: Check if the changes need documentation updates
 
-5. Format the review as:
+6. Format the review as:
    - Start with a brief summary of what the changes do
    - List specific issues found with file paths and line references
    - Categorize feedback by severity: 🔴 Critical, 🟡 Warning, 🔵 Suggestion
@@ -533,7 +550,7 @@ Summary and recommendation (approve, request changes, etc.)
                         <div class="skill-title">
                             <h3>Pre-Push</h3>
                             <code>/pre-push</code>
-                            <span class="skill-version">v1.0.0</span>
+                            <span class="skill-version">v1.1.0</span>
                         </div>
                         <p class="skill-description">
                             Run pre-push checks including tests and linting to ensure code is clean and ready to push.
@@ -560,7 +577,7 @@ Summary and recommendation (approve, request changes, etc.)
                             <div class="file-content">
                                 <pre id="pre-push-content">---
 name: pre-push
-version: 1.0.0
+version: 1.1.0
 description: Run pre-push checks including tests and linting to ensure code is clean and ready to push. Automatically detects project type and available scripts.
 argument-hint: ""
 ---
@@ -572,13 +589,30 @@ Run pre-push checks to ensure code quality before pushing to remote.
 
 **Instructions:**
 
-1. **Check for npm pre-push script:**
+1. **Check for Claude Teams:**
+
+   Before running checks, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
+
+   **a) Detect availability:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
+   - If the value is not `1`, Claude Teams is not enabled &mdash; skip this step silently
+
+   **b) Ask the developer:**
+   - If the environment variable is `1`, use `AskUserQuestion` to ask:
+     &gt; Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will run linting, testing, and build checks in parallel for faster execution.
+   - Provide two options: **Yes &mdash; use Teams** and **No &mdash; single agent**
+
+   **c) Enable teams:**
+   - If the developer chooses to use Teams, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent checks (e.g., separate agents for linting, testing, and building when they don&#x27;t depend on each other)
+   - If the developer declines, proceed as usual with single-agent execution
+
+2. **Check for npm pre-push script:**
    - Look for `package.json` in the current directory
    - If found, check if it has a `pre-push` script in the `scripts` section
    - If the script exists, run `npm run pre-push` and report the results
    - If successful, inform the user and STOP here
 
-2. **If no pre-push script exists, auto-detect project checks:**
+3. **If no pre-push script exists, auto-detect project checks:**
 
    a. **Identify project type:**
       - Check for `package.json` (Node.js/JavaScript/TypeScript project)
@@ -624,14 +658,14 @@ Run pre-push checks to ensure code quality before pushing to remote.
       - **Rust:** `cargo build`
       - **Go:** `go build ./...`
 
-3. **Report results:**
+4. **Report results:**
    - Provide a clear summary of all checks performed
    - Report pass/fail status for each check
    - If any checks fail, show the errors and suggest fixes
    - Include the commands that were run for transparency
    - If all checks pass, confirm the code is ready to push
 
-4. **Handle edge cases:**
+5. **Handle edge cases:**
    - If no tests or linting tools are detected, warn the user and ask if they want to proceed without checks
    - If commands fail due to missing dependencies, suggest installation commands
    - If in a monorepo or workspace, detect and handle appropriately
@@ -691,7 +725,7 @@ Error in src/components/Button.tsx:
                         <div class="skill-title">
                             <h3>Verify Test Cases</h3>
                             <code>/verify-test-cases</code>
-                            <span class="skill-version">v1.0.0</span>
+                            <span class="skill-version">v1.1.0</span>
                         </div>
                         <p class="skill-description">
                             Verify test cases in all test files modified since last push.
@@ -718,7 +752,7 @@ Error in src/components/Button.tsx:
                             <div class="file-content">
                                 <pre id="verify-test-cases-content">---
 name: verify-test-cases
-version: 1.0.0
+version: 1.1.0
 description: Verify test cases in all test files modified since last push. Checks that test cases make sense, have no duplications, and provide meaningful coverage.
 argument-hint: ""
 ---
@@ -730,7 +764,24 @@ Verify the quality and correctness of test cases in all test files modified sinc
 
 **Instructions:**
 
-1. **Identify modified test files since last push:**
+1. **Check for Claude Teams:**
+
+   Before analyzing test files, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
+
+   **a) Detect availability:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
+   - If the value is not `1`, Claude Teams is not enabled &mdash; skip this step silently
+
+   **b) Ask the developer:**
+   - If the environment variable is `1`, use `AskUserQuestion` to ask:
+     &gt; Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will analyze different test files in parallel for faster execution.
+   - Provide two options: **Yes &mdash; use Teams** and **No &mdash; single agent**
+
+   **c) Enable teams:**
+   - If the developer chooses to use Teams, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent test file analysis (e.g., separate agents analyzing different test files simultaneously)
+   - If the developer declines, proceed as usual with single-agent execution
+
+2. **Identify modified test files since last push:**
    - Run `git log --oneline @{push}..HEAD` to see unpushed commits (if this fails, fall back to `git diff --name-only origin/$(git branch --show-current)..HEAD`)
    - Run `git diff --name-only @{push}..HEAD` to get all files modified since last push (if this fails, fall back to `git diff --name-only origin/$(git branch --show-current)..HEAD`)
    - Filter for test files using common patterns:
@@ -741,11 +792,11 @@ Verify the quality and correctness of test cases in all test files modified sinc
      - Files under `__tests__/`, `test/`, `tests/`, `spec/` directories
    - If no test files were modified, inform the user and STOP
 
-2. **Read and analyze each test file:**
+3. **Read and analyze each test file:**
    - Read the full content of each modified test file
    - Also read the source file(s) being tested to understand the code under test
 
-3. **Verify test cases make sense:**
+4. **Verify test cases make sense:**
    For each test file, check that:
 
    a. **Test descriptions match behavior:**
@@ -768,9 +819,9 @@ Verify the quality and correctness of test cases in all test files modified sinc
 
    e. **Tests match the source code:**
       - Tests cover the actual function signatures and behavior
-      - Tests aren't testing stale or non-existent APIs
+      - Tests aren&#x27;t testing stale or non-existent APIs
 
-4. **Check for duplications:**
+5. **Check for duplications:**
    For each test file and across all modified test files:
 
    a. **Exact duplicates:**
@@ -785,7 +836,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
       - Multiple assertions in separate tests that check the same thing
       - Tests that are strict subsets of other tests
 
-5. **Report findings:**
+6. **Report findings:**
 
    Format the output as follows:
 
@@ -818,7 +869,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
 - Verdict: PASS / NEEDS ATTENTION
 ```
 
-6. **Handle edge cases:**
+7. **Handle edge cases:**
    - If there are no unpushed commits, inform the user and STOP
    - If modified files include both test and source files, use the source files for context but only report on the test files
    - If a test file imports from files you can't find, note it but continue analysis

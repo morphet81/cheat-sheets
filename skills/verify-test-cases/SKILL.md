@@ -1,6 +1,6 @@
 ---
 name: verify-test-cases
-version: 1.0.0
+version: 1.1.0
 description: Verify test cases in all test files modified since last push. Checks that test cases make sense, have no duplications, and provide meaningful coverage.
 argument-hint: ""
 ---
@@ -12,7 +12,24 @@ Verify the quality and correctness of test cases in all test files modified sinc
 
 **Instructions:**
 
-1. **Identify modified test files since last push:**
+1. **Check for Claude Teams:**
+
+   Before analyzing test files, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
+
+   **a) Detect availability:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
+   - If the value is not `1`, Claude Teams is not enabled — skip this step silently
+
+   **b) Ask the developer:**
+   - If the environment variable is `1`, use `AskUserQuestion` to ask:
+     > Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will analyze different test files in parallel for faster execution.
+   - Provide two options: **Yes — use Teams** and **No — single agent**
+
+   **c) Enable teams:**
+   - If the developer chooses to use Teams, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent test file analysis (e.g., separate agents analyzing different test files simultaneously)
+   - If the developer declines, proceed as usual with single-agent execution
+
+2. **Identify modified test files since last push:**
    - Run `git log --oneline @{push}..HEAD` to see unpushed commits (if this fails, fall back to `git diff --name-only origin/$(git branch --show-current)..HEAD`)
    - Run `git diff --name-only @{push}..HEAD` to get all files modified since last push (if this fails, fall back to `git diff --name-only origin/$(git branch --show-current)..HEAD`)
    - Filter for test files using common patterns:
@@ -23,11 +40,11 @@ Verify the quality and correctness of test cases in all test files modified sinc
      - Files under `__tests__/`, `test/`, `tests/`, `spec/` directories
    - If no test files were modified, inform the user and STOP
 
-2. **Read and analyze each test file:**
+3. **Read and analyze each test file:**
    - Read the full content of each modified test file
    - Also read the source file(s) being tested to understand the code under test
 
-3. **Verify test cases make sense:**
+4. **Verify test cases make sense:**
    For each test file, check that:
 
    a. **Test descriptions match behavior:**
@@ -52,7 +69,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
       - Tests cover the actual function signatures and behavior
       - Tests aren't testing stale or non-existent APIs
 
-4. **Check for duplications:**
+5. **Check for duplications:**
    For each test file and across all modified test files:
 
    a. **Exact duplicates:**
@@ -67,7 +84,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
       - Multiple assertions in separate tests that check the same thing
       - Tests that are strict subsets of other tests
 
-5. **Report findings:**
+6. **Report findings:**
 
    Format the output as follows:
 
@@ -100,7 +117,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
 - Verdict: PASS / NEEDS ATTENTION
 ```
 
-6. **Handle edge cases:**
+7. **Handle edge cases:**
    - If there are no unpushed commits, inform the user and STOP
    - If modified files include both test and source files, use the source files for context but only report on the test files
    - If a test file imports from files you can't find, note it but continue analysis

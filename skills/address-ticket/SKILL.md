@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.5.0
+version: 1.6.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -149,7 +149,24 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      ```
    - The lore file serves as a living document that builds context as tickets in the epic are worked on. Each ticket entry should be concise but capture enough detail to understand the ticket's purpose within the broader epic.
 
-8. **Propose an implementation plan using Plan Mode:**
+8. **Check for Claude Teams:**
+
+   Before entering plan mode, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
+
+   **a) Detect availability:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
+   - If the value is not `1`, Claude Teams is not enabled — skip this step silently
+
+   **b) Ask the developer:**
+   - If the environment variable is `1`, use `AskUserQuestion` to ask:
+     > Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will split independent implementation steps across multiple agents for faster execution.
+   - Provide two options: **Yes — use Teams** and **No — single agent**
+
+   **c) Enable teams:**
+   - If the developer chooses to use Teams, note this decision internally. When implementation begins after plan approval, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent implementation steps (e.g., separate agents for source changes, unit tests, and e2e tests when they don't depend on each other)
+   - If the developer declines, proceed as usual with single-agent execution
+
+9. **Propose an implementation plan using Plan Mode:**
 
    Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
 
@@ -203,7 +220,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
    Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
-9. **Handle edge cases:**
+10. **Handle edge cases:**
    - If the ticket description is empty, note it and base the plan on the summary and comments only
    - If there are no comments, skip that section in the analysis
    - If the codebase exploration reveals the ticket may already be addressed, inform the developer

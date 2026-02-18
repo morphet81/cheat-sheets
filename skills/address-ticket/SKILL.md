@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 1.6.0
+version: 1.7.0
 description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
 argument-hint: ""
 ---
@@ -220,7 +220,52 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
    Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
 
-10. **Handle edge cases:**
+10. **Suggest ticket description improvements:**
+
+    After the implementation is complete (code written, tests passing), compare the original ticket description with what was actually implemented and propose an improved description for documentation and tracking purposes.
+
+    **a) Analyze the gap:**
+    - Re-read the original ticket description (from step 3)
+    - Review the actual changes made: files modified, features implemented, bugs fixed, edge cases handled
+    - Identify discrepancies: was the scope broader or narrower than described? Were acceptance criteria missing or inaccurate? Were there undocumented requirements discovered during implementation?
+
+    **b) Draft an improved description:**
+    - Write a revised ticket description that accurately reflects what was implemented
+    - Preserve any useful original content (context, background, links, references)
+    - Add or improve:
+      - **Clear problem statement** or feature rationale
+      - **Acceptance criteria** that match the actual deliverables
+      - **Technical notes** on the approach taken (briefly — not a code review, just enough for future readers to understand the change)
+      - **Files/areas affected** (high-level, e.g., "Authentication module", "Settings page")
+    - Keep the tone consistent with existing ticket descriptions in the project
+
+    **c) Present to the developer:**
+    - Show the proposed description in a clear before/after format:
+      ```
+      ## Suggested Ticket Description Update
+
+      ### Current Description
+      > <original description, or "(empty)" if there was none>
+
+      ### Proposed Description
+      <new description>
+
+      ### What changed
+      - <bullet list of key differences>
+      ```
+    - Use `AskUserQuestion` to ask the developer:
+      > Would you like to update the JIRA ticket description with the proposed improvements?
+    - Options: **Yes — update the ticket**, **No — skip**
+
+    **d) Update the ticket (if approved):**
+    - If the developer approves, use the JIRA MCP tool to update the ticket's description field
+    - Confirm the update was successful:
+      ```
+      ✅ Ticket <JIRA-ID> description updated.
+      ```
+    - If the update fails, show the error and provide the proposed description as copyable text so the developer can update it manually
+
+11. **Handle edge cases:**
    - If the ticket description is empty, note it and base the plan on the summary and comments only
    - If there are no comments, skip that section in the analysis
    - If the codebase exploration reveals the ticket may already be addressed, inform the developer

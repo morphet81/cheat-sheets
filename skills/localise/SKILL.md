@@ -1,6 +1,6 @@
 ---
 name: localise
-version: 1.0.0
+version: 1.1.0
 description: Generate an HTML translation helper page for Lokalise. Use when the user provides English text (singular/plural) and wants translations across all 23 supported languages, rendered as an interactive HTML page with copy buttons. Triggers on phrases like "translate for Lokalise", "generate translations", "translation table", or when the user provides English strings and mentions languages/i18n/localization.
 argument-hint: "<english singular> [| <english plural>]"
 ---
@@ -533,6 +533,45 @@ In the `{DISPLAY}` content, wrap any `%{variable}` tokens with the yellow highli
 - Plain text (for `data-copy`): `%{count} tables selected`
 - Display HTML (for visible content): `<span class="var">%{count}</span> tables selected`
 
+## Markdown File
+
+In addition to the HTML file, generate a companion Markdown file containing all translations in a table format.
+
+### File Location
+
+Save the file to: `{working_directory}/.tmp/translations-{sanitized_key}.md`
+
+(Same directory and naming as the HTML file, but with `.md` extension.)
+
+### Markdown Structure
+
+The file MUST follow this exact structure:
+
+```markdown
+# Translations: `{KEY_NAME}`
+
+| # | Language | Code | Form | Translation |
+|---|----------|------|------|-------------|
+| 1 | English | en | one | %{count} table selected |
+| 1 | English | en | other | %{count} tables selected |
+| 2 | Arabic | ar | zero | ... |
+| 2 | Arabic | ar | one | ... |
+| 2 | Arabic | ar | two | ... |
+| 2 | Arabic | ar | few | ... |
+| 2 | Arabic | ar | many | ... |
+| 2 | Arabic | ar | other | ... |
+| 3 | Chinese (Simplified) | zh-CN | other | ... |
+...
+```
+
+**Rules:**
+- Languages appear in the same order as the HTML (1-23)
+- Each plural form gets its own row
+- The `#` column uses the same row number for all forms of a language (e.g., all Arabic forms are `2`)
+- The `Translation` column contains plain text (with `%{...}` variables preserved, no HTML markup)
+- For languages with a single form (`other` only), there is one row
+- For languages with multiple forms, each form gets a separate row in the order: zero, one, two, few, many, other (only the forms that apply to that language)
+
 ## Checklist Before Saving
 
 1. All 23 languages present in the exact order specified
@@ -543,5 +582,5 @@ In the `{DISPLAY}` content, wrap any `%{variable}` tokens with the yellow highli
 6. RTL class applied to Arabic and Hebrew rows
 7. Row numbers sequential 1-23
 8. Copy buttons on every translation row
-9. File saved to `.tmp/` folder
-10. File opened in default browser after generation
+9. Both HTML and Markdown files saved to `.tmp/` folder
+10. HTML file opened in default browser after generation

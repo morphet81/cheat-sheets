@@ -2599,6 +2599,234 @@ In the `{DISPLAY}` content, wrap any `%{variable}` tokens with the yellow highli
                     </div>
                 </div>
 
+                <!-- Address Comments Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Address Comments</h3>
+                            <code>/address-comments</code>
+                            <span class="skill-version">v1.0.0</span>
+                        </div>
+                        <p class="skill-description">
+                            Retrieve unresolved PR review comments from the current branch&#x27;s pull request,
+                            propose a plan to address each comment, and implement fixes after developer approval.
+                            Supports Claude Teams for parallel execution of independent comment fixes.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/address-comments</code> &mdash; Fetch and address unresolved PR comments for the current branch</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#x25B6;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/address-comments/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'address-comments-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="address-comments-content">---
+name: address-comments
+version: 1.0.0
+description: Retrieve unresolved PR review comments from the current branch&#x27;s pull request, propose a plan to address them, and optionally use Claude Teams for parallel execution.
+argument-hint: ""
+---
+
+Retrieve unresolved review comments from the current branch&#x27;s PR, analyze them, propose a plan to address each comment, and implement the fixes after developer approval.
+
+**Usage:**
+- `/address-comments` - Fetch and address unresolved PR comments for the current branch
+
+**Instructions:**
+
+1. **Check for Claude Teams:**
+
+   Before doing any work, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
+
+   **a) Detect availability:**
+   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
+   - If the value is not `1`, Claude Teams is not enabled &mdash; skip this step silently
+
+   **b) Ask the developer:**
+   - If the environment variable is `1`, use `AskUserQuestion` to ask:
+     &gt; Claude Teams is available on this machine. Would you like to enable parallel agents to address comments? Teams mode will assign independent comments to separate agents for faster execution.
+   - Provide two options: **Yes &mdash; use Teams** and **No &mdash; single agent**
+
+   **c) Remember the decision:**
+   - Store the developer&#x27;s choice internally for use in step 6
+
+2. **Identify the PR for the current branch:**
+   - Run `git branch --show-current` to get the current branch name
+   - Run `gh pr view --json number,title,url,state` to find the PR associated with the current branch
+   - If no PR exists for the current branch, display the following error and STOP:
+     ```
+     ❌ No pull request found for branch &quot;&lt;current-branch&gt;&quot;.
+     Please create a PR first, then run /address-comments.
+     ```
+   - If the PR is closed or merged, display a warning:
+     ```
+     ⚠️ PR #&lt;number&gt; is &lt;state&gt;. Comments may no longer be actionable.
+     ```
+     Then use `AskUserQuestion` to ask the developer if they want to continue anyway.
+
+3. **Retrieve unresolved review comments:**
+   - Run `gh api repos/{owner}/{repo}/pulls/{pr_number}/comments --paginate` to get all PR review comments
+   - Filter for unresolved comments: look at the `position` and `in_reply_to_id` fields to identify top-level comment threads
+   - Also run `gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews --paginate` to get review-level comments
+   - For each comment thread, determine if it is resolved or unresolved:
+     - Use `gh api graphql` if needed to check the `isResolved` status of review threads:
+       ```bash
+       gh api graphql -f query=&#x27;
+         query($owner: String!, $repo: String!, $pr: Int!) {
+           repository(owner: $owner, name: $repo) {
+             pullRequest(number: $pr) {
+               reviewThreads(first: 100) {
+                 nodes {
+                   isResolved
+                   comments(first: 10) {
+                     nodes {
+                       body
+                       path
+                       line
+                       author { login }
+                       createdAt
+                     }
+                   }
+                 }
+               }
+             }
+           }
+         }
+       &#x27; -f owner=&#x27;{owner}&#x27; -f repo=&#x27;{repo}&#x27; -F pr={pr_number}
+       ```
+   - Collect only **unresolved** threads with their:
+     - File path and line number
+     - Comment body (the full thread &mdash; original comment + replies)
+     - Author
+   - If there are no unresolved comments, inform the developer and STOP:
+     ```
+     ✅ No unresolved review comments on PR #&lt;number&gt;. Nothing to address!
+     ```
+
+4. **Analyze comments and the codebase:**
+   - For each unresolved comment thread:
+     - Read the referenced file and surrounding code to understand the context
+     - Understand what the reviewer is asking for (code change, question, suggestion, concern)
+     - Categorize the comment:
+       - **Code change** &mdash; reviewer wants specific code modifications
+       - **Question** &mdash; reviewer is asking for clarification (may need a reply, not a code change)
+       - **Suggestion** &mdash; reviewer suggests an improvement (optional but recommended)
+       - **Concern** &mdash; reviewer flags a potential issue that needs investigation
+   - Cross-reference related comments that touch the same file or area of code
+
+5. **Propose an implementation plan using Plan Mode:**
+
+   Use `EnterPlanMode` to switch to plan mode, then write the plan. This ensures the developer reviews and approves before any changes are made.
+
+   Structure the plan as follows:
+
+   ```
+   ## PR Comments: #&lt;pr-number&gt; &mdash; &lt;PR title&gt;
+   **Unresolved comments:** &lt;count&gt;
+
+   ### Comment #1 &mdash; `&lt;file&gt;:&lt;line&gt;` &mdash; @&lt;author&gt;
+   &gt; &lt;quoted comment body (abbreviated if long)&gt;
+
+   **Category:** Code change | Question | Suggestion | Concern
+   **Plan:** &lt;Brief description of how to address this comment&gt;
+   **Files:** `path/to/file.ts` &mdash; &lt;what changes are needed&gt;
+
+   ### Comment #2 &mdash; `&lt;file&gt;:&lt;line&gt;` &mdash; @&lt;author&gt;
+   &gt; &lt;quoted comment body&gt;
+
+   **Category:** Question
+   **Plan:** Reply to the reviewer explaining &lt;...&gt;. No code change needed.
+
+   ### Comment #3 &mdash; `&lt;file&gt;:&lt;line&gt;` &mdash; @&lt;author&gt;
+   &gt; &lt;quoted comment body&gt;
+
+   **Category:** Suggestion
+   **Plan:** &lt;Brief description of the improvement&gt;
+   **Files:** `path/to/file.ts` &mdash; &lt;what changes are needed&gt;
+
+   ...
+
+   ### Summary
+   - **Code changes:** &lt;N&gt; comments requiring code modifications
+   - **Replies only:** &lt;N&gt; comments that need a reply but no code change
+   - **Files affected:** &lt;list of unique files&gt;
+   ```
+
+   Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
+
+6. **Implement the approved plan:**
+
+   After the developer approves the plan:
+
+   **If Claude Teams is enabled (from step 1):**
+   - Group comments by independence: comments affecting different files or non-overlapping code regions can be addressed in parallel
+   - Use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent groups of comments
+   - Each agent should:
+     - Make the required code changes for its assigned comments
+     - Ensure changes don&#x27;t conflict with other agents&#x27; work
+   - Wait for all agents to complete, then verify there are no conflicts
+   - Handle comments requiring replies (questions) sequentially after code changes
+
+   **If Claude Teams is not enabled:**
+   - Address each comment sequentially in the order presented in the plan
+   - For code changes: modify the relevant files
+   - For questions: note the reply to be posted
+
+   **For all comment types:**
+   - **Code changes:** Make the modifications, ensuring they follow existing code patterns and conventions
+   - **Questions:** Draft a reply for the developer to review
+   - **Suggestions:** Implement the improvement as planned
+   - **Concerns:** Address the concern with appropriate code changes or explanations
+
+7. **Report results:**
+
+   After all comments are addressed, provide a summary:
+
+   ```
+   ## Comments Addressed
+
+   ### ✅ Code Changes Made
+   - **Comment #1** (`file.ts:42`) &mdash; &lt;brief description of change&gt;
+   - **Comment #3** (`other.ts:15`) &mdash; &lt;brief description of change&gt;
+
+   ### 💬 Replies Drafted
+   - **Comment #2** (`file.ts:78`) &mdash; &lt;draft reply for developer to review&gt;
+
+   ### Files Modified
+   - `path/to/file.ts`
+   - `path/to/other.ts`
+
+   ### Next Steps
+   - Review the changes and reply drafts
+   - Run tests to verify nothing is broken
+   - Push the changes and mark comment threads as resolved
+   ```
+
+8. **Handle edge cases:**
+   - If `gh` CLI is not installed or not authenticated, display an error and STOP:
+     ```
+     ❌ GitHub CLI (gh) is not installed or not authenticated.
+     Please install gh and run `gh auth login` before using /address-comments.
+     ```
+   - If a comment references a file that no longer exists, note it and skip
+   - If a comment references lines that have changed since the review, read the current file and adapt the fix to the current code
+   - If two comments conflict with each other (e.g., one says &quot;add X&quot; and another says &quot;don&#x27;t add X&quot;), flag the conflict in the plan and ask the developer to decide
+   - If a comment is ambiguous or unclear, include it in the plan with a note asking the developer for clarification</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

@@ -1,6 +1,6 @@
 ---
 name: create-pr
-version: 1.3.0
+version: 1.4.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -68,7 +68,25 @@ Push the current branch and create a GitHub pull request with title and descript
 6. **Push the branch:**
    - Run `git push -u origin <branch-name>`
    - If the branch is already up to date on the remote, that's fine — continue to the next step
-   - If the push fails for any other reason, show the error and **STOP**
+   - If the push fails due to a **pre-push hook** (look for signs like `husky`, `pre-push`, hook script output, or interactive prompts in the error output):
+
+     **a) Offer to bypass with `--no-verify`:**
+     - Use `AskUserQuestion` to ask the developer:
+       > The push was blocked by a pre-push hook. Would you like to bypass it with `--no-verify`?
+     - Options: **Yes — push with --no-verify** and **No — resolve the pre-push hook**
+
+     **b) If the developer chooses `--no-verify`:**
+     - Run `git push -u origin <branch-name> --no-verify`
+     - **IMPORTANT:** Force the PR to be created as a **draft** regardless of whether `--no-draft` was passed. Since pre-push checks were skipped, the PR should not be marked as ready for review.
+     - If this push also fails, show the error and **STOP**
+
+     **c) If the developer chooses to resolve the hook:**
+     - Show the full pre-push hook output to the developer so they can see what is being asked or what failed
+     - If the hook output contains a prompt or question (e.g., "Do you want to continue? [y/n]"), present the options to the developer using `AskUserQuestion` and use their answer to interact with the hook
+     - Re-run `git push -u origin <branch-name>` after resolving
+     - If the push still fails, show the error and **STOP**
+
+   - If the push fails for any other reason (not a pre-push hook), show the error and **STOP**
 
 7. **Create the pull request:**
    - Build the PR title using the commit prefix convention based on issue type, followed by a concise summary derived from the JIRA ticket summary:
@@ -79,7 +97,11 @@ Push the current branch and create a GitHub pull request with title and descript
      - Start with a `## Summary` section with a brief description based on the JIRA ticket description
      - Add a `## JIRA` section with a link to the ticket: `[PROJ-123](https://<site>.atlassian.net/browse/PROJ-123)`
    - Run the `gh pr create` command:
-     - Use `--draft` flag unless `--no-draft` was passed
+     - Use `--draft` flag unless `--no-draft` was passed. **Exception:** if the push in step 6 used `--no-verify`, always use `--draft` regardless of the `--no-draft` option, and inform the developer:
+       ```
+       ⚠️ PR created as draft because pre-push checks were skipped (--no-verify).
+       Mark it as ready for review after ensuring all checks pass.
+       ```
      - Use `--base <base-branch>` with the branch determined in step 5
      - Use a HEREDOC to pass the body
    - If PR creation fails, show the error and **STOP**

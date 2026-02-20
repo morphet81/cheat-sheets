@@ -1242,7 +1242,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                         <div class="skill-title">
                             <h3>Create PR</h3>
                             <code>/create-pr</code>
-                            <span class="skill-version">v1.4.0</span>
+                            <span class="skill-version">v1.5.0</span>
                         </div>
                         <p class="skill-description">
                             Push the current branch and create a GitHub pull request.
@@ -1271,7 +1271,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                             <div class="file-content">
                                 <pre id="create-pr-content">---
 name: create-pr
-version: 1.4.0
+version: 1.5.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -1337,6 +1337,15 @@ Push the current branch and create a GitHub pull request with title and descript
      - The developer can type a different branch name via the "Other" option if the PR targets a different base branch
 
 6. **Push the branch:**
+
+   The push strategy depends on whether the PR is a draft or ready for review:
+
+   **If creating a draft PR (no `--no-draft` option):**
+   - Run `git push -u origin &lt;branch-name&gt; --no-verify`
+   - Since this is a draft PR, pre-push checks can be skipped &mdash; they will run in CI and the developer will address any issues before marking the PR as ready
+   - If the push fails, show the error and **STOP**
+
+   **If creating a ready-for-review PR (`--no-draft` was passed):**
    - Run `git push -u origin &lt;branch-name&gt;`
    - If the branch is already up to date on the remote, that&#x27;s fine &mdash; continue to the next step
    - If the push fails due to a **pre-push hook** (look for signs like `husky`, `pre-push`, hook script output, or interactive prompts in the error output):
@@ -1348,7 +1357,7 @@ Push the current branch and create a GitHub pull request with title and descript
 
      **b) If the developer chooses `--no-verify`:**
      - Run `git push -u origin &lt;branch-name&gt; --no-verify`
-     - **IMPORTANT:** Force the PR to be created as a **draft** regardless of whether `--no-draft` was passed. Since pre-push checks were skipped, the PR should not be marked as ready for review.
+     - **IMPORTANT:** Force the PR to be created as a **draft** regardless of `--no-draft`. Since pre-push checks were skipped, the PR should not be marked as ready for review.
      - If this push also fails, show the error and **STOP**
 
      **c) If the developer chooses to resolve the hook:**
@@ -1368,7 +1377,7 @@ Push the current branch and create a GitHub pull request with title and descript
      - Start with a `## Summary` section with a brief description based on the JIRA ticket description
      - Add a `## JIRA` section with a link to the ticket: `[PROJ-123](https://&lt;site&gt;.atlassian.net/browse/PROJ-123)`
    - Run the `gh pr create` command:
-     - Use `--draft` flag unless `--no-draft` was passed. **Exception:** if the push in step 6 used `--no-verify`, always use `--draft` regardless of the `--no-draft` option, and inform the developer:
+     - Use `--draft` flag unless `--no-draft` was passed. **Exception:** if the push in step 6 used `--no-verify` to bypass a failed pre-push hook (ready-for-review path), always use `--draft` regardless of the `--no-draft` option, and inform the developer:
        ```
        ⚠️ PR created as draft because pre-push checks were skipped (--no-verify).
        Mark it as ready for review after ensuring all checks pass.

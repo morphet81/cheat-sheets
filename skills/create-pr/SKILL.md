@@ -1,6 +1,6 @@
 ---
 name: create-pr
-version: 1.4.0
+version: 1.5.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -66,6 +66,15 @@ Push the current branch and create a GitHub pull request with title and descript
      - The developer can type a different branch name via the "Other" option if the PR targets a different base branch
 
 6. **Push the branch:**
+
+   The push strategy depends on whether the PR is a draft or ready for review:
+
+   **If creating a draft PR (no `--no-draft` option):**
+   - Run `git push -u origin <branch-name> --no-verify`
+   - Since this is a draft PR, pre-push checks can be skipped — they will run in CI and the developer will address any issues before marking the PR as ready
+   - If the push fails, show the error and **STOP**
+
+   **If creating a ready-for-review PR (`--no-draft` was passed):**
    - Run `git push -u origin <branch-name>`
    - If the branch is already up to date on the remote, that's fine — continue to the next step
    - If the push fails due to a **pre-push hook** (look for signs like `husky`, `pre-push`, hook script output, or interactive prompts in the error output):
@@ -77,7 +86,7 @@ Push the current branch and create a GitHub pull request with title and descript
 
      **b) If the developer chooses `--no-verify`:**
      - Run `git push -u origin <branch-name> --no-verify`
-     - **IMPORTANT:** Force the PR to be created as a **draft** regardless of whether `--no-draft` was passed. Since pre-push checks were skipped, the PR should not be marked as ready for review.
+     - **IMPORTANT:** Force the PR to be created as a **draft** regardless of `--no-draft`. Since pre-push checks were skipped, the PR should not be marked as ready for review.
      - If this push also fails, show the error and **STOP**
 
      **c) If the developer chooses to resolve the hook:**

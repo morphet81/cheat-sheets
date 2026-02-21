@@ -11,6 +11,10 @@ REPO_OWNER="morphet81"
 REPO_NAME="cheat-sheets"
 BRANCH="main"
 SKILLS_DIR="$HOME/.claude/skills"
+GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+GLOBAL_INSTRUCTIONS_URL_PATH="global-instructions.md"
+INSTRUCTIONS_BEGIN_MARKER="<!-- BEGIN cheat-sheets-global-instructions -->"
+INSTRUCTIONS_END_MARKER="<!-- END cheat-sheets-global-instructions -->"
 GITHUB_RAW_BASE="https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/$BRANCH"
 GITHUB_API_BASE="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/contents"
 
@@ -143,6 +147,63 @@ while read -r SKILL_NAME; do
 
     echo ""
 done <<< "$SKILL_FOLDERS"
+
+# Install global instructions into ~/.claude/CLAUDE.md
+install_global_instructions() {
+    echo -e "${YELLOW}Installing global instructions...${NC}"
+
+    # Download the global instructions to a temp file
+    TEMP_INSTRUCTIONS=$(mktemp)
+    if ! curl -sL "$GITHUB_RAW_BASE/$GLOBAL_INSTRUCTIONS_URL_PATH" -o "$TEMP_INSTRUCTIONS" || [ ! -s "$TEMP_INSTRUCTIONS" ]; then
+        echo -e "${RED}  Error: Could not fetch global instructions.${NC}"
+        rm -f "$TEMP_INSTRUCTIONS"
+        return 1
+    fi
+
+    # Build the full block (markers + content) into a temp file
+    TEMP_BLOCK=$(mktemp)
+    {
+        echo "$INSTRUCTIONS_BEGIN_MARKER"
+        cat "$TEMP_INSTRUCTIONS"
+        echo "$INSTRUCTIONS_END_MARKER"
+    } > "$TEMP_BLOCK"
+
+    # Ensure ~/.claude directory exists
+    mkdir -p "$(dirname "$GLOBAL_CLAUDE_MD")"
+
+    if [ -f "$GLOBAL_CLAUDE_MD" ]; then
+        if grep -qF "$INSTRUCTIONS_BEGIN_MARKER" "$GLOBAL_CLAUDE_MD"; then
+            # Replace the existing block using awk
+            awk -v begin="$INSTRUCTIONS_BEGIN_MARKER" \
+                -v end="$INSTRUCTIONS_END_MARKER" \
+                -v block_file="$TEMP_BLOCK" '
+                $0 == begin {
+                    while ((getline line < block_file) > 0) print line
+                    skip = 1
+                    next
+                }
+                $0 == end { skip = 0; next }
+                !skip { print }
+            ' "$GLOBAL_CLAUDE_MD" > "${GLOBAL_CLAUDE_MD}.tmp"
+            mv "${GLOBAL_CLAUDE_MD}.tmp" "$GLOBAL_CLAUDE_MD"
+            echo -e "  ${YELLOW}UPDATED${NC} global instructions in $GLOBAL_CLAUDE_MD"
+        else
+            # Append the block (with a blank line separator)
+            echo "" >> "$GLOBAL_CLAUDE_MD"
+            cat "$TEMP_BLOCK" >> "$GLOBAL_CLAUDE_MD"
+            echo -e "  ${GREEN}NEW${NC} global instructions added to $GLOBAL_CLAUDE_MD"
+        fi
+    else
+        # Create the file with just the block
+        cat "$TEMP_BLOCK" > "$GLOBAL_CLAUDE_MD"
+        echo -e "  ${GREEN}NEW${NC} global instructions created at $GLOBAL_CLAUDE_MD"
+    fi
+
+    rm -f "$TEMP_INSTRUCTIONS" "$TEMP_BLOCK"
+    echo ""
+}
+
+install_global_instructions || true
 
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║   Installation complete!               ║${NC}"

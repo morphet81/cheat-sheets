@@ -1,0 +1,239 @@
+---
+name: release-review
+version: 1.0.0
+description: Compare two git tags or commits and analyze all changes for deployment readiness. Lists changes, identifies areas requiring careful testing, checks e2e coverage, and flags potential overlooked issues.
+argument-hint: "<base-ref> <target-ref>"
+---
+
+Compare two git tags or commits and produce a deployment readiness analysis. Lists everything that changed, identifies which aspects of the app need careful verification, checks whether e2e tests cover those areas, and flags potential issues that might have been overlooked.
+
+**Usage:**
+- `/release-review v1.2.0 v1.3.0` - Analyze changes between two tags
+- `/release-review abc1234 def5678` - Analyze changes between two commits
+- `/release-review v1.2.0 HEAD` - Analyze changes from a tag to current HEAD
+
+**Instructions:**
+
+1. **Parse arguments from $ARGUMENTS:**
+   - Expect exactly two arguments: `<base-ref>` and `<target-ref>`
+   - Both can be git tags, commit SHAs, branch names, or `HEAD`
+   - `<base-ref>` is the starting point (exclusive) — typically the last deployed version
+   - `<target-ref>` is the endpoint (inclusive) — typically the version about to be deployed
+   - If fewer than two arguments are provided, display the following message and **STOP**:
+     ```
+     ## Missing Arguments
+
+     Usage: /release-review <base-ref> <target-ref>
+
+     Examples:
+       /release-review v1.2.0 v1.3.0
+       /release-review abc1234 def5678
+       /release-review v1.2.0 HEAD
+     ```
+
+2. **Validate the references:**
+   - Run `git rev-parse --verify <base-ref>` and `git rev-parse --verify <target-ref>` to confirm both references exist
+   - If either reference is invalid, display the error and **STOP**:
+     ```
+     Invalid git reference: "<ref>"
+     Make sure the tag, commit, or branch exists locally. You may need to run `git fetch --tags` first.
+     ```
+
+3. **Gather all changes:**
+
+   Run the following git commands to build a complete picture of changes between the two references:
+
+   **a) Commit log:**
+   - Run `git log --oneline --no-merges <base-ref>..<target-ref>` to list all non-merge commits
+   - Run `git log --oneline --merges <base-ref>..<target-ref>` to list merge commits separately (these indicate PR merges and feature boundaries)
+
+   **b) File-level summary:**
+   - Run `git diff --stat <base-ref>..<target-ref>` to get the overall change statistics
+   - Run `git diff --name-status <base-ref>..<target-ref>` to categorize files as Added (A), Modified (M), Deleted (D), or Renamed (R)
+
+   **c) Full diff for analysis:**
+   - Run `git diff <base-ref>..<target-ref>` to get the full diff
+   - If the diff is very large, prioritize reading the most impactful files (new files, heavily modified files, config changes, migration files) and skim the rest
+
+4. **Inventory the changes:**
+
+   Organize all changes into a structured inventory, grouped by area of the application:
+
+   ```
+   ## Change Inventory: <base-ref> → <target-ref>
+
+   **Commits:** <N> (non-merge) + <N> (merges)
+   **Files changed:** <N> added, <N> modified, <N> deleted, <N> renamed
+
+   ### By Area
+
+   #### <Area 1> (e.g., Authentication, API, UI/Components, Database, etc.)
+   - `path/to/file.ts` — <brief description of change>
+   - `path/to/other.ts` — <brief description of change>
+
+   #### <Area 2>
+   - ...
+
+   ### Notable Changes
+   - <Highlight any particularly significant or risky changes>
+   - <New dependencies added or removed>
+   - <Database migrations>
+   - <Configuration changes (env vars, feature flags, etc.)>
+   - <API contract changes (new endpoints, modified request/response shapes, breaking changes)>
+   ```
+
+   **Grouping guidelines:**
+   - Group by functional area of the application, not by directory
+   - Identify cross-cutting changes that affect multiple areas
+   - Call out infrastructure changes separately (CI/CD, build config, deployment scripts)
+   - Flag any changes to shared utilities, types, or core modules that could have ripple effects
+
+5. **Analyze deployment risks and testing requirements:**
+
+   For each area of change, assess the risk and identify what must be verified before deployment:
+
+   ```
+   ## Deployment Readiness Analysis
+
+   ### Critical — Must verify before deploying
+   These changes carry the highest risk and must be manually or automatically verified.
+
+   **#1** — <Area/feature>
+   - **What changed:** <concise description>
+   - **Risk:** <why this is critical — data loss, auth bypass, breaking API, etc.>
+   - **Verify:** <specific things to test — exact user flows, API calls, edge cases>
+
+   **#2** — ...
+
+   ### Important — Should verify
+   These changes are significant but lower risk.
+
+   **#3** — <Area/feature>
+   - **What changed:** <concise description>
+   - **Risk:** <potential impact>
+   - **Verify:** <what to check>
+
+   ### Low Risk — Spot check
+   These changes are unlikely to cause issues but deserve a quick look.
+
+   **#4** — <Area/feature>
+   - **What changed:** <concise description>
+   - **Verify:** <quick check>
+
+   ### No Action Needed
+   - <List of changes that don't require verification: docs, comments, formatting, test-only changes, etc.>
+   ```
+
+   **Risk assessment criteria:**
+   - **Critical:** Auth/security changes, payment/billing, data migrations, breaking API changes, core business logic, shared infrastructure
+   - **Important:** New user-facing features, modified existing flows, dependency updates, config changes
+   - **Low risk:** UI tweaks, copy changes, logging improvements, non-critical bug fixes
+   - **No action:** Documentation, test-only changes, code comments, formatting
+
+6. **Check e2e test coverage:**
+
+   Verify whether the areas identified in step 5 are covered by existing e2e tests.
+
+   **a) Discover the e2e test setup:**
+   - Look for Playwright config (`playwright.config.ts`, `playwright.config.js`), Cypress config (`cypress.config.ts`, `cypress.json`), or other e2e frameworks
+   - Identify the e2e test directory structure and file patterns
+   - If no e2e test framework is found, note this and skip to step 7
+
+   **b) Map changes to e2e coverage:**
+   - For each Critical and Important item from step 5, search existing e2e test files for tests that exercise the affected functionality
+   - Look for test descriptions, route navigations, selector interactions, and API calls that match the changed areas
+   - Read relevant e2e test files to confirm they actually cover the scenarios that need verification
+
+   **c) Report coverage:**
+
+   ```
+   ## E2E Test Coverage
+
+   ### Covered
+   - **#1** (<Area>) — Covered by `e2e/tests/auth.spec.ts` (tests: "should login with valid credentials", "should reject expired tokens")
+   - **#3** (<Area>) — Covered by `e2e/tests/settings.spec.ts` (tests: "should update profile name")
+
+   ### Partially Covered
+   - **#2** (<Area>) — `e2e/tests/checkout.spec.ts` covers the happy path but does NOT test the new discount logic added in this release
+
+   ### Not Covered
+   - **#5** (<Area>) — No e2e tests found for this flow
+   - **#6** (<Area>) — E2e tests exist but are outdated (test references removed component)
+
+   ### Coverage Summary
+   - Critical items covered: <N>/<total>
+   - Important items covered: <N>/<total>
+   - Recommendation: <brief recommendation on whether e2e coverage is sufficient for a safe deployment>
+   ```
+
+7. **Flag potential overlooked issues:**
+
+   Look for patterns and risks that might not be obvious from the change inventory alone:
+
+   ```
+   ## Potential Overlooked Issues
+
+   ### Dependency & Compatibility
+   - <New/updated dependencies that might introduce breaking changes or vulnerabilities>
+   - <Peer dependency conflicts>
+   - <Node/runtime version requirements that changed>
+
+   ### Data & State
+   - <Database migrations that need to be run — and in what order>
+   - <Cache invalidation needed after deployment>
+   - <State schema changes that could break existing user sessions or stored data>
+   - <Background jobs or queues that need to be drained or restarted>
+
+   ### Configuration & Environment
+   - <New environment variables that must be set before deployment>
+   - <Feature flags that need to be toggled>
+   - <Third-party service configuration changes>
+
+   ### Cross-cutting Concerns
+   - <Changes to shared utilities/types that affect code outside the diff>
+   - <API contract changes that may break mobile or external consumers>
+   - <Timing or race condition risks from concurrent changes>
+   - <Rollback considerations — can this release be safely rolled back?>
+
+   ### Subtle Risks
+   - <Removed error handling or fallback behavior>
+   - <Changed default values that could affect existing users>
+   - <Renamed or removed public API methods that external code may depend on>
+   - <Performance implications of the changes (new queries, larger payloads, etc.)>
+   ```
+
+   Only include sections that are relevant — don't pad the report with speculative concerns. Each item should be grounded in something observed in the diff.
+
+8. **Present the final report:**
+
+   Combine all sections into a single report:
+
+   ```
+   ## Release Review: <base-ref> → <target-ref>
+
+   <Change Inventory from step 4>
+
+   <Deployment Readiness Analysis from step 5>
+
+   <E2E Test Coverage from step 6>
+
+   <Potential Overlooked Issues from step 7>
+
+   ## Verdict
+
+   **Deployment risk level:** Critical / High / Medium / Low
+   **E2E coverage:** Sufficient / Needs attention / Insufficient
+   **Recommendation:** <one-sentence summary — e.g., "Safe to deploy after verifying items #1 and #2" or "Recommend adding e2e tests for the new checkout flow before deploying">
+
+   ### Pre-deployment Checklist
+   - [ ] <Action item 1 — e.g., "Run database migration X">
+   - [ ] <Action item 2 — e.g., "Set ENV_VAR=value in production">
+   - [ ] <Action item 3 — e.g., "Verify auth flow end-to-end">
+   - [ ] <Action item 4 — e.g., "Notify mobile team of API change">
+   ```
+
+9. **Handle edge cases:**
+   - If there are no changes between the two references, display "No changes found between <base-ref> and <target-ref>." and STOP
+   - If the diff is extremely large (hundreds of files), focus on the most impactful changes and note that a full review was not feasible in a single pass
+   - If no e2e framework is detected, note it in the coverage section and recommend setting one up
+   - If the base ref is ahead of the target ref (reverse order), warn the developer and ask if they meant to swap the arguments

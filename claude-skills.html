@@ -3190,7 +3190,7 @@ Compare the JIRA ticket associated with the current branch against the actual ch
                             </ul>
                         </div>
                         <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
-                            <span class="arrow">▶</span>
+                            <span class="arrow">&#x25B6;</span>
                             <span>Show raw skill file</span>
                         </button>
                     </div>
@@ -3205,13 +3205,13 @@ Compare the JIRA ticket associated with the current branch against the actual ch
 name: team
 version: 1.0.0
 description: Set up a multi-agent team to implement a new functionality. Spawns a product owner, optional designers, developers, and testers based on the task. Provide a description of what to build.
-argument-hint: "&lt;task description&gt;"
+argument-hint: &quot;&lt;task description&gt;&quot;
 ---
 
 Assemble a multi-agent team and implement the functionality described in `$ARGUMENTS`.
 
 **Usage:**
-- `/team &lt;task description&gt;` — Spawn a full team and implement the described functionality
+- `/team &lt;task description&gt;` &mdash; Spawn a full team and implement the described functionality
 
 **Instructions:**
 
@@ -3219,17 +3219,17 @@ Assemble a multi-agent team and implement the functionality described in `$ARGUM
    - If `$ARGUMENTS` is empty, ask the user to describe the functionality to implement before continuing.
 
 2. **Assess the task to determine team composition:**
-   - Does the task involve any UI or user-facing interface? → include 1–2 designers
-   - How complex is the implementation? → 1 developer for simple tasks, up to 3 for complex ones
+   - Does the task involve any UI or user-facing interface? &rarr; include 1&ndash;2 designers
+   - How complex is the implementation? &rarr; 1 developer for simple tasks, up to 3 for complex ones
    - Always include at least 1 tester
 
 3. **Create the team** using `TeamCreate` with a short kebab-case name derived from the task (e.g. `user-auth`, `dashboard-filters`).
 
 4. **Create a task list** using `TaskCreate` to track deliverables for each role before spawning agents:
-   - One task for the product owner: "Write requirements and acceptance criteria"
-   - One task per designer (if applicable): "Design UI/UX for &lt;feature&gt;"
-   - One task per developer: "Implement &lt;feature area&gt;"
-   - One task per tester: "Write tests for &lt;feature&gt;"
+   - One task for the product owner: &quot;Write requirements and acceptance criteria&quot;
+   - One task per designer (if applicable): &quot;Design UI/UX for &lt;feature&gt;&quot;
+   - One task per developer: &quot;Implement &lt;feature area&gt;&quot;
+   - One task per tester: &quot;Write tests for &lt;feature&gt;&quot;
 
 5. **Spawn the Product Owner** using the Task tool (`subagent_type: general-purpose`):
    - Provide the full task description from `$ARGUMENTS` and the team name
@@ -3241,7 +3241,7 @@ Assemble a multi-agent team and implement the functionality described in `$ARGUM
 
 6. **Wait for the Product Owner** to finish before continuing.
 
-7. **If the task involves any UI**, spawn 1–2 Designers (`subagent_type: general-purpose`) in parallel:
+7. **If the task involves any UI**, spawn 1&ndash;2 Designers (`subagent_type: general-purpose`) in parallel:
    - Provide the team name and the PO&#x27;s requirements
    - Their job:
      - Design the UI/UX: component structure, layout, interactions, and any visual decisions
@@ -3250,7 +3250,7 @@ Assemble a multi-agent team and implement the functionality described in `$ARGUM
      - Message the team lead when done
    - Wait for all designers to finish before starting development.
 
-8. **Spawn 1–3 Developers** (`subagent_type: general-purpose`) based on complexity:
+8. **Spawn 1&ndash;3 Developers** (`subagent_type: general-purpose`) based on complexity:
    - Provide the team name, PO requirements, and design notes (if any)
    - If multiple developers are spawned, divide the work clearly (e.g. by layer: frontend/backend, or by feature area)
    - Their job:
@@ -3259,7 +3259,7 @@ Assemble a multi-agent team and implement the functionality described in `$ARGUM
      - Message the team lead when done
    - Wait for all developers to finish before starting testing.
 
-9. **Spawn 1–2 Testers** (`subagent_type: general-purpose`):
+9. **Spawn 1&ndash;2 Testers** (`subagent_type: general-purpose`):
    - Provide the team name, PO requirements, and a summary of what was implemented
    - Their job:
      - Test the implemented functionality manually and/or via automated tests
@@ -3277,6 +3277,283 @@ Assemble a multi-agent team and implement the functionality described in `$ARGUM
 11. **Shut down the team** gracefully:
     - Send a `shutdown_request` to each teammate via `SendMessage`
     - Once all have confirmed, call `TeamDelete`</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Release Review Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Release Review</h3>
+                            <code>/release-review</code>
+                            <span class="skill-version">v1.0.0</span>
+                        </div>
+                        <p class="skill-description">
+                            Compare two git tags or commits and analyze all changes for deployment readiness.
+                            Lists changes grouped by application area, identifies what needs careful testing before deploying,
+                            checks e2e coverage for critical areas, and flags potential overlooked issues.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/release-review v1.2.0 v1.3.0</code> &mdash; Analyze changes between two tags</li>
+                                <li><code>/release-review abc1234 def5678</code> &mdash; Analyze changes between two commits</li>
+                                <li><code>/release-review v1.2.0 HEAD</code> &mdash; Analyze changes from a tag to current HEAD</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#x25B6;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/release-review/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'release-review-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="release-review-content">---
+name: release-review
+version: 1.0.0
+description: Compare two git tags or commits and analyze all changes for deployment readiness. Lists changes, identifies areas requiring careful testing, checks e2e coverage, and flags potential overlooked issues.
+argument-hint: &quot;&lt;base-ref&gt; &lt;target-ref&gt;&quot;
+---
+
+Compare two git tags or commits and produce a deployment readiness analysis. Lists everything that changed, identifies which aspects of the app need careful verification, checks whether e2e tests cover those areas, and flags potential issues that might have been overlooked.
+
+**Usage:**
+- `/release-review v1.2.0 v1.3.0` - Analyze changes between two tags
+- `/release-review abc1234 def5678` - Analyze changes between two commits
+- `/release-review v1.2.0 HEAD` - Analyze changes from a tag to current HEAD
+
+**Instructions:**
+
+1. **Parse arguments from $ARGUMENTS:**
+   - Expect exactly two arguments: `&lt;base-ref&gt;` and `&lt;target-ref&gt;`
+   - Both can be git tags, commit SHAs, branch names, or `HEAD`
+   - `&lt;base-ref&gt;` is the starting point (exclusive) &mdash; typically the last deployed version
+   - `&lt;target-ref&gt;` is the endpoint (inclusive) &mdash; typically the version about to be deployed
+   - If fewer than two arguments are provided, display the following message and **STOP**:
+     ```
+     ## Missing Arguments
+
+     Usage: /release-review &lt;base-ref&gt; &lt;target-ref&gt;
+
+     Examples:
+       /release-review v1.2.0 v1.3.0
+       /release-review abc1234 def5678
+       /release-review v1.2.0 HEAD
+     ```
+
+2. **Validate the references:**
+   - Run `git rev-parse --verify &lt;base-ref&gt;` and `git rev-parse --verify &lt;target-ref&gt;` to confirm both references exist
+   - If either reference is invalid, display the error and **STOP**:
+     ```
+     Invalid git reference: &quot;&lt;ref&gt;&quot;
+     Make sure the tag, commit, or branch exists locally. You may need to run `git fetch --tags` first.
+     ```
+
+3. **Gather all changes:**
+
+   Run the following git commands to build a complete picture of changes between the two references:
+
+   **a) Commit log:**
+   - Run `git log --oneline --no-merges &lt;base-ref&gt;..&lt;target-ref&gt;` to list all non-merge commits
+   - Run `git log --oneline --merges &lt;base-ref&gt;..&lt;target-ref&gt;` to list merge commits separately (these indicate PR merges and feature boundaries)
+
+   **b) File-level summary:**
+   - Run `git diff --stat &lt;base-ref&gt;..&lt;target-ref&gt;` to get the overall change statistics
+   - Run `git diff --name-status &lt;base-ref&gt;..&lt;target-ref&gt;` to categorize files as Added (A), Modified (M), Deleted (D), or Renamed (R)
+
+   **c) Full diff for analysis:**
+   - Run `git diff &lt;base-ref&gt;..&lt;target-ref&gt;` to get the full diff
+   - If the diff is very large, prioritize reading the most impactful files (new files, heavily modified files, config changes, migration files) and skim the rest
+
+4. **Inventory the changes:**
+
+   Organize all changes into a structured inventory, grouped by area of the application:
+
+   ```
+   ## Change Inventory: &lt;base-ref&gt; &rarr; &lt;target-ref&gt;
+
+   **Commits:** &lt;N&gt; (non-merge) + &lt;N&gt; (merges)
+   **Files changed:** &lt;N&gt; added, &lt;N&gt; modified, &lt;N&gt; deleted, &lt;N&gt; renamed
+
+   ### By Area
+
+   #### &lt;Area 1&gt; (e.g., Authentication, API, UI/Components, Database, etc.)
+   - `path/to/file.ts` &mdash; &lt;brief description of change&gt;
+   - `path/to/other.ts` &mdash; &lt;brief description of change&gt;
+
+   #### &lt;Area 2&gt;
+   - ...
+
+   ### Notable Changes
+   - &lt;Highlight any particularly significant or risky changes&gt;
+   - &lt;New dependencies added or removed&gt;
+   - &lt;Database migrations&gt;
+   - &lt;Configuration changes (env vars, feature flags, etc.)&gt;
+   - &lt;API contract changes (new endpoints, modified request/response shapes, breaking changes)&gt;
+   ```
+
+   **Grouping guidelines:**
+   - Group by functional area of the application, not by directory
+   - Identify cross-cutting changes that affect multiple areas
+   - Call out infrastructure changes separately (CI/CD, build config, deployment scripts)
+   - Flag any changes to shared utilities, types, or core modules that could have ripple effects
+
+5. **Analyze deployment risks and testing requirements:**
+
+   For each area of change, assess the risk and identify what must be verified before deployment:
+
+   ```
+   ## Deployment Readiness Analysis
+
+   ### Critical &mdash; Must verify before deploying
+   These changes carry the highest risk and must be manually or automatically verified.
+
+   **#1** &mdash; &lt;Area/feature&gt;
+   - **What changed:** &lt;concise description&gt;
+   - **Risk:** &lt;why this is critical &mdash; data loss, auth bypass, breaking API, etc.&gt;
+   - **Verify:** &lt;specific things to test &mdash; exact user flows, API calls, edge cases&gt;
+
+   **#2** &mdash; ...
+
+   ### Important &mdash; Should verify
+   These changes are significant but lower risk.
+
+   **#3** &mdash; &lt;Area/feature&gt;
+   - **What changed:** &lt;concise description&gt;
+   - **Risk:** &lt;potential impact&gt;
+   - **Verify:** &lt;what to check&gt;
+
+   ### Low Risk &mdash; Spot check
+   These changes are unlikely to cause issues but deserve a quick look.
+
+   **#4** &mdash; &lt;Area/feature&gt;
+   - **What changed:** &lt;concise description&gt;
+   - **Verify:** &lt;quick check&gt;
+
+   ### No Action Needed
+   - &lt;List of changes that don&#x27;t require verification: docs, comments, formatting, test-only changes, etc.&gt;
+   ```
+
+   **Risk assessment criteria:**
+   - **Critical:** Auth/security changes, payment/billing, data migrations, breaking API changes, core business logic, shared infrastructure
+   - **Important:** New user-facing features, modified existing flows, dependency updates, config changes
+   - **Low risk:** UI tweaks, copy changes, logging improvements, non-critical bug fixes
+   - **No action:** Documentation, test-only changes, code comments, formatting
+
+6. **Check e2e test coverage:**
+
+   Verify whether the areas identified in step 5 are covered by existing e2e tests.
+
+   **a) Discover the e2e test setup:**
+   - Look for Playwright config (`playwright.config.ts`, `playwright.config.js`), Cypress config (`cypress.config.ts`, `cypress.json`), or other e2e frameworks
+   - Identify the e2e test directory structure and file patterns
+   - If no e2e test framework is found, note this and skip to step 7
+
+   **b) Map changes to e2e coverage:**
+   - For each Critical and Important item from step 5, search existing e2e test files for tests that exercise the affected functionality
+   - Look for test descriptions, route navigations, selector interactions, and API calls that match the changed areas
+   - Read relevant e2e test files to confirm they actually cover the scenarios that need verification
+
+   **c) Report coverage:**
+
+   ```
+   ## E2E Test Coverage
+
+   ### Covered
+   - **#1** (&lt;Area&gt;) &mdash; Covered by `e2e/tests/auth.spec.ts` (tests: &quot;should login with valid credentials&quot;, &quot;should reject expired tokens&quot;)
+   - **#3** (&lt;Area&gt;) &mdash; Covered by `e2e/tests/settings.spec.ts` (tests: &quot;should update profile name&quot;)
+
+   ### Partially Covered
+   - **#2** (&lt;Area&gt;) &mdash; `e2e/tests/checkout.spec.ts` covers the happy path but does NOT test the new discount logic added in this release
+
+   ### Not Covered
+   - **#5** (&lt;Area&gt;) &mdash; No e2e tests found for this flow
+   - **#6** (&lt;Area&gt;) &mdash; E2e tests exist but are outdated (test references removed component)
+
+   ### Coverage Summary
+   - Critical items covered: &lt;N&gt;/&lt;total&gt;
+   - Important items covered: &lt;N&gt;/&lt;total&gt;
+   - Recommendation: &lt;brief recommendation on whether e2e coverage is sufficient for a safe deployment&gt;
+   ```
+
+7. **Flag potential overlooked issues:**
+
+   Look for patterns and risks that might not be obvious from the change inventory alone:
+
+   ```
+   ## Potential Overlooked Issues
+
+   ### Dependency &amp; Compatibility
+   - &lt;New/updated dependencies that might introduce breaking changes or vulnerabilities&gt;
+   - &lt;Peer dependency conflicts&gt;
+   - &lt;Node/runtime version requirements that changed&gt;
+
+   ### Data &amp; State
+   - &lt;Database migrations that need to be run &mdash; and in what order&gt;
+   - &lt;Cache invalidation needed after deployment&gt;
+   - &lt;State schema changes that could break existing user sessions or stored data&gt;
+   - &lt;Background jobs or queues that need to be drained or restarted&gt;
+
+   ### Configuration &amp; Environment
+   - &lt;New environment variables that must be set before deployment&gt;
+   - &lt;Feature flags that need to be toggled&gt;
+   - &lt;Third-party service configuration changes&gt;
+
+   ### Cross-cutting Concerns
+   - &lt;Changes to shared utilities/types that affect code outside the diff&gt;
+   - &lt;API contract changes that may break mobile or external consumers&gt;
+   - &lt;Timing or race condition risks from concurrent changes&gt;
+   - &lt;Rollback considerations &mdash; can this release be safely rolled back?&gt;
+
+   ### Subtle Risks
+   - &lt;Removed error handling or fallback behavior&gt;
+   - &lt;Changed default values that could affect existing users&gt;
+   - &lt;Renamed or removed public API methods that external code may depend on&gt;
+   - &lt;Performance implications of the changes (new queries, larger payloads, etc.)&gt;
+   ```
+
+   Only include sections that are relevant &mdash; don&#x27;t pad the report with speculative concerns. Each item should be grounded in something observed in the diff.
+
+8. **Present the final report:**
+
+   Combine all sections into a single report:
+
+   ```
+   ## Release Review: &lt;base-ref&gt; &rarr; &lt;target-ref&gt;
+
+   &lt;Change Inventory from step 4&gt;
+
+   &lt;Deployment Readiness Analysis from step 5&gt;
+
+   &lt;E2E Test Coverage from step 6&gt;
+
+   &lt;Potential Overlooked Issues from step 7&gt;
+
+   ## Verdict
+
+   **Deployment risk level:** Critical / High / Medium / Low
+   **E2E coverage:** Sufficient / Needs attention / Insufficient
+   **Recommendation:** &lt;one-sentence summary &mdash; e.g., &quot;Safe to deploy after verifying items #1 and #2&quot; or &quot;Recommend adding e2e tests for the new checkout flow before deploying&quot;&gt;
+
+   ### Pre-deployment Checklist
+   - [ ] &lt;Action item 1 &mdash; e.g., &quot;Run database migration X&quot;&gt;
+   - [ ] &lt;Action item 2 &mdash; e.g., &quot;Set ENV_VAR=value in production&quot;&gt;
+   - [ ] &lt;Action item 3 &mdash; e.g., &quot;Verify auth flow end-to-end&quot;&gt;
+   - [ ] &lt;Action item 4 &mdash; e.g., &quot;Notify mobile team of API change&quot;&gt;
+   ```
+
+9. **Handle edge cases:**
+   - If there are no changes between the two references, display &quot;No changes found between &lt;base-ref&gt; and &lt;target-ref&gt;.&quot; and STOP
+   - If the diff is extremely large (hundreds of files), focus on the most impactful changes and note that a full review was not feasible in a single pass
+   - If no e2e framework is detected, note it in the coverage section and recommend setting one up
+   - If the base ref is ahead of the target ref (reverse order), warn the developer and ask if they meant to swap the arguments</pre>
                             </div>
                         </div>
                     </div>

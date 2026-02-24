@@ -1,16 +1,18 @@
 ---
 name: address-ticket
-version: 1.9.0
-description: Read the JIRA ticket associated with the current branch and propose an implementation plan. Requires JIRA MCP and a branch named with a JIRA ID.
+version: 2.0.0
+description: End-to-end ticket implementation. Reads the JIRA ticket, writes requirements and acceptance criteria for developer approval, spawns an implementation team, verifies tests, runs a code review with dedicated reviewers, and fixes any issues found.
 argument-hint: ""
 ---
 
-Read the JIRA ticket for the current branch and propose a plan to address it. The branch must contain a JIRA ID (e.g., `feat/PROJ-123`, `fix/PROJ-123`, or just `PROJ-123`).
+Read the JIRA ticket for the current branch and drive it to completion end-to-end: write requirements, get developer approval, implement with a team, verify tests, review changes, and fix any issues found.
 
 **Usage:**
-- `/address-ticket` - Analyze the JIRA ticket and propose an implementation plan
+- `/address-ticket` - Analyze the JIRA ticket and drive it to full implementation
 
 **Instructions:**
+
+## Phase 1 — Gather Context
 
 1. **Validate that JIRA MCP is available:**
    - Run `/mcp` to list the MCP servers available in the current context
@@ -100,10 +102,9 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If the branch name already contains a conventional commit prefix (e.g., `fix/PROJ-123`), use it as a hint but verify it makes sense given the ticket content
    - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
-6. **Analyze the ticket and codebase:**
+6. **Analyze the codebase:**
    - Read all available ticket fields thoroughly — summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
    - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
-   - Identify the key requirements, constraints, and acceptance criteria from all available fields
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
      - Existing patterns and conventions in the affected areas
@@ -113,7 +114,7 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
 7. **Maintain the epic lore file:**
 
-   Before entering plan mode, check whether the current ticket belongs to a parent epic and maintain a lore file that captures accumulated context about the epic and its child tickets.
+   Before writing requirements, check whether the current ticket belongs to a parent epic and maintain a lore file that captures accumulated context about the epic and its child tickets.
 
    **a) Identify the parent epic:**
    - From the ticket fields fetched in step 3, look for the parent epic link (e.g., the `Epic Link` field, `parent` field, or any field that references an epic).
@@ -149,11 +150,13 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
      ```
    - The lore file serves as a living document that builds context as tickets in the epic are worked on. Each ticket entry should be concise but capture enough detail to understand the ticket's purpose within the broader epic.
 
-8. **Propose an implementation plan using Plan Mode:**
+## Phase 2 — Requirements & Acceptance Criteria
 
-   Use `EnterPlanMode` to switch to plan mode, then write the implementation plan. This ensures the developer reviews and approves the plan before any code is written.
+8. **Write requirements and acceptance criteria:**
 
-   Structure the plan as follows:
+   Based on all the context gathered in Phase 1 (ticket fields, Figma designs, codebase analysis, epic lore), write a comprehensive requirements document. Use `EnterPlanMode` to present it for developer approval.
+
+   Structure the requirements as follows:
 
    ```
    ## Ticket: <JIRA-ID>
@@ -161,10 +164,17 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    Type: <issue-type> | Priority: <priority> | Commit prefix: <conventional-commit-prefix>
 
    ### Understanding
-   <Brief summary of what the ticket is asking for, synthesized from the description and comments. Call out any ambiguities or conflicting information in the comments.>
+   <Brief summary of what the ticket is asking for, synthesized from the description, comments, and Figma designs. Call out any ambiguities or conflicting information.>
+
+   ### Requirements
+   1. <Requirement 1 — clear, testable statement of what the implementation must do>
+   2. <Requirement 2>
+   3. ...
 
    ### Acceptance Criteria
-   <List the acceptance criteria extracted from the ticket summary and description. If none are explicit, derive them from the description.>
+   - [ ] <Criterion 1 — specific, verifiable condition that must be true when done>
+   - [ ] <Criterion 2>
+   - [ ] ...
 
    ### Implementation Plan
    1. <Step 1 — what to do and which files to touch>
@@ -201,11 +211,13 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If the project has no e2e test setup, note this in the plan and propose setting one up as part of the implementation
    - Skip e2e tests only for non-user-facing changes (e.g., pure refactors with no behavior change, CI config, build tooling)
 
-   Use `ExitPlanMode` to present the plan for developer approval. Only proceed with implementation after the developer approves.
+   Use `ExitPlanMode` to present the requirements for developer approval. **Do NOT proceed until the developer approves.** The developer may request changes — iterate on the requirements until they are satisfied.
 
-9. **Set up a team and implement the plan:**
+## Phase 3 — Implementation
 
-   Once the developer approves the plan, set up a team of agents to implement it. Use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent implementation steps.
+9. **Set up the implementation team:**
+
+   Once the developer approves the requirements, spawn a team of agents to implement them. Use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent work.
 
    **a) Partition the work:**
    - Analyze the approved plan and group implementation steps by independence — steps that touch different files or non-overlapping code regions can run in parallel
@@ -218,7 +230,8 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
 
    **b) Spawn the agents:**
    - Use the `Task` tool to spawn each agent with a clear, detailed prompt that includes:
-     - The specific steps from the approved plan that the agent is responsible for
+     - The full approved requirements and acceptance criteria
+     - The specific steps from the plan that the agent is responsible for
      - The relevant file paths and what changes are needed
      - The coding conventions and patterns observed in the codebase (from step 6)
      - Instructions to follow existing project patterns and not introduce new dependencies or abstractions unless specified in the plan
@@ -229,9 +242,103 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
    - If conflicts exist, resolve them by reading both agents' changes and merging them intelligently
    - Run a quick sanity check: ensure the codebase compiles/lints after all changes are applied
 
-10. **Suggest ticket description improvements:**
+## Phase 4 — Test Verification
 
-    After the implementation is complete (code written, tests passing), compare the original ticket description with what was actually implemented and propose an improved description for documentation and tracking purposes.
+10. **Verify test coverage and correctness:**
+
+    After the implementation team finishes, verify that all tests pass and coverage is adequate.
+
+    **a) Run the test suites:**
+    - Detect the project's test runner (e.g., `jest`, `vitest`, `pytest`, `go test`, etc.) and run the full unit test suite
+    - If e2e tests were written, run them too using the project's e2e runner (e.g., `npx playwright test`, `npx cypress run`)
+    - Capture the output of each test run
+
+    **b) Verify coverage against acceptance criteria:**
+    - Check that every acceptance criterion from step 8 has at least one test (unit or e2e) that verifies it
+    - Check that edge cases identified in the plan are covered
+    - Check that existing tests still pass (no regressions)
+
+    **c) If all tests pass and coverage is adequate:**
+    - Log the results and continue to Phase 5
+
+    **d) If tests fail or coverage is insufficient:**
+    - Spawn 1–2 tester agents using the `Task` tool with `run_in_background: true` to fix the issues:
+      - Provide the failing test output, the acceptance criteria, and the relevant source files
+      - Agent responsibilities:
+        - Fix failing tests (both test code bugs and source code bugs exposed by tests)
+        - Add missing test coverage for uncovered acceptance criteria
+        - Ensure e2e tests run end-to-end without flakiness
+    - Wait for the tester agents to complete
+    - Re-run the test suites to confirm everything passes
+    - If tests still fail after the fix attempt, report the remaining failures to the developer and continue to Phase 5 with a warning
+
+## Phase 5 — Code Review
+
+11. **Spawn review engineers:**
+
+    Spawn 2 review agents using the `Task` tool with `run_in_background: true`. Each reviewer independently analyzes the changes from a different angle.
+
+    **a) Reviewer 1 — Architecture & Security:**
+    - Prompt the agent with the full diff (`git diff <base-branch>...HEAD`), the approved requirements, and the acceptance criteria
+    - Review focus:
+      - **Architecture:** Does the implementation follow existing patterns? Are there unnecessary abstractions or over-engineering? Is the code organized logically? Are there tight couplings or hidden dependencies?
+      - **Security:** Are there injection vulnerabilities (SQL, XSS, command injection)? Is user input validated at system boundaries? Are authentication and authorization handled correctly? Are secrets or sensitive data exposed?
+      - **Error handling:** Are error paths handled gracefully? Are there unhandled promise rejections or uncaught exceptions? Are error messages helpful without leaking internals?
+      - **Performance:** Are there N+1 queries, unnecessary re-renders, memory leaks, or expensive operations in hot paths?
+    - Output a numbered list of findings with severity (Critical / Major / Minor / Nit)
+
+    **b) Reviewer 2 — Functionality & Completeness:**
+    - Prompt the agent with the same diff, requirements, and acceptance criteria
+    - Review focus:
+      - **Requirements coverage:** Does every requirement and acceptance criterion have a corresponding implementation? Is anything missing?
+      - **Feature correctness:** Are there logic errors, off-by-one mistakes, incorrect conditions, or wrong assumptions? Does the implementation handle edge cases?
+      - **API contracts:** If new or modified APIs are involved, are request/response shapes correct? Are error responses consistent with existing patterns? Is backward compatibility maintained where needed?
+      - **Test quality:** Do tests actually test what they claim? Are assertions meaningful? Are there missing test scenarios?
+    - Output a numbered list of findings with severity (Critical / Major / Minor / Nit)
+
+    **c) Collect and deduplicate findings:**
+    - Wait for both reviewers to complete
+    - Merge their findings into a single list, removing duplicates
+    - Group by severity: Critical → Major → Minor → Nit
+
+12. **Fix review findings:**
+
+    **a) Filter actionable findings:**
+    - Keep all Critical and Major findings — these must be fixed
+    - Keep Minor findings that are straightforward to fix
+    - Discard Nits unless they are trivially fixable (one-line changes)
+
+    **b) If there are actionable findings:**
+    - Present the findings to the developer:
+      ```
+      ## Code Review Findings
+
+      ### Critical
+      - **#1** — <description> (`file.ts:42`)
+      - **#2** — <description> (`other.ts:15`)
+
+      ### Major
+      - **#3** — <description> (`file.ts:78`)
+
+      ### Minor
+      - **#4** — <description> (`file.ts:90`)
+
+      Total: <N> findings to fix
+      ```
+    - Spawn a fix team (1–2 agents) using the `Task` tool with `run_in_background: true`:
+      - Provide the full list of findings, the relevant files, and the project conventions
+      - Each agent fixes their assigned findings
+      - Agents must also ensure their fixes don't break existing tests
+    - Wait for the fix team to complete
+    - Re-run the test suites to confirm nothing is broken after the fixes
+    - If tests fail after fixes, resolve the failures (spawn another agent if needed)
+
+    **c) If there are no actionable findings:**
+    - Log that the review passed cleanly and continue
+
+## Phase 6 — Report
+
+13. **Suggest ticket description improvements:**
 
     **a) Analyze the gap:**
     - Re-read the original ticket description (from step 3)
@@ -274,8 +381,44 @@ Read the JIRA ticket for the current branch and propose a plan to address it. Th
       ```
     - If the update fails, show the error and provide the proposed description as copyable text so the developer can update it manually
 
-11. **Handle edge cases:**
-   - If the ticket description is empty, note it and base the plan on the summary and comments only
-   - If there are no comments, skip that section in the analysis
-   - If the codebase exploration reveals the ticket may already be addressed, inform the developer
-   - If the ticket is too vague to produce a concrete plan, list what is understood and what needs clarification
+14. **Final report:**
+
+    Present a comprehensive summary to the developer:
+
+    ```
+    ## Ticket Complete: <JIRA-ID>
+    **<Summary>**
+
+    ### Implementation
+    - Files modified: <N>
+    - Files added: <N>
+    - Lines changed: +<additions> / -<deletions>
+
+    ### Tests
+    - Unit tests: <N> passing
+    - E2E tests: <N> passing
+    - Test fixes needed: <yes/no — how many rounds>
+
+    ### Code Review
+    - Findings: <N> critical, <N> major, <N> minor, <N> nits
+    - All actionable findings fixed: <yes/no>
+    - Remaining issues: <list, or "None">
+
+    ### Acceptance Criteria
+    - [ ] <Criterion 1> ✅
+    - [ ] <Criterion 2> ✅
+    - ...
+
+    ### Next Steps
+    - <Any remaining manual steps, e.g., "Run database migration", "Update env vars">
+    - <Any findings that were deferred or need human judgment>
+    ```
+
+15. **Handle edge cases:**
+    - If the ticket description is empty, note it and base the requirements on the summary and comments only
+    - If there are no comments, skip that section in the analysis
+    - If the codebase exploration reveals the ticket may already be addressed, inform the developer
+    - If the ticket is too vague to produce concrete requirements, list what is understood and what needs clarification
+    - If the project has no test framework, note it and skip Phase 4
+    - If the review team finds no issues, report a clean review and skip the fix step
+    - If fixes introduce new test failures in a loop (fix → fail → fix → fail), stop after 2 attempts and report the remaining issues to the developer

@@ -1,14 +1,14 @@
 ---
 name: address-ticket
-version: 2.0.0
-description: End-to-end ticket implementation. Reads the JIRA ticket, writes requirements and acceptance criteria for developer approval, spawns an implementation team, verifies tests, runs a code review with dedicated reviewers, and fixes any issues found.
+version: 3.0.0
+description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
 argument-hint: ""
 ---
 
-Read the JIRA ticket for the current branch and drive it to completion end-to-end: write requirements, get developer approval, implement with a team, verify tests, review changes, and fix any issues found.
+Read the JIRA ticket for the current branch and drive it to completion using a multi-agent team: a PO writes requirements, the developer approves, then designers, developers, and testers execute the work.
 
 **Usage:**
-- `/address-ticket` - Analyze the JIRA ticket and drive it to full implementation
+- `/address-ticket` - Retrieve the ticket and drive it to full implementation with a team
 
 **Instructions:**
 
@@ -19,7 +19,7 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
    - Check that a JIRA (or Atlassian) MCP server is present and shows as connected/authenticated
    - If JIRA MCP is NOT available or not authenticated, display the following error and STOP:
      ```
-     ❌ JIRA MCP is not configured or not authenticated.
+     JIRA MCP is not configured or not authenticated.
      This skill requires a working JIRA MCP integration.
      Please configure and authenticate the JIRA MCP server before using /address-ticket.
      ```
@@ -30,7 +30,7 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
    - The JIRA ID can appear anywhere in the branch name (e.g., `fix/PROJ-123`, `feat/PROJ-123`, `PROJ-123-some-description`, `feature/PROJ-123-add-login`)
    - If no JIRA ID is found in the branch name, display the following error and STOP:
      ```
-     ❌ No JIRA ID found in branch name: "<current-branch>"
+     No JIRA ID found in branch name: "<current-branch>"
      Expected a branch name containing a JIRA ID (e.g., PROJ-123).
      Examples: fix/PROJ-123, feat/MYAPP-456, PROJ-123-add-login
      ```
@@ -41,7 +41,7 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
    - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
    - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
      ```
-     ⚠️ Could not analyze attachment: "<filename>" (<reason: too large / unsupported format / etc.>)
+     Could not analyze attachment: "<filename>" (<reason: too large / unsupported format / etc.>)
      Proceeding with the available information.
      ```
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
@@ -74,10 +74,10 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
    **c) Use retrieved Figma designs:**
    - If Figma URLs are found from either source:
      - Use the Figma MCP tools to retrieve design information (component structure, layout, spacing, colors, typography, assets, etc.)
-     - Use the retrieved design data as visual and structural context for the implementation plan
+     - Store the retrieved design data — it will be passed to the PO and design agents
      - If the Figma MCP is not installed or the request fails, display the following message and **continue** with the remaining ticket information:
        ```
-       ⚠️ Figma MCP is not available or failed to retrieve design data.
+       Figma MCP is not available or failed to retrieve design data.
        Figma reference found: <URL>
        Please review the design manually and share relevant details if needed.
        Continuing with the available ticket information.
@@ -97,7 +97,7 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
      - `ci` — CI/CD configuration changes
      - `chore` — maintenance tasks, tooling, etc.
      - `revert` — reverting a previous change
-   - Use the issue type as the primary signal (e.g., Bug → `fix`, Story with new functionality → `feat`)
+   - Use the issue type as the primary signal (e.g., Bug -> `fix`, Story with new functionality -> `feat`)
    - Use the summary and description to refine when the issue type is ambiguous (e.g., a Task could be `refactor`, `chore`, `docs`, etc.)
    - If the branch name already contains a conventional commit prefix (e.g., `fix/PROJ-123`), use it as a hint but verify it makes sense given the ticket content
    - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
@@ -114,7 +114,7 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
 
 7. **Maintain the epic lore file:**
 
-   Before writing requirements, check whether the current ticket belongs to a parent epic and maintain a lore file that captures accumulated context about the epic and its child tickets.
+   Before spawning the PO, check whether the current ticket belongs to a parent epic and maintain a lore file that captures accumulated context about the epic and its child tickets.
 
    **a) Identify the parent epic:**
    - From the ticket fields fetched in step 3, look for the parent epic link (e.g., the `Epic Link` field, `parent` field, or any field that references an epic).
@@ -150,13 +150,20 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
      ```
    - The lore file serves as a living document that builds context as tickets in the epic are worked on. Each ticket entry should be concise but capture enough detail to understand the ticket's purpose within the broader epic.
 
-## Phase 2 — Requirements & Acceptance Criteria
+## Phase 2 — Product Owner: Requirements & Acceptance Criteria
 
-8. **Write requirements and acceptance criteria:**
+8. **Spawn the Product Owner agent:**
 
-   Based on all the context gathered in Phase 1 (ticket fields, Figma designs, codebase analysis, epic lore), write a comprehensive requirements document. Use `EnterPlanMode` to present it for developer approval.
+   Use the `Task` tool to spawn a PO agent. This agent is responsible for writing requirements and acceptance criteria based on all the context gathered in Phase 1. The PO agent does NOT implement anything — it only produces a requirements document.
 
-   Structure the requirements as follows:
+   **a) Prepare the PO prompt:**
+   - Pass the PO agent ALL context gathered so far:
+     - The full JIRA ticket content (summary, description, all fields, comments, attachments)
+     - Figma design data (if any was retrieved)
+     - The conventional commit prefix determined in step 5
+     - The codebase analysis from step 6 (relevant files, patterns, conventions, test setup)
+     - The epic lore file content (if any)
+   - Instruct the PO agent to produce a requirements document with the following structure:
 
    ```
    ## Ticket: <JIRA-ID>
@@ -175,6 +182,11 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
    - [ ] <Criterion 1 — specific, verifiable condition that must be true when done>
    - [ ] <Criterion 2>
    - [ ] ...
+
+   ### Design Needs
+   - <Whether this ticket requires design work: Yes / No>
+   - <If yes, what aspects need design: UI layout, component design, interaction patterns, etc.>
+   - <If Figma designs are provided, note which aspects are already covered and which need further design work>
 
    ### Implementation Plan
    1. <Step 1 — what to do and which files to touch>
@@ -203,155 +215,141 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
    - <Any uncertainties, assumptions, or things to clarify with the team>
    ```
 
-   **E2E test planning guidelines:**
+   **b) E2E test planning guidelines (include in the PO prompt):**
    - Include e2e tests for any user-facing changes: new pages, new UI flows, modified interactions, form submissions, navigation changes, etc.
    - Follow the project's existing e2e conventions: file naming, directory structure, authentication approach, helper utilities, and assertion patterns
    - Each e2e test should cover a complete user flow (e.g., "navigate to settings, change profile name, save, verify success toast and updated name")
    - For bug fixes, add an e2e test that reproduces the original bug scenario and verifies it is resolved
-   - If the project has no e2e test setup, note this in the plan and propose setting one up as part of the implementation
+   - If the project has no e2e test setup, note this and propose setting one up as part of the implementation
    - Skip e2e tests only for non-user-facing changes (e.g., pure refactors with no behavior change, CI config, build tooling)
 
-   Use `ExitPlanMode` to present the requirements for developer approval. **Do NOT proceed until the developer approves.** The developer may request changes — iterate on the requirements until they are satisfied.
+   **c) Wait for the PO agent to complete** and collect its requirements document.
 
-## Phase 3 — Implementation
+9. **Present requirements to the developer for approval:**
 
-9. **Set up the implementation team:**
+   Display the PO's requirements document to the developer and use `AskUserQuestion` to ask for confirmation:
+   > The Product Owner has prepared the following requirements and acceptance criteria. Would you like to proceed?
 
-   Once the developer approves the requirements, spawn a team of agents to implement them. Use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent work.
+   - **Approve** — requirements are accepted, proceed to Phase 3
+   - **Request changes** — the developer provides feedback on what to adjust
+   - **Reject** — stop the skill execution entirely
 
-   **a) Partition the work:**
-   - Analyze the approved plan and group implementation steps by independence — steps that touch different files or non-overlapping code regions can run in parallel
-   - Common partitioning:
-     - **Agent 1 — Source changes:** Implement the core code changes (new files, modified files)
-     - **Agent 2 — Unit tests:** Write or update unit tests for the changes
-     - **Agent 3 — E2E tests:** Write or update e2e tests (if applicable)
-   - If steps have dependencies (e.g., tests depend on the source changes being written first), run the dependent steps sequentially after their prerequisites complete
-   - For simple tickets where parallelization isn't beneficial (e.g., a single-file change with one test), a single agent is fine — don't force unnecessary splitting
+   **If "Request changes":**
+   - Use `AskUserQuestion` to collect the developer's feedback
+   - Re-spawn the PO agent with the original context plus the developer's feedback, asking it to revise the requirements
+   - Present the revised requirements again for approval
+   - Repeat until the developer approves or rejects
 
-   **b) Spawn the agents:**
-   - Use the `Task` tool to spawn each agent with a clear, detailed prompt that includes:
-     - The full approved requirements and acceptance criteria
-     - The specific steps from the plan that the agent is responsible for
-     - The relevant file paths and what changes are needed
-     - The coding conventions and patterns observed in the codebase (from step 6)
-     - Instructions to follow existing project patterns and not introduce new dependencies or abstractions unless specified in the plan
+   **Do NOT proceed to Phase 3 until the developer explicitly approves.**
 
-   **c) Monitor and merge:**
-   - Wait for all agents to complete
-   - Verify there are no conflicts between their changes (e.g., two agents modifying the same file)
-   - If conflicts exist, resolve them by reading both agents' changes and merging them intelligently
-   - Run a quick sanity check: ensure the codebase compiles/lints after all changes are applied
+## Phase 3 — Implementation Team
 
-## Phase 4 — Test Verification
+10. **Determine team composition:**
 
-10. **Verify test coverage and correctness:**
+    Based on the approved requirements, decide which agents to spawn. The team always includes developers and testers, but designers are conditional.
 
-    After the implementation team finishes, verify that all tests pass and coverage is adequate.
+    **a) Designers — conditional:**
+    - If the requirements' "Design Needs" section says **No**: skip designers entirely
+    - If the requirements say **Yes** and Figma designs were provided (step 4): spawn **1 designer** agent
+    - If the requirements say **Yes** and no Figma designs are available: spawn **2 designer** agents
 
-    **a) Run the test suites:**
-    - Detect the project's test runner (e.g., `jest`, `vitest`, `pytest`, `go test`, etc.) and run the full unit test suite
-    - If e2e tests were written, run them too using the project's e2e runner (e.g., `npx playwright test`, `npx cypress run`)
-    - Capture the output of each test run
+    **b) Developers:** always spawn **2–3 developer** agents (based on the scope of implementation work)
 
-    **b) Verify coverage against acceptance criteria:**
-    - Check that every acceptance criterion from step 8 has at least one test (unit or e2e) that verifies it
-    - Check that edge cases identified in the plan are covered
-    - Check that existing tests still pass (no regressions)
+    **c) Testers:** always spawn **1–2 tester** agents (based on the amount of test work needed)
 
-    **c) If all tests pass and coverage is adequate:**
-    - Log the results and continue to Phase 5
+11. **Spawn designer agents (if needed):**
 
-    **d) If tests fail or coverage is insufficient:**
-    - Spawn 1–2 tester agents using the `Task` tool with `run_in_background: true` to fix the issues:
-      - Provide the failing test output, the acceptance criteria, and the relevant source files
-      - Agent responsibilities:
-        - Fix failing tests (both test code bugs and source code bugs exposed by tests)
-        - Add missing test coverage for uncovered acceptance criteria
-        - Ensure e2e tests run end-to-end without flakiness
-    - Wait for the tester agents to complete
-    - Re-run the test suites to confirm everything passes
-    - If tests still fail after the fix attempt, report the remaining failures to the developer and continue to Phase 5 with a warning
+    If designers are needed, spawn them FIRST and wait for them to complete before spawning developers and testers.
 
-## Phase 5 — Code Review
+    **If 1 designer (Figma provided):**
+    - Spawn 1 designer agent using the `Task` tool
+    - The designer's job is to:
+      - Analyze the Figma designs retrieved in step 4
+      - Map Figma components to existing codebase components
+      - Produce a design implementation guide: which components to use, spacing, colors, typography, responsive behavior, interaction states
+      - Identify any gaps between the Figma designs and the requirements
+    - Pass the agent: the approved requirements, the Figma design data, and the codebase analysis (existing components, design system, styling patterns)
 
-11. **Spawn review engineers:**
+    **If 2 designers (no Figma):**
+    - Spawn 2 designer agents in parallel using the `Task` tool with `run_in_background: true`
+    - **Designer 1 — Research:** Explore the existing codebase for design patterns, component libraries, design tokens, and styling conventions. Document the design system already in use.
+    - **Designer 2 — Propose:** Based on the requirements and the existing design patterns (share Designer 1's findings once available), propose a UI/UX approach: component structure, layout, interactions, and visual design decisions.
+    - Wait for both to complete and consolidate their output into a design guide for the developers.
 
-    Spawn 2 review agents using the `Task` tool with `run_in_background: true`. Each reviewer independently analyzes the changes from a different angle.
+    **Pass the design guide to the developer and tester agents** as additional context.
 
-    **a) Reviewer 1 — Architecture & Security:**
-    - Prompt the agent with the full diff (`git diff <base-branch>...HEAD`), the approved requirements, and the acceptance criteria
-    - Review focus:
-      - **Architecture:** Does the implementation follow existing patterns? Are there unnecessary abstractions or over-engineering? Is the code organized logically? Are there tight couplings or hidden dependencies?
-      - **Security:** Are there injection vulnerabilities (SQL, XSS, command injection)? Is user input validated at system boundaries? Are authentication and authorization handled correctly? Are secrets or sensitive data exposed?
-      - **Error handling:** Are error paths handled gracefully? Are there unhandled promise rejections or uncaught exceptions? Are error messages helpful without leaking internals?
-      - **Performance:** Are there N+1 queries, unnecessary re-renders, memory leaks, or expensive operations in hot paths?
-    - Output a numbered list of findings with severity (Critical / Major / Minor / Nit)
+12. **Spawn developer agents:**
 
-    **b) Reviewer 2 — Functionality & Completeness:**
-    - Prompt the agent with the same diff, requirements, and acceptance criteria
-    - Review focus:
-      - **Requirements coverage:** Does every requirement and acceptance criterion have a corresponding implementation? Is anything missing?
-      - **Feature correctness:** Are there logic errors, off-by-one mistakes, incorrect conditions, or wrong assumptions? Does the implementation handle edge cases?
-      - **API contracts:** If new or modified APIs are involved, are request/response shapes correct? Are error responses consistent with existing patterns? Is backward compatibility maintained where needed?
-      - **Test quality:** Do tests actually test what they claim? Are assertions meaningful? Are there missing test scenarios?
-    - Output a numbered list of findings with severity (Critical / Major / Minor / Nit)
+    Spawn 2–3 developer agents using the `Task` tool with `run_in_background: true`. Partition the work so agents work on independent areas and don't conflict.
 
-    **c) Collect and deduplicate findings:**
-    - Wait for both reviewers to complete
-    - Merge their findings into a single list, removing duplicates
-    - Group by severity: Critical → Major → Minor → Nit
+    **a) Partition the work:**
+    - Analyze the approved implementation plan and group steps by independence — steps that touch different files or non-overlapping code regions can run in parallel
+    - Common partitioning strategies:
+      - By feature area (e.g., one agent does the API changes, another does the UI)
+      - By layer (e.g., one agent does the backend, another does the frontend)
+      - By file group (e.g., one agent modifies existing files, another creates new files)
+    - For simple tickets where parallelization isn't beneficial (e.g., a single-file change), 2 agents is fine — one implements, the other reviews and assists
+    - If steps have dependencies (e.g., one change depends on another being written first), note this and have the dependent agent wait
 
-12. **Fix review findings:**
+    **b) Prompt each developer agent with:**
+    - The full approved requirements and acceptance criteria
+    - Their specific assigned steps from the implementation plan
+    - The relevant file paths and what changes are needed
+    - The coding conventions and patterns observed in the codebase (from step 6)
+    - The design guide (if designers produced one)
+    - Instructions to follow existing project patterns and not introduce new dependencies or abstractions unless specified in the plan
 
-    **a) Filter actionable findings:**
-    - Keep all Critical and Major findings — these must be fixed
-    - Keep Minor findings that are straightforward to fix
-    - Discard Nits unless they are trivially fixable (one-line changes)
+    **c) Wait for all developer agents to complete.**
 
-    **b) If there are actionable findings:**
-    - Present the findings to the developer:
-      ```
-      ## Code Review Findings
+    **d) Merge and verify:**
+    - Check for conflicts between agents' changes (two agents modifying the same file)
+    - If conflicts exist, resolve them by reading both agents' changes and merging intelligently
+    - Run a quick sanity check: ensure the codebase compiles/lints after all changes are applied
 
-      ### Critical
-      - **#1** — <description> (`file.ts:42`)
-      - **#2** — <description> (`other.ts:15`)
+13. **Spawn tester agents:**
 
-      ### Major
-      - **#3** — <description> (`file.ts:78`)
+    Spawn 1–2 tester agents using the `Task` tool with `run_in_background: true`. Testers work AFTER developers so they can test the actual implementation.
 
-      ### Minor
-      - **#4** — <description> (`file.ts:90`)
+    **a) Prompt each tester agent with:**
+    - The full approved requirements and acceptance criteria
+    - The list of files modified/created by the developer agents
+    - The unit test and e2e test plans from the requirements
+    - The project's test setup, conventions, and existing test files
+    - Instructions to:
+      - Write or update unit tests covering the acceptance criteria
+      - Write or update e2e tests for user-facing changes (if applicable)
+      - Run the tests and fix any failures
+      - Ensure existing tests still pass (no regressions)
 
-      Total: <N> findings to fix
-      ```
-    - Spawn a fix team (1–2 agents) using the `Task` tool with `run_in_background: true`:
-      - Provide the full list of findings, the relevant files, and the project conventions
-      - Each agent fixes their assigned findings
-      - Agents must also ensure their fixes don't break existing tests
-    - Wait for the fix team to complete
-    - Re-run the test suites to confirm nothing is broken after the fixes
-    - If tests fail after fixes, resolve the failures (spawn another agent if needed)
+    **b) Wait for all tester agents to complete.**
 
-    **c) If there are no actionable findings:**
-    - Log that the review passed cleanly and continue
+    **c) Verify test results:**
+    - Run the full test suite (unit + e2e if applicable) to confirm everything passes
+    - If tests fail, spawn 1 additional tester agent to fix the failures
+    - If tests still fail after the fix attempt, report the remaining failures to the developer
 
-## Phase 6 — Report
+## Phase 4 — Suggest JIRA Ticket Updates
 
-13. **Suggest ticket description improvements:**
+14. **Suggest ticket edits based on requirements and acceptance criteria:**
+
+    After the team finishes, suggest improvements to the original JIRA ticket based on the requirements and acceptance criteria written during this skill's execution.
 
     **a) Analyze the gap:**
     - Re-read the original ticket description (from step 3)
-    - Review the actual changes made: files modified, features implemented, bugs fixed, edge cases handled
-    - Identify discrepancies: was the scope broader or narrower than described? Were acceptance criteria missing or inaccurate? Were there undocumented requirements discovered during implementation?
+    - Compare it against the PO's approved requirements and acceptance criteria (from step 9)
+    - Identify what is missing from the ticket:
+      - Acceptance criteria that were written by the PO but aren't in the original ticket
+      - Requirements that were clarified or expanded during the PO phase
+      - Design decisions made by the designers (if applicable)
+      - Technical notes on the approach taken
 
     **b) Draft an improved description:**
-    - Write a revised ticket description that accurately reflects what was implemented
+    - Write a revised ticket description that incorporates the requirements and acceptance criteria
     - Preserve any useful original content (context, background, links, references)
     - Add or improve:
       - **Clear problem statement** or feature rationale
-      - **Acceptance criteria** that match the actual deliverables
-      - **Technical notes** on the approach taken (briefly — not a code review, just enough for future readers to understand the change)
+      - **Acceptance criteria** from the PO's document
+      - **Technical notes** on the approach taken (briefly — just enough for future readers)
       - **Files/areas affected** (high-level, e.g., "Authentication module", "Settings page")
     - Keep the tone consistent with existing ticket descriptions in the project
 
@@ -377,17 +375,23 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
     - If the developer approves, use the JIRA MCP tool to update the ticket's description field
     - Confirm the update was successful:
       ```
-      ✅ Ticket <JIRA-ID> description updated.
+      Ticket <JIRA-ID> description updated.
       ```
     - If the update fails, show the error and provide the proposed description as copyable text so the developer can update it manually
 
-14. **Final report:**
+15. **Final report:**
 
     Present a comprehensive summary to the developer:
 
     ```
     ## Ticket Complete: <JIRA-ID>
     **<Summary>**
+
+    ### Team
+    - PO: requirements and acceptance criteria written
+    - Designers: <N> (or "None — no design work needed")
+    - Developers: <N>
+    - Testers: <N>
 
     ### Implementation
     - Files modified: <N>
@@ -396,29 +400,28 @@ Read the JIRA ticket for the current branch and drive it to completion end-to-en
 
     ### Tests
     - Unit tests: <N> passing
-    - E2E tests: <N> passing
+    - E2E tests: <N> passing (or "N/A")
     - Test fixes needed: <yes/no — how many rounds>
 
-    ### Code Review
-    - Findings: <N> critical, <N> major, <N> minor, <N> nits
-    - All actionable findings fixed: <yes/no>
-    - Remaining issues: <list, or "None">
-
     ### Acceptance Criteria
-    - [ ] <Criterion 1> ✅
-    - [ ] <Criterion 2> ✅
+    - [x] <Criterion 1>
+    - [x] <Criterion 2>
     - ...
+
+    ### JIRA Ticket
+    - Description updated: <yes/no>
 
     ### Next Steps
     - <Any remaining manual steps, e.g., "Run database migration", "Update env vars">
-    - <Any findings that were deferred or need human judgment>
+    - <Any issues that need human judgment>
     ```
 
-15. **Handle edge cases:**
-    - If the ticket description is empty, note it and base the requirements on the summary and comments only
+16. **Handle edge cases:**
+    - If the ticket description is empty, note it and the PO should base requirements on the summary and comments only
     - If there are no comments, skip that section in the analysis
-    - If the codebase exploration reveals the ticket may already be addressed, inform the developer
-    - If the ticket is too vague to produce concrete requirements, list what is understood and what needs clarification
-    - If the project has no test framework, note it and skip Phase 4
-    - If the review team finds no issues, report a clean review and skip the fix step
-    - If fixes introduce new test failures in a loop (fix → fail → fix → fail), stop after 2 attempts and report the remaining issues to the developer
+    - If the codebase exploration reveals the ticket may already be addressed, inform the developer before spawning the PO
+    - If the ticket is too vague, the PO should list what is understood and flag open questions for the developer to answer during the approval step
+    - If the project has no test framework, note it and skip tester agents
+    - If designer agents produce conflicting recommendations, present both to the developer and let them choose
+    - If developer agents produce conflicting changes to the same file, resolve the conflicts before spawning testers
+    - If test fixes loop (fix -> fail -> fix -> fail), stop after 2 attempts and report remaining issues to the developer

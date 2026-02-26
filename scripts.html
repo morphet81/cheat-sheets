@@ -461,10 +461,24 @@ If no output path is given, the output file is named &lt;input&gt;-reordered.pdf
 
 import argparse
 import math
+import shutil
 import sys
 from pathlib import Path
 
-from pypdf import PdfReader, PdfWriter
+try:
+    from pypdf import PdfReader, PdfWriter
+except ImportError:
+    print("Error: the 'pypdf' package is required but not installed.\n", file=sys.stderr)
+    print("Install it with one of the following:\n", file=sys.stderr)
+    print("  pip install 'pypdf&gt;=4.0'", file=sys.stderr)
+    print("  pipx install 'pypdf&gt;=4.0'", file=sys.stderr)
+    if shutil.which("uv"):
+        print("\nOr run this script directly with uv (dependencies are handled automatically):\n", file=sys.stderr)
+        print(f"  uv run {sys.argv[0]} &lt;input.pdf&gt;", file=sys.stderr)
+    else:
+        print("\nAlternatively, install uv (https://docs.astral.sh/uv/) and run with:\n", file=sys.stderr)
+        print(f"  uv run {sys.argv[0]} &lt;input.pdf&gt;", file=sys.stderr)
+    sys.exit(1)
 
 
 def compute_page_order(total_pages: int) -&gt; list[int]:

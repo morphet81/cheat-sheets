@@ -574,6 +574,441 @@ if __name__ == "__main__":
                     </div>
                 </div>
 
+                <!-- PDF to Markdown Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>PDF to Markdown</h3>
+                            <code>pdf-to-markdown</code>
+                            <span class="script-lang">Python</span>
+                        </div>
+                        <p class="script-description">
+                            Convert a PDF document to structured Markdown.
+                            Extracts text preserving headings, bold/italic formatting, and tables.
+                            Tables are automatically detected using PyMuPDF&rsquo;s <code>find_tables()</code> and rendered as proper Markdown table syntax.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <p>For each page in the PDF, the script:</p>
+                            <ol>
+                                <li>Detects tables and converts them to Markdown table syntax (header, separator, data rows)</li>
+                                <li>Extracts text blocks, applying heading detection based on font size and bold/italic formatting</li>
+                                <li>Skips text blocks that overlap with detected tables to avoid duplication</li>
+                                <li>Sorts all content by vertical position to preserve reading order</li>
+                            </ol>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>uv run pdf-to-markdown.py input.pdf</code> &mdash; Convert and save as <code>input.md</code></li>
+                                <li><code>uv run pdf-to-markdown.py input.pdf -o output.md</code> &mdash; Specify output path</li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>pymupdf &gt;= 1.23.0</code>
+                            <p>Handled automatically via <a href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies" style="color: #667eea;">uv inline metadata</a>. Or install manually: <code>pip install pymupdf</code></p>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/pdf-to-markdown/pdf-to-markdown.py</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'pdf-to-markdown-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="pdf-to-markdown-content">#!/usr/bin/env python3
+# /// script
+# requires-python = &quot;&gt;=3.9&quot;
+# dependencies = [&quot;pymupdf&gt;=1.23.0&quot;]
+# ///
+&quot;&quot;&quot;
+Convert a PDF document to structured Markdown.
+
+Extracts text from each page preserving headings, bold/italic formatting,
+and tables. Tables are detected using PyMuPDF&#x27;s find_tables() and rendered
+as proper Markdown table syntax.
+
+Usage:
+    python pdf-to-markdown.py input.pdf [-o output.md]
+    uv run pdf-to-markdown.py input.pdf
+
+If no output path is given, the output file is named &lt;input&gt;.md.
+&quot;&quot;&quot;
+
+import argparse
+import shutil
+import sys
+from pathlib import Path
+
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    print(&quot;Error: the &#x27;pymupdf&#x27; package is required but not installed.\n&quot;, file=sys.stderr)
+    print(&quot;Install it with one of the following:\n&quot;, file=sys.stderr)
+    print(&quot;  pip install &#x27;pymupdf&gt;=1.23.0&#x27;&quot;, file=sys.stderr)
+    print(&quot;  pipx install &#x27;pymupdf&gt;=1.23.0&#x27;&quot;, file=sys.stderr)
+    if shutil.which(&quot;uv&quot;):
+        print(&quot;\nOr run this script directly with uv (dependencies are handled automatically):\n&quot;, file=sys.stderr)
+        print(f&quot;  uv run {sys.argv[0]} &lt;input.pdf&gt;&quot;, file=sys.stderr)
+    else:
+        print(&quot;\nAlternatively, install uv (https://docs.astral.sh/uv/) and run with:\n&quot;, file=sys.stderr)
+        print(f&quot;  uv run {sys.argv[0]} &lt;input.pdf&gt;&quot;, file=sys.stderr)
+    sys.exit(1)
+
+
+def _rects_overlap(r1, r2, tolerance=2.0) -&gt; bool:
+    &quot;&quot;&quot;Check if two rectangles (x0, y0, x1, y1) overlap within a tolerance.&quot;&quot;&quot;
+    return not (
+        r1[2] &lt; r2[0] - tolerance
+        or r1[0] &gt; r2[2] + tolerance
+        or r1[3] &lt; r2[1] - tolerance
+        or r1[1] &gt; r2[3] + tolerance
+    )
+
+
+def _table_to_markdown(table) -&gt; str:
+    &quot;&quot;&quot;Convert a PyMuPDF table object to a Markdown table string.&quot;&quot;&quot;
+    rows = table.extract()
+    if not rows:
+        return &quot;&quot;
+
+    cleaned = []
+    for row in rows:
+        cleaned.append([
+            (cell.strip().replace(&quot;\n&quot;, &quot; &quot;) if cell else &quot;&quot;)
+            for cell in row
+        ])
+
+    if not cleaned:
+        return &quot;&quot;
+
+    col_count = max(len(row) for row in cleaned)
+
+    for row in cleaned:
+        while len(row) &lt; col_count:
+            row.append(&quot;&quot;)
+
+    lines = []
+    lines.append(&quot;| &quot; + &quot; | &quot;.join(cleaned[0]) + &quot; |&quot;)
+    lines.append(&quot;| &quot; + &quot; | &quot;.join(&quot;---&quot; for _ in range(col_count)) + &quot; |&quot;)
+    for row in cleaned[1:]:
+        lines.append(&quot;| &quot; + &quot; | &quot;.join(row) + &quot; |&quot;)
+
+    return &quot;\n&quot;.join(lines) + &quot;\n\n&quot;
+
+
+def extract_pdf_to_markdown(pdf_path: Path) -&gt; str:
+    &quot;&quot;&quot;Extract text from a PDF and return structured Markdown.&quot;&quot;&quot;
+    doc = fitz.open(str(pdf_path))
+    md_parts: list[str] = []
+
+    for page_num, page in enumerate(doc, start=1):
+        md_parts.append(f&quot;&lt;!-- page {page_num} --&gt;\n&quot;)
+
+        # Detect tables on the page
+        tables = []
+        table_rects = []
+        try:
+            tab_finder = page.find_tables()
+            for table in tab_finder.tables:
+                tables.append(table)
+                table_rects.append(table.bbox)
+        except Exception:
+            pass
+
+        # Collect all items with their vertical position for reading order
+        items: list[tuple[float, str]] = []
+
+        for table, rect in zip(tables, table_rects):
+            md_table = _table_to_markdown(table)
+            if md_table:
+                items.append((rect[1], md_table))
+
+        blocks = page.get_text(&quot;dict&quot;, flags=fitz.TEXT_PRESERVE_WHITESPACE)[&quot;blocks&quot;]
+
+        for block in blocks:
+            if block[&quot;type&quot;] == 1:
+                items.append((block[&quot;bbox&quot;][1], &quot;![image]()\n\n&quot;))
+                continue
+
+            if block[&quot;type&quot;] != 0:
+                continue
+
+            block_rect = block[&quot;bbox&quot;]
+            if any(_rects_overlap(block_rect, tr) for tr in table_rects):
+                continue
+
+            block_lines: list[str] = []
+            for line in block[&quot;lines&quot;]:
+                spans = line[&quot;spans&quot;]
+                if not spans:
+                    continue
+
+                line_text = &quot;&quot;
+                for span in spans:
+                    text = span[&quot;text&quot;]
+                    if not text.strip():
+                        line_text += text
+                        continue
+
+                    flags = span[&quot;flags&quot;]
+                    is_bold = flags &amp; 2 ** 4
+                    is_italic = flags &amp; 2 ** 1
+
+                    fragment = text
+                    if is_bold and is_italic:
+                        fragment = f&quot;***{text.strip()}***&quot;
+                    elif is_bold:
+                        fragment = f&quot;**{text.strip()}**&quot;
+                    elif is_italic:
+                        fragment = f&quot;*{text.strip()}*&quot;
+
+                    line_text += fragment
+
+                line_text = line_text.rstrip()
+                if line_text:
+                    block_lines.append(line_text)
+
+            if not block_lines:
+                continue
+
+            first_span = block[&quot;lines&quot;][0][&quot;spans&quot;][0] if block[&quot;lines&quot;] and block[&quot;lines&quot;][0][&quot;spans&quot;] else None
+            if first_span:
+                size = first_span[&quot;size&quot;]
+                combined = &quot; &quot;.join(block_lines)
+                if size &gt;= 20 and len(combined) &lt; 200:
+                    items.append((block_rect[1], f&quot;# {combined}\n\n&quot;))
+                    continue
+                elif size &gt;= 16 and len(combined) &lt; 200:
+                    items.append((block_rect[1], f&quot;## {combined}\n\n&quot;))
+                    continue
+                elif size &gt;= 13 and len(combined) &lt; 200 and (first_span[&quot;flags&quot;] &amp; 2 ** 4):
+                    items.append((block_rect[1], f&quot;### {combined}\n\n&quot;))
+                    continue
+
+            paragraph = &quot; &quot;.join(block_lines)
+            items.append((block_rect[1], f&quot;{paragraph}\n\n&quot;))
+
+        items.sort(key=lambda x: x[0])
+        for _, content in items:
+            md_parts.append(content)
+
+        md_parts.append(&quot;\n---\n\n&quot;)
+
+    doc.close()
+    return &quot;&quot;.join(md_parts)
+
+
+def main() -&gt; None:
+    parser = argparse.ArgumentParser(
+        description=&quot;Convert a PDF document to structured Markdown.&quot;
+    )
+    parser.add_argument(&quot;pdf&quot;, type=Path, help=&quot;Source PDF file&quot;)
+    parser.add_argument(&quot;-o&quot;, &quot;--output&quot;, type=Path, help=&quot;Output .md file (default: &lt;input&gt;.md)&quot;)
+
+    args = parser.parse_args()
+
+    pdf_path = args.pdf.resolve()
+    if not pdf_path.exists():
+        sys.exit(f&quot;Error: PDF not found: {pdf_path}&quot;)
+    if pdf_path.suffix.lower() != &quot;.pdf&quot;:
+        sys.exit(f&quot;Error: expected a .pdf file, got: {pdf_path.suffix}&quot;)
+
+    md_text = extract_pdf_to_markdown(pdf_path)
+
+    out = args.output or pdf_path.with_suffix(&quot;.md&quot;)
+    out = out.resolve()
+    out.write_text(md_text, encoding=&quot;utf-8&quot;)
+    print(f&quot;Markdown saved to: {out}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Markdown to PDF Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>Markdown to PDF</h3>
+                            <code>markdown-to-pdf</code>
+                            <span class="script-lang">Python</span>
+                        </div>
+                        <p class="script-description">
+                            Convert a Markdown document to a styled, paginated A4 PDF.
+                            Supports tables, fenced code blocks, headings, and table of contents.
+                            Uses WeasyPrint for high-quality PDF rendering.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <p>The script renders Markdown to HTML using Python-Markdown (with extensions for tables, fenced code, and TOC), then converts the HTML to a paginated A4 PDF using WeasyPrint with a clean stylesheet.</p>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>uv run markdown-to-pdf.py input.md</code> &mdash; Convert and save as <code>input.pdf</code></li>
+                                <li><code>uv run markdown-to-pdf.py input.md -o output.pdf</code> &mdash; Specify output path</li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>markdown &gt;= 3.5</code>, <code>weasyprint &gt;= 60.0</code>
+                            <p>Handled automatically via <a href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies" style="color: #667eea;">uv inline metadata</a>. Or install manually: <code>pip install markdown weasyprint</code></p>
+                            <p>WeasyPrint also requires system libraries:</p>
+                            <ul>
+                                <li><strong>macOS:</strong> <code>brew install cairo pango gdk-pixbuf libffi</code></li>
+                                <li><strong>Ubuntu:</strong> <code>sudo apt install libcairo2-dev libpango1.0-dev libgdk-pixbuf2.0-dev libffi-dev</code></li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/markdown-to-pdf/markdown-to-pdf.py</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'markdown-to-pdf-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="markdown-to-pdf-content">#!/usr/bin/env python3
+# /// script
+# requires-python = &quot;&gt;=3.9&quot;
+# dependencies = [&quot;markdown&gt;=3.5&quot;, &quot;weasyprint&gt;=60.0&quot;]
+# ///
+&quot;&quot;&quot;
+Convert a Markdown document to a styled PDF.
+
+Renders Markdown to HTML (with support for tables, fenced code blocks, and
+table of contents) then produces a paginated A4 PDF using WeasyPrint.
+
+Usage:
+    python markdown-to-pdf.py input.md [-o output.pdf]
+    uv run markdown-to-pdf.py input.md
+
+If no output path is given, the output file is named &lt;input&gt;.pdf.
+
+System dependencies (required by WeasyPrint):
+    macOS:    brew install cairo pango gdk-pixbuf libffi
+    Ubuntu:   sudo apt install libcairo2-dev libpango1.0-dev libgdk-pixbuf2.0-dev libffi-dev
+&quot;&quot;&quot;
+
+import argparse
+import re
+import shutil
+import sys
+from pathlib import Path
+
+try:
+    import markdown as md_lib
+except ImportError:
+    print(&quot;Error: the &#x27;markdown&#x27; package is required but not installed.\n&quot;, file=sys.stderr)
+    print(&quot;Install it with:  pip install markdown\n&quot;, file=sys.stderr)
+    if shutil.which(&quot;uv&quot;):
+        print(f&quot;Or run directly with uv:  uv run {sys.argv[0]} &lt;input.md&gt;&quot;, file=sys.stderr)
+    sys.exit(1)
+
+try:
+    from weasyprint import HTML
+except ImportError:
+    print(&quot;Error: the &#x27;weasyprint&#x27; package is required but not installed.\n&quot;, file=sys.stderr)
+    print(&quot;Install it with:  pip install weasyprint&quot;, file=sys.stderr)
+    print(&quot;Note: weasyprint also requires system libraries (cairo, pango, gdk-pixbuf).&quot;, file=sys.stderr)
+    print(&quot;  macOS:    brew install cairo pango gdk-pixbuf libffi&quot;, file=sys.stderr)
+    print(&quot;  Ubuntu:   sudo apt install libcairo2-dev libpango1.0-dev libgdk-pixbuf2.0-dev libffi-dev\n&quot;, file=sys.stderr)
+    if shutil.which(&quot;uv&quot;):
+        print(f&quot;Or run directly with uv:  uv run {sys.argv[0]} &lt;input.md&gt;&quot;, file=sys.stderr)
+    sys.exit(1)
+
+CSS = &quot;&quot;&quot;\
+@page {
+    size: A4;
+    margin: 2cm;
+}
+body {
+    font-family: &#x27;Helvetica Neue&#x27;, Helvetica, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #222;
+}
+h1 { font-size: 22pt; margin-top: 1.5em; margin-bottom: 0.5em; }
+h2 { font-size: 17pt; margin-top: 1.3em; margin-bottom: 0.4em; }
+h3 { font-size: 13pt; margin-top: 1.1em; margin-bottom: 0.3em; }
+p  { margin-bottom: 0.8em; }
+ul, ol { margin-bottom: 0.8em; padding-left: 1.5em; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 1em; }
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+th { background: #f5f5f5; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; }
+pre { background: #f4f4f4; padding: 12px; border-radius: 5px; overflow-x: auto; }
+img { max-width: 100%; }
+&quot;&quot;&quot;
+
+
+def markdown_to_pdf(md_path: Path, pdf_path: Path) -&gt; None:
+    &quot;&quot;&quot;Convert a Markdown file to a styled PDF.&quot;&quot;&quot;
+    md_text = md_path.read_text(encoding=&quot;utf-8&quot;)
+
+    # Strip page markers that may have been added by pdf-to-markdown
+    md_text = re.sub(r&quot;&lt;!-- page \d+ --&gt;&quot;, &quot;&quot;, md_text)
+
+    html_body = md_lib.markdown(
+        md_text,
+        extensions=[&quot;tables&quot;, &quot;fenced_code&quot;, &quot;toc&quot;],
+    )
+
+    full_html = f&quot;&quot;&quot;&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;style&gt;
+{CSS}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+{html_body}
+&lt;/body&gt;
+&lt;/html&gt;&quot;&quot;&quot;
+
+    HTML(string=full_html).write_pdf(str(pdf_path))
+
+
+def main() -&gt; None:
+    parser = argparse.ArgumentParser(
+        description=&quot;Convert a Markdown document to a styled PDF.&quot;
+    )
+    parser.add_argument(&quot;md&quot;, type=Path, help=&quot;Source Markdown file&quot;)
+    parser.add_argument(&quot;-o&quot;, &quot;--output&quot;, type=Path, help=&quot;Output .pdf file (default: &lt;input&gt;.pdf)&quot;)
+
+    args = parser.parse_args()
+
+    md_path = args.md.resolve()
+    if not md_path.exists():
+        sys.exit(f&quot;Error: Markdown file not found: {md_path}&quot;)
+    if md_path.suffix.lower() not in (&quot;.md&quot;, &quot;.markdown&quot;, &quot;.mdown&quot;, &quot;.mkd&quot;):
+        print(f&quot;Warning: expected a Markdown file, got: {md_path.suffix}&quot;, file=sys.stderr)
+
+    out = args.output or md_path.with_suffix(&quot;.pdf&quot;)
+    out = out.resolve()
+    markdown_to_pdf(md_path, out)
+    print(f&quot;PDF saved to: {out}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

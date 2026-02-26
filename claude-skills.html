@@ -3703,6 +3703,181 @@ Compare two git tags or commits and produce a deployment readiness analysis. Lis
                     </div>
                 </div>
 
+                <!-- Translate PDF Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Translate PDF</h3>
+                            <code>/translate-pdf</code>
+                            <span class="skill-version">v1.0.0</span>
+                        </div>
+                        <p class="skill-description">
+                            Translate a PDF document from one language to another.
+                            Extracts text to structured Markdown, translates it, and builds a new translated PDF.
+                            Requires a Python environment with pymupdf, markdown, and weasyprint.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/translate-pdf ./report.pdf French English</code> &mdash; Translate a French PDF to English</li>
+                                <li><code>/translate-pdf /path/to/manual.pdf English Spanish</code> &mdash; Translate an English PDF to Spanish</li>
+                                <li><code>/translate-pdf invoice.pdf German French</code> &mdash; Translate a German PDF to French</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#x25B6;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/translate-pdf/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'translate-pdf-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="translate-pdf-content">---
+name: translate-pdf
+version: 1.0.0
+description: Translate a PDF document from one language to another. Extracts text to structured Markdown, translates it, and builds a new translated PDF. Requires a Python environment with pymupdf, markdown, and weasyprint.
+argument-hint: &quot;&lt;path-to-pdf&gt; &lt;source-language&gt; &lt;target-language&gt;&quot;
+---
+
+Translate a PDF document end-to-end: extract structured Markdown from the source PDF, translate the content, and build a new PDF in the target language.
+
+**Usage:**
+- `/translate-pdf ./report.pdf French English` &mdash; Translate a French PDF to English
+- `/translate-pdf /path/to/manual.pdf English Spanish` &mdash; Translate an English PDF to Spanish
+- `/translate-pdf invoice.pdf German French` &mdash; Translate a German PDF to French
+
+**Instructions:**
+
+1. **Parse arguments from $ARGUMENTS:**
+   - Expect exactly three arguments: `&lt;path-to-pdf&gt;` `&lt;source-language&gt;` `&lt;target-language&gt;`
+   - `&lt;path-to-pdf&gt;` is the path to the source PDF file
+   - `&lt;source-language&gt;` is the language the PDF is currently written in
+   - `&lt;target-language&gt;` is the language to translate into
+   - If fewer than three arguments are provided, display the following and **STOP**:
+     ```
+     ## Missing Arguments
+
+     Usage: /translate-pdf &lt;path-to-pdf&gt; &lt;source-language&gt; &lt;target-language&gt;
+
+     Examples:
+       /translate-pdf ./report.pdf French English
+       /translate-pdf /path/to/manual.pdf English Spanish
+       /translate-pdf invoice.pdf German French
+     ```
+
+2. **Validate the PDF file exists:**
+   - Resolve the path and verify the file exists and has a `.pdf` extension
+   - If the file does not exist, display the error and **STOP**:
+     ```
+     File not found: &quot;&lt;path&gt;&quot;
+     Please provide a valid path to a PDF file.
+     ```
+
+3. **Check Python dependencies:**
+
+   The skill relies on a Python script located at `skills/translate-pdf/translate_pdf.py` (relative to this repo). The script requires:
+   - `pymupdf` &mdash; PDF text extraction
+   - `markdown` &mdash; Markdown to HTML conversion
+   - `weasyprint` &mdash; HTML to PDF rendering (also requires system libraries: cairo, pango, gdk-pixbuf)
+
+   **a) Check if the dependencies are installed:**
+   Run `python3 -c &quot;import fitz; import markdown; from weasyprint import HTML; print(&#x27;OK&#x27;)&quot;` via the Bash tool.
+
+   **b) If the check fails**, use `AskUserQuestion` to ask the developer:
+   &gt; The following Python packages are required but not all are installed:
+   &gt; - `pymupdf` (PDF extraction)
+   &gt; - `markdown` (Markdown &rarr; HTML)
+   &gt; - `weasyprint` (HTML &rarr; PDF, also needs system libs: cairo, pango, gdk-pixbuf)
+   &gt;
+   &gt; Would you like me to install them now?
+
+   Provide two options:
+   - **Yes &mdash; install with pip** &rarr; Run `pip install pymupdf markdown weasyprint`
+   - **No &mdash; I&#x27;ll handle it myself** &rarr; Display manual installation instructions and **STOP**:
+     ```
+     ## Manual Installation
+
+     Install the Python packages:
+       pip install pymupdf markdown weasyprint
+
+     weasyprint also requires system libraries. Install them for your OS:
+
+     macOS (Homebrew):
+       brew install cairo pango gdk-pixbuf libffi
+
+     Ubuntu/Debian:
+       sudo apt install libcairo2-dev libpango1.0-dev libgdk-pixbuf2.0-dev libffi-dev
+
+     Then re-run the skill.
+     ```
+
+4. **Step 1 &mdash; Extract PDF to Markdown:**
+
+   Determine the output directory &mdash; use the same directory as the source PDF.
+
+   Run the extraction script:
+   ```bash
+   python3 &lt;repo-root&gt;/skills/translate-pdf/translate_pdf.py extract &quot;&lt;pdf-path&gt;&quot; -o &quot;&lt;output-dir&gt;/&lt;filename&gt;_source.md&quot;
+   ```
+
+   Where `&lt;filename&gt;` is the PDF filename without extension.
+
+   After extraction, read the generated Markdown file to verify it looks reasonable. If the Markdown is mostly empty or garbled (e.g., the PDF is scanned/image-based), warn the developer:
+   &gt; The PDF appears to be image-based or has very little extractable text. The translation may be incomplete or inaccurate. Consider using an OCR tool first.
+
+5. **Step 2 &mdash; Translate the Markdown:**
+
+   Read the extracted Markdown file (`&lt;filename&gt;_source.md`).
+
+   Translate **all text content** from `&lt;source-language&gt;` to `&lt;target-language&gt;`, following these rules:
+   - **Preserve all Markdown formatting** &mdash; headings, bold, italic, lists, tables, code blocks, links, image references
+   - **Preserve page comment markers** (`&lt;!-- page N --&gt;`) and horizontal rules (`---`) that act as page separators
+   - **Do NOT translate:** code snippets, URLs, file paths, proper nouns that are universally recognized (brand names, product names), or technical identifiers
+   - **Translate naturally** &mdash; produce fluent, natural-sounding text in the target language, not word-for-word translation
+   - **Preserve document structure** &mdash; the translated Markdown should have the same number of sections, paragraphs, and structural elements as the source
+
+   Write the translated content to `&lt;output-dir&gt;/&lt;filename&gt;_&lt;target-language&gt;.md` (e.g., `report_English.md`).
+
+6. **Step 3 &mdash; Build the translated PDF:**
+
+   Run the build script:
+   ```bash
+   python3 &lt;repo-root&gt;/skills/translate-pdf/translate_pdf.py build &quot;&lt;output-dir&gt;/&lt;filename&gt;_&lt;target-language&gt;.md&quot; -o &quot;&lt;output-dir&gt;/&lt;filename&gt;_&lt;target-language&gt;.pdf&quot;
+   ```
+
+   Verify the output PDF was created successfully.
+
+7. **Report results:**
+
+   Display a summary:
+   ```
+   ## Translation Complete
+
+   **Source:** &lt;pdf-path&gt; (&lt;source-language&gt;)
+   **Target language:** &lt;target-language&gt;
+
+   ### Generated Files
+   - Source Markdown: `&lt;filename&gt;_source.md`
+   - Translated Markdown: `&lt;filename&gt;_&lt;target-language&gt;.md`
+   - Translated PDF: `&lt;filename&gt;_&lt;target-language&gt;.pdf`
+
+   All files saved in: `&lt;output-directory&gt;/`
+   ```
+
+8. **Handle edge cases:**
+   - If the PDF is password-protected, display an error and **STOP**
+   - If the PDF has no extractable text at all, warn the developer and **STOP**
+   - If the build step fails due to missing system libraries (weasyprint dependency), display the platform-specific installation instructions from step 3
+   - If the source and target languages are the same, warn the developer and ask for confirmation before proceeding</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

@@ -1,6 +1,6 @@
 ---
 name: translate-pdf
-version: 1.0.0
+version: 1.1.0
 description: Translate a PDF document from one language to another. Extracts text to structured Markdown, translates it, and builds a new translated PDF. Requires a Python environment with pymupdf, markdown, and weasyprint.
 argument-hint: "<path-to-pdf> <source-language> <target-language>"
 ---
@@ -91,20 +91,41 @@ Translate a PDF document end-to-end: extract structured Markdown from the source
    After extraction, read the generated Markdown file to verify it looks reasonable. If the Markdown is mostly empty or garbled (e.g., the PDF is scanned/image-based), warn the developer:
    > The PDF appears to be image-based or has very little extractable text. The translation may be incomplete or inaccurate. Consider using an OCR tool first.
 
-5. **Step 2 — Translate the Markdown:**
+5. **Step 1b — Verify table preservation:**
+
+   The extraction script automatically detects tables in the PDF using PyMuPDF's `find_tables()` and converts them to Markdown table syntax. After extraction, you **must** verify that tables are correctly preserved:
+
+   a) **Read the source PDF** using the Read tool to visually identify all tables in the document. Note the number of tables and their approximate content (headers, row counts).
+
+   b) **Read the extracted Markdown file** and locate all Markdown tables (lines starting with `|`). For each table, verify:
+      - The table has a header row, a separator row (`| --- | --- |`), and the correct number of data rows
+      - Cell content is present and not empty where the original PDF had data
+      - Multi-column structure is preserved (correct number of `|` delimiters per row)
+
+   c) **Compare counts:** If the number of Markdown tables does not match the number of tables you identified in the source PDF, some tables were likely not detected. For each missing table:
+      - Identify the page and location of the missing table in the PDF
+      - Manually reconstruct the table in Markdown format by reading the relevant text from the extracted Markdown (the content may appear as plain text paragraphs)
+      - Insert the reconstructed Markdown table at the correct position in the file, replacing the plain-text paragraph(s) that contained the table data
+
+   d) **Fix malformed tables:** If any Markdown table has inconsistent column counts, missing separators, or garbled content, fix it by referencing the source PDF. Ensure every table row has the same number of columns.
+
+   After verification and any fixes, save the updated Markdown file.
+
+6. **Step 2 — Translate the Markdown:**
 
    Read the extracted Markdown file (`<filename>_source.md`).
 
    Translate **all text content** from `<source-language>` to `<target-language>`, following these rules:
    - **Preserve all Markdown formatting** — headings, bold, italic, lists, tables, code blocks, links, image references
+   - **Preserve all Markdown tables exactly** — keep the same number of rows, columns, header rows, and separator rows. Translate cell content but never alter table structure (do not add, remove, or merge columns/rows)
    - **Preserve page comment markers** (`<!-- page N -->`) and horizontal rules (`---`) that act as page separators
    - **Do NOT translate:** code snippets, URLs, file paths, proper nouns that are universally recognized (brand names, product names), or technical identifiers
    - **Translate naturally** — produce fluent, natural-sounding text in the target language, not word-for-word translation
-   - **Preserve document structure** — the translated Markdown should have the same number of sections, paragraphs, and structural elements as the source
+   - **Preserve document structure** — the translated Markdown should have the same number of sections, paragraphs, tables, and structural elements as the source
 
    Write the translated content to `<output-dir>/<filename>_<target-language>.md` (e.g., `report_English.md`).
 
-6. **Step 3 — Build the translated PDF:**
+7. **Step 3 — Build the translated PDF:**
 
    Run the build script:
    ```bash
@@ -113,7 +134,7 @@ Translate a PDF document end-to-end: extract structured Markdown from the source
 
    Verify the output PDF was created successfully.
 
-7. **Report results:**
+8. **Report results:**
 
    Display a summary:
    ```
@@ -130,7 +151,7 @@ Translate a PDF document end-to-end: extract structured Markdown from the source
    All files saved in: `<output-directory>/`
    ```
 
-8. **Handle edge cases:**
+9. **Handle edge cases:**
    - If the PDF is password-protected, display an error and **STOP**
    - If the PDF has no extractable text at all, warn the developer and **STOP**
    - If the build step fails due to missing system libraries (weasyprint dependency), display the platform-specific installation instructions from step 3

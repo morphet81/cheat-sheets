@@ -1,5 +1,13 @@
 # Project Rules
 
+## Scripts
+
+- Scripts are stored in `scripts/<script-name>/` in this repository.
+- Each script directory contains the executable script and optionally a README.
+- Scripts are standalone utilities meant to be run directly (not Claude skills).
+- When creating, modifying, or deleting a script, **always** update `scripts.html` to reflect the change.
+- Follow the existing script card structure in `scripts.html` (script-card div with header, description, usage, collapsible raw content).
+
 ## Skills
 
 - Skills are stored in `skills/<skill-name>/SKILL.md` in this repository.

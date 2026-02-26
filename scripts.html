@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Useful Scripts</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.7;
+            font-size: 0.9em;
+            display: inline-block;
+            margin-top: 15px;
+            transition: opacity 0.2s;
+        }
+
+        header a:hover {
+            opacity: 1;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .instructions {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 25px;
+        }
+
+        .instructions h2 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .instructions p {
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .instructions code {
+            background: #2d3748;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .instructions ul {
+            color: #4a5568;
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .scripts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .script-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #e53e3e;
+            overflow: hidden;
+        }
+
+        .script-header {
+            padding: 20px;
+        }
+
+        .script-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .script-title h3 {
+            color: #2d3748;
+            font-size: 1.3em;
+            margin: 0;
+        }
+
+        .script-title code {
+            background: #e53e3e;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .script-lang {
+            background: #ed8936;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
+        .script-description {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+
+        .script-usage {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .script-usage strong {
+            color: #2d3748;
+            font-size: 0.9em;
+        }
+
+        .script-usage ul {
+            margin: 8px 0 0 20px;
+            color: #4a5568;
+            font-size: 0.95em;
+        }
+
+        .script-usage li {
+            margin-bottom: 4px;
+        }
+
+        .script-usage code {
+            background: #2d3748;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .script-deps {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .script-deps strong {
+            color: #2d3748;
+            font-size: 0.9em;
+        }
+
+        .script-deps code {
+            background: #2d3748;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .script-deps p {
+            color: #4a5568;
+            margin-top: 6px;
+            font-size: 0.95em;
+        }
+
+        .collapsible-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: none;
+            border: none;
+            color: #e53e3e;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.2s;
+        }
+
+        .collapsible-toggle:hover {
+            color: #c53030;
+        }
+
+        .collapsible-toggle .arrow {
+            transition: transform 0.3s;
+            font-size: 0.8em;
+        }
+
+        .collapsible-toggle.active .arrow {
+            transform: rotate(90deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.active {
+            max-height: 5000px;
+        }
+
+        .file-container {
+            background: #1a202c;
+            margin: 0;
+        }
+
+        .file-header {
+            background: #2d3748;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-name {
+            color: #a0aec0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .copy-btn {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #c53030;
+        }
+
+        .copy-btn.copied {
+            background: #48bb78;
+        }
+
+        .file-content {
+            padding: 20px;
+            max-height: 600px;
+            overflow: auto;
+        }
+
+        .file-content pre {
+            color: #e2e8f0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.7;
+            white-space: pre;
+            margin: 0;
+        }
+
+        .how-it-works {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .how-it-works strong {
+            color: #2d3748;
+            font-size: 0.9em;
+        }
+
+        .how-it-works p {
+            color: #4a5568;
+            font-size: 0.95em;
+            margin-top: 6px;
+        }
+
+        .how-it-works ol {
+            margin: 8px 0 0 20px;
+            color: #4a5568;
+            font-size: 0.95em;
+        }
+
+        .how-it-works li {
+            margin-bottom: 4px;
+        }
+
+        .page-diagram {
+            background: #1a202c;
+            color: #68d391;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            margin-top: 10px;
+            line-height: 1.8;
+        }
+
+        footer {
+            background: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9em;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        footer a {
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .file-content pre {
+                font-size: 0.75em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Useful Scripts</h1>
+            <p>Standalone utilities for everyday tasks</p>
+            <a href="index.html">&larr; Back to all cheat sheets</a>
+        </header>
+
+        <div class="content">
+            <div class="instructions">
+                <h2>About</h2>
+                <p>These are standalone scripts that solve common problems. Each script lives in <code>scripts/&lt;script-name&gt;/</code> and can be run directly.</p>
+                <p>Most Python scripts use <a href="https://docs.astral.sh/uv/" style="color: #667eea;">uv</a> inline metadata (PEP 723), so you can run them with <code>uv run script.py</code> and dependencies are handled automatically.</p>
+            </div>
+
+            <div class="scripts-list">
+                <!-- Reorder Duplex PDF Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>Reorder Duplex PDF</h3>
+                            <code>reorder-duplex-pdf</code>
+                            <span class="script-lang">Python</span>
+                        </div>
+                        <p class="script-description">
+                            Reorder pages of a PDF scanned from a single-sided auto-document feeder (ADF).
+                            When your scanner doesn't support duplex scanning, you scan front pages first then back pages after flipping the stack &mdash; this script puts them back in the correct order.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <p>You scan a two-sided document in two passes through a single-sided ADF:</p>
+                            <ol>
+                                <li><strong>Pass 1</strong> &mdash; Place the stack face-up. The ADF scans all <em>front</em> (odd) pages in order: 1, 3, 5, ...</li>
+                                <li><strong>Pass 2</strong> &mdash; Flip the stack face-up. The ADF scans all <em>back</em> (even) pages in reverse: N, N&minus;2, ..., 4, 2</li>
+                            </ol>
+                            <div class="page-diagram">
+Scanned PDF:  [1] [3] [5] [6] [4] [2]
+                    &darr;
+Reordered:    [1] [2] [3] [4] [5] [6]</div>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>uv run reorder-duplex-pdf.py input.pdf</code> &mdash; Reorder and save as <code>input-reordered.pdf</code></li>
+                                <li><code>uv run reorder-duplex-pdf.py input.pdf -o output.pdf</code> &mdash; Specify output path</li>
+                                <li><code>uv run reorder-duplex-pdf.py input.pdf --dry-run</code> &mdash; Preview the page mapping without writing</li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>pypdf &gt;= 4.0</code>
+                            <p>Handled automatically via <a href="https://docs.astral.sh/uv/guides/scripts/#declaring-script-dependencies" style="color: #667eea;">uv inline metadata</a>. Or install manually: <code>pip install pypdf</code></p>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/reorder-duplex-pdf/reorder-duplex-pdf.py</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'reorder-duplex-pdf-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="reorder-duplex-pdf-content">#!/usr/bin/env python3
+# /// script
+# requires-python = "&gt;=3.9"
+# dependencies = ["pypdf&gt;=4.0"]
+# ///
+"""
+Reorder pages of a PDF scanned from a single-sided auto-document feeder (ADF).
+
+When a scanner doesn't support duplex (double-sided) scanning, you scan a
+two-sided document in two passes:
+  1. Place the stack face-up &rarr; scans all FRONT (odd) pages in order: 1, 3, 5, ...
+  2. Flip the stack face-up &rarr; scans all BACK (even) pages in reverse: N, N-2, ..., 4, 2
+
+This script takes the resulting PDF and reorders the pages to the correct
+sequential order: 1, 2, 3, 4, 5, ..., N.
+
+Usage:
+    python reorder-duplex-pdf.py input.pdf [-o output.pdf]
+    python reorder-duplex-pdf.py input.pdf --dry-run
+
+If no output path is given, the output file is named &lt;input&gt;-reordered.pdf.
+"""
+
+import argparse
+import math
+import sys
+from pathlib import Path
+
+from pypdf import PdfReader, PdfWriter
+
+
+def compute_page_order(total_pages: int) -&gt; list[int]:
+    """
+    Compute the correct page order from a single-sided ADF duplex scan.
+
+    The scanned PDF contains:
+      - First ceil(T/2) pages: odd pages in ascending order  (1, 3, 5, ...)
+      - Last floor(T/2) pages: even pages in descending order (N, N-2, ..., 4, 2)
+
+    Returns a list of 0-based indices in the correct reading order.
+    """
+    if total_pages &lt;= 1:
+        return list(range(total_pages))
+
+    odd_count = math.ceil(total_pages / 2)
+    even_count = total_pages - odd_count
+
+    # Indices into the scanned PDF (0-based)
+    odd_indices = list(range(odd_count))                            # [0, 1, 2, ...]
+    even_indices = list(range(total_pages - 1, odd_count - 1, -1))  # [T-1, T-2, ..., odd_count]
+
+    # Interleave: odd[0], even[0], odd[1], even[1], ...
+    result = []
+    for i in range(odd_count):
+        result.append(odd_indices[i])
+        if i &lt; even_count:
+            result.append(even_indices[i])
+
+    return result
+
+
+def reorder_pdf(input_path: Path, output_path: Path, dry_run: bool = False) -&gt; None:
+    reader = PdfReader(input_path)
+    total = len(reader.pages)
+
+    if total &lt; 2:
+        print(f"PDF has {total} page(s) &mdash; nothing to reorder.")
+        return
+
+    order = compute_page_order(total)
+
+    if dry_run:
+        print(f"Input:  {input_path} ({total} pages)")
+        print(f"Output: {output_path}")
+        print(f"\nScanned page order (1-based): {', '.join(str(i + 1) for i in range(total))}")
+        print(f"Reordered to (1-based):        {', '.join(str(i + 1) for i in order)}")
+        print(f"\nMapping:")
+        for new_pos, old_idx in enumerate(order):
+            print(f"  Output page {new_pos + 1} &larr; Scanned page {old_idx + 1}")
+        return
+
+    writer = PdfWriter()
+    for idx in order:
+        writer.add_page(reader.pages[idx])
+
+    writer.write(output_path)
+    print(f"Reordered {total} pages &rarr; {output_path}")
+
+
+def main() -&gt; None:
+    parser = argparse.ArgumentParser(
+        description="Reorder a PDF scanned from a single-sided ADF for duplex documents.",
+        epilog=(
+            "Example:\n"
+            "  Scan a 6-page document in two passes:\n"
+            "    Pass 1 (fronts): pages 1, 3, 5\n"
+            "    Pass 2 (backs):  pages 6, 4, 2\n"
+            "  The scanned PDF has pages: 1, 3, 5, 6, 4, 2\n"
+            "  This script reorders them to: 1, 2, 3, 4, 5, 6"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("input", type=Path, help="Path to the scanned PDF file")
+    parser.add_argument("-o", "--output", type=Path, default=None, help="Output PDF path (default: &lt;input&gt;-reordered.pdf)")
+    parser.add_argument("--dry-run", action="store_true", help="Show the page mapping without writing a file")
+
+    args = parser.parse_args()
+
+    if not args.input.exists():
+        print(f"Error: file not found: {args.input}", file=sys.stderr)
+        sys.exit(1)
+
+    output = args.output or args.input.with_stem(args.input.stem + "-reordered")
+
+    reorder_pdf(args.input, output, dry_run=args.dry_run)
+
+
+if __name__ == "__main__":
+    main()</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <footer>
+            <p>Scripts use <a href="https://docs.astral.sh/uv/">uv</a> inline metadata (PEP 723) for dependency management when possible</p>
+        </footer>
+    </div>
+
+    <script>
+        function toggleCollapsible(button) {
+            button.classList.toggle('active');
+            const content = button.closest('.script-header').nextElementSibling;
+            content.classList.toggle('active');
+
+            const text = button.querySelector('span:last-child');
+            if (content.classList.contains('active')) {
+                text.textContent = 'Hide source code';
+            } else {
+                text.textContent = 'Show source code';
+            }
+        }
+
+        function copyContent(button, contentId) {
+            const content = document.getElementById(contentId).textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy. Please select and copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>

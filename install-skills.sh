@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Claude Code Skills Installer
+# Claude Code Skills & Scripts Installer
 # Downloads skills from the cheat-sheets repository to ~/.claude/skills
+# Downloads scripts to ~/.scripts and symlinks them into /usr/local/bin
 # Skills are auto-discovered by Claude Code - no CLAUDE.md references needed
 
 set -e
@@ -11,6 +12,8 @@ REPO_OWNER="morphet81"
 REPO_NAME="cheat-sheets"
 BRANCH="main"
 SKILLS_DIR="$HOME/.claude/skills"
+SCRIPTS_DIR="$HOME/.scripts"
+SYMLINK_DIR="/usr/local/bin"
 GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
 GLOBAL_INSTRUCTIONS_URL_PATH="global-instructions.md"
 INSTRUCTIONS_BEGIN_MARKER="<!-- BEGIN cheat-sheets-global-instructions -->"
@@ -38,7 +41,7 @@ extract_version() {
 }
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   Claude Code Skills Installer         ║${NC}"
+echo -e "${BLUE}║   Skills & Scripts Installer           ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -205,15 +208,167 @@ install_global_instructions() {
 
 install_global_instructions || true
 
+# ── Scripts installation ──────────────────────────────────────────────
+
+install_scripts() {
+    echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║   Installing Scripts                   ║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
+    echo ""
+
+    # Create scripts directory
+    echo -e "${YELLOW}Setting up scripts directory...${NC}"
+    mkdir -p "$SCRIPTS_DIR"
+
+    # Fetch list of script folders from GitHub API
+    echo -e "${YELLOW}Fetching available scripts...${NC}"
+    SCRIPTS_JSON=$(curl -s "$GITHUB_API_BASE/scripts?ref=$BRANCH")
+
+    if echo "$SCRIPTS_JSON" | grep -q '"message"'; then
+        echo -e "${RED}Error: Could not fetch scripts list from GitHub.${NC}"
+        return 1
+    fi
+
+    SCRIPT_FOLDERS=$(echo "$SCRIPTS_JSON" | grep -o '"name": "[^"]*"' | grep -o '[^"]*"$' | tr -d '"' | sort)
+
+    if [ -z "$SCRIPT_FOLDERS" ]; then
+        echo -e "${DIM}No scripts found in the repository.${NC}"
+        return 0
+    fi
+
+    NEW_SCRIPTS=""
+    UPDATED_SCRIPTS=""
+    UNCHANGED_SCRIPTS=""
+
+    while read -r SCRIPT_NAME; do
+        [ -z "$SCRIPT_NAME" ] && continue
+
+        SCRIPT_TARGET_DIR="$SCRIPTS_DIR/$SCRIPT_NAME"
+
+        echo -e "${YELLOW}Installing script: ${NC}${BLUE}$SCRIPT_NAME${NC}"
+
+        # Check if the script directory already exists (for change tracking)
+        SCRIPT_EXISTED=false
+        if [ -d "$SCRIPT_TARGET_DIR" ]; then
+            SCRIPT_EXISTED=true
+            OLD_CHECKSUM=$(find "$SCRIPT_TARGET_DIR" -type f -exec cat {} + 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
+            rm -rf "$SCRIPT_TARGET_DIR"
+        fi
+
+        mkdir -p "$SCRIPT_TARGET_DIR"
+
+        # Fetch files in the script folder
+        SCRIPT_FILES_JSON=$(curl -s "$GITHUB_API_BASE/scripts/$SCRIPT_NAME?ref=$BRANCH")
+        SCRIPT_FILES=$(echo "$SCRIPT_FILES_JSON" | grep -o '"name": "[^"]*"' | grep -o '[^"]*"$' | tr -d '"')
+
+        while read -r FILE_NAME; do
+            [ -z "$FILE_NAME" ] && continue
+
+            FILE_URL="$GITHUB_RAW_BASE/scripts/$SCRIPT_NAME/$FILE_NAME"
+            TARGET_FILE="$SCRIPT_TARGET_DIR/$FILE_NAME"
+
+            echo -e "  ${YELLOW}Downloading:${NC} $FILE_NAME"
+
+            if curl -sL "$FILE_URL" -o "$TARGET_FILE"; then
+                chmod +x "$TARGET_FILE"
+                echo -e "  ${GREEN}✓${NC} $FILE_NAME"
+            else
+                echo -e "  ${RED}✗ Failed to download $FILE_NAME${NC}"
+            fi
+        done <<< "$SCRIPT_FILES"
+
+        # Track changes
+        NEW_CHECKSUM=$(find "$SCRIPT_TARGET_DIR" -type f -exec cat {} + 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
+        if [ "$SCRIPT_EXISTED" = false ]; then
+            echo -e "  ${GREEN}NEW${NC}"
+            NEW_SCRIPTS="${NEW_SCRIPTS}${SCRIPT_NAME}\n"
+        elif [ "$OLD_CHECKSUM" != "$NEW_CHECKSUM" ]; then
+            echo -e "  ${YELLOW}UPDATED${NC}"
+            UPDATED_SCRIPTS="${UPDATED_SCRIPTS}${SCRIPT_NAME}\n"
+        else
+            echo -e "  ${DIM}unchanged${NC}"
+            UNCHANGED_SCRIPTS="${UNCHANGED_SCRIPTS}${SCRIPT_NAME}\n"
+        fi
+
+        # Create symlink in /usr/local/bin for each executable script file
+        while read -r FILE_NAME; do
+            [ -z "$FILE_NAME" ] && continue
+            TARGET_FILE="$SCRIPT_TARGET_DIR/$FILE_NAME"
+            [ ! -x "$TARGET_FILE" ] && continue
+
+            # Strip extension for the symlink name (script.py → script)
+            LINK_NAME="${FILE_NAME%.*}"
+            LINK_PATH="$SYMLINK_DIR/$LINK_NAME"
+
+            if [ -L "$LINK_PATH" ] || [ -e "$LINK_PATH" ]; then
+                # Check if the existing link already points to our script
+                EXISTING_TARGET=$(readlink "$LINK_PATH" 2>/dev/null || echo "")
+                if [ "$EXISTING_TARGET" = "$TARGET_FILE" ]; then
+                    echo -e "  ${DIM}symlink exists:${NC} $LINK_NAME → $TARGET_FILE"
+                    continue
+                fi
+                echo -e "  ${YELLOW}⚠ $LINK_PATH already exists and points elsewhere — skipping${NC}"
+                continue
+            fi
+
+            # Try to create the symlink, use sudo if needed
+            if ln -s "$TARGET_FILE" "$LINK_PATH" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} symlinked ${CYAN}$LINK_NAME${NC} → $TARGET_FILE"
+            elif sudo ln -s "$TARGET_FILE" "$LINK_PATH" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} symlinked ${CYAN}$LINK_NAME${NC} → $TARGET_FILE (sudo)"
+            else
+                echo -e "  ${RED}✗ Could not create symlink at $LINK_PATH${NC}"
+                echo -e "  ${DIM}  Run manually: sudo ln -s $TARGET_FILE $LINK_PATH${NC}"
+            fi
+        done <<< "$SCRIPT_FILES"
+
+        echo ""
+    done <<< "$SCRIPT_FOLDERS"
+
+    # Print scripts summary
+    echo -e "Scripts installed to: ${BLUE}$SCRIPTS_DIR${NC}"
+    echo ""
+
+    if [ -n "$NEW_SCRIPTS" ]; then
+        echo -e "${GREEN}New scripts:${NC}"
+        echo -e "$NEW_SCRIPTS" | while read -r name; do
+            [ -z "$name" ] && continue
+            echo -e "  ${GREEN}+${NC} $name"
+        done
+    fi
+
+    if [ -n "$UPDATED_SCRIPTS" ]; then
+        echo -e "${YELLOW}Updated scripts:${NC}"
+        echo -e "$UPDATED_SCRIPTS" | while read -r name; do
+            [ -z "$name" ] && continue
+            echo -e "  ${YELLOW}↑${NC} $name"
+        done
+    fi
+
+    if [ -n "$UNCHANGED_SCRIPTS" ]; then
+        echo -e "${DIM}Unchanged scripts:${NC}"
+        echo -e "$UNCHANGED_SCRIPTS" | while read -r name; do
+            [ -z "$name" ] && continue
+            echo -e "  ${DIM}  $name${NC}"
+        done
+    fi
+}
+
+install_scripts || true
+
+# ── Summary ───────────────────────────────────────────────────────────
+
+echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║   Installation complete!               ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "Skills installed to: ${BLUE}$SKILLS_DIR${NC}"
+echo -e "Skills installed to:  ${BLUE}$SKILLS_DIR${NC}"
+echo -e "Scripts installed to: ${BLUE}$SCRIPTS_DIR${NC}"
 echo ""
 
 if [ -n "$NEW_SKILLS" ]; then
-    echo -e "${GREEN}New:${NC}"
+    echo -e "${GREEN}New skills:${NC}"
     echo -e "$NEW_SKILLS" | while IFS='|' read -r name ver; do
         [ -z "$name" ] && continue
         echo -e "  ${GREEN}+${NC} /$name ${BLUE}v$ver${NC}"
@@ -221,7 +376,7 @@ if [ -n "$NEW_SKILLS" ]; then
 fi
 
 if [ -n "$UPDATED_SKILLS" ]; then
-    echo -e "${YELLOW}Updated:${NC}"
+    echo -e "${YELLOW}Updated skills:${NC}"
     echo -e "$UPDATED_SKILLS" | while IFS='|' read -r name old new; do
         [ -z "$name" ] && continue
         echo -e "  ${YELLOW}↑${NC} /$name ${DIM}v$old${NC} → ${BLUE}v$new${NC}"
@@ -229,7 +384,7 @@ if [ -n "$UPDATED_SKILLS" ]; then
 fi
 
 if [ -n "$UNCHANGED_SKILLS" ]; then
-    echo -e "${DIM}Unchanged:${NC}"
+    echo -e "${DIM}Unchanged skills:${NC}"
     echo -e "$UNCHANGED_SKILLS" | while IFS='|' read -r name ver; do
         [ -z "$name" ] && continue
         echo -e "  ${DIM}  /$name v$ver${NC}"
@@ -238,3 +393,4 @@ fi
 
 echo ""
 echo -e "${YELLOW}Skills are auto-discovered. Open a new Claude Code session to use them.${NC}"
+echo -e "${YELLOW}Scripts are available from the terminal via /usr/local/bin symlinks.${NC}"

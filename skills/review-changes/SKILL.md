@@ -1,7 +1,7 @@
 ---
 name: review-changes
-version: 1.4.0
-description: Review changes introduced by the current branch compared to a base branch. Use when you want to review code changes before creating a PR or merging.
+version: 1.5.0
+description: Review changes introduced by the current branch compared to a base branch. Spawns parallel reviewer agents for large diffs. Use when you want to review code changes before creating a PR or merging.
 argument-hint: "[base-branch]"
 ---
 
@@ -13,33 +13,38 @@ Review changes introduced by the current branch compared to a base branch.
 
 **Instructions:**
 
-1. **Check for Claude Teams:**
-
-   Before reviewing, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
-
-   **a) Detect availability:**
-   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
-   - If the value is not `1`, Claude Teams is not enabled — skip this step silently
-
-   **b) Ask the developer:**
-   - If the environment variable is `1`, use `AskUserQuestion` to ask:
-     > Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will review different files or review categories in parallel for faster execution.
-   - Provide two options: **Yes — use Teams** and **No — single agent**
-
-   **c) Enable teams:**
-   - If the developer chooses to use Teams, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent review tasks (e.g., separate agents reviewing different files or different review categories like security, performance, and code quality)
-   - If the developer declines, proceed as usual with single-agent execution
-
-2. First, determine the base branch to compare against:
+1. First, determine the base branch to compare against:
    - If an argument is provided via $ARGUMENTS, use that as the base branch
    - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=<value>` line, use that value as the base branch
    - If no argument and no `.agent` file, default to `main`
 
-3. Get the current branch name and verify we're not on the base branch
+2. Get the current branch name and verify we're not on the base branch
 
-4. Gather the changes:
+3. Gather the changes:
    - Run `git diff <base-branch>...HEAD` to see all changes
    - Run `git log <base-branch>..HEAD --oneline` to see commit history
+   - Run `git diff --name-only <base-branch>...HEAD` to get the list of changed files
+
+4. Review the changes using parallel agents if warranted:
+
+   **Determine team size** based on the number of changed files:
+   - 1–3 changed files → review directly (no team needed)
+   - 4–8 changed files → spawn 2 reviewer agents
+   - 9+ changed files → spawn 3 reviewer agents
+
+   **If spawning a team:**
+   - Use `TeamCreate` with name `review-changes`
+   - Divide changed files across reviewers, grouping related files together (e.g., a component and its test, or files in the same module)
+   - Spawn reviewers using the `Task` tool (`subagent_type: general-purpose`) with `run_in_background: true` and the team name
+   - Each reviewer receives:
+     - Their assigned files with the relevant diff output
+     - The review criteria from step 5 below
+     - Instructions to message the team lead with findings and mark their task as completed
+   - Wait for all reviewers to finish, then aggregate findings
+   - Clean up: send `shutdown_request` to each reviewer, then `TeamDelete`
+
+   **If reviewing directly:**
+   - Proceed with the review yourself following step 5
 
 5. Review the changes and provide feedback on:
 

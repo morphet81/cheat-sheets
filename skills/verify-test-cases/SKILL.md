@@ -1,7 +1,7 @@
 ---
 name: verify-test-cases
-version: 1.2.0
-description: Verify test cases in all test files modified since branching out from base branch. Checks that test cases make sense, have no duplications, and provide meaningful coverage.
+version: 1.3.0
+description: Verify test cases in all test files modified since branching out from base branch. Checks that test cases make sense, have no duplications, and provide meaningful coverage. Spawns parallel agents for multi-file analysis.
 argument-hint: ""
 ---
 
@@ -12,29 +12,12 @@ Verify the quality and correctness of test cases in all test files modified sinc
 
 **Instructions:**
 
-1. **Check for Claude Teams:**
-
-   Before analyzing test files, check whether Claude Teams (multi-agent parallel execution) is available and offer it to the developer.
-
-   **a) Detect availability:**
-   - Run `echo $CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` via the Bash tool to check the environment variable
-   - If the value is not `1`, Claude Teams is not enabled — skip this step silently
-
-   **b) Ask the developer:**
-   - If the environment variable is `1`, use `AskUserQuestion` to ask:
-     > Claude Teams is available on this machine. Would you like to enable parallel agents for this task? Teams mode will analyze different test files in parallel for faster execution.
-   - Provide two options: **Yes — use Teams** and **No — single agent**
-
-   **c) Enable teams:**
-   - If the developer chooses to use Teams, use the `Task` tool with `run_in_background: true` to spawn parallel agents for independent test file analysis (e.g., separate agents analyzing different test files simultaneously)
-   - If the developer declines, proceed as usual with single-agent execution
-
-2. **Determine the base branch:**
+1. **Determine the base branch:**
    - Check if a `.agent` file exists in the current directory
    - If it exists, read it and look for a `baseBranch=<value>` line to extract the base branch
    - If no `.agent` file or no `baseBranch` key, default to `main`
 
-3. **Identify modified test files since branching:**
+2. **Identify modified test files since branching:**
    - Run `git diff --name-only <base-branch>...HEAD` to get all files modified since branching from the base branch
    - Filter for test files using common patterns:
      - `*.test.*`, `*.spec.*` (JS/TS)
@@ -44,11 +27,31 @@ Verify the quality and correctness of test cases in all test files modified sinc
      - Files under `__tests__/`, `test/`, `tests/`, `spec/` directories
    - If no test files were modified, inform the user and STOP
 
-4. **Read and analyze each test file:**
-   - Read the full content of each modified test file
-   - Also read the source file(s) being tested to understand the code under test
+3. **Analyze test files using a team:**
 
-5. **Verify test cases make sense:**
+   Spawn parallel agents to analyze test files concurrently. Each agent reviews one or more test files independently.
+
+   **a) Determine team size** based on the number of test files:
+   - 1–2 test files → analyze directly (no team needed)
+   - 3–5 test files → spawn 2 reviewer agents
+   - 6+ test files → spawn 3 reviewer agents
+
+   **b) If spawning a team:**
+   - Use `TeamCreate` with name `verify-tests`
+   - Use `TaskCreate` to create one task per reviewer: "Review test files: `<file1>`, `<file2>`, ..."
+   - Divide test files across reviewers, grouping files that test the same source module together when possible
+   - Spawn reviewers using the `Task` tool (`subagent_type: general-purpose`) with `run_in_background: true` and the team name
+   - Each reviewer receives:
+     - The list of test files to analyze
+     - Instructions to also read the source files being tested for context
+     - The full verification checklist (steps 4 and 5 below)
+   - Reviewers must mark their tasks as completed and message the team lead with findings
+   - Wait for all reviewers to finish, then aggregate results
+
+   **c) If analyzing directly (1–2 files):**
+   - Read and analyze the test file(s) yourself following steps 4 and 5
+
+4. **Verify test cases make sense:**
    For each test file, check that:
 
    a. **Test descriptions match behavior:**
@@ -73,7 +76,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
       - Tests cover the actual function signatures and behavior
       - Tests aren't testing stale or non-existent APIs
 
-6. **Check for duplications:**
+5. **Check for duplications:**
    For each test file and across all modified test files:
 
    a. **Exact duplicates:**
@@ -88,7 +91,9 @@ Verify the quality and correctness of test cases in all test files modified sinc
       - Multiple assertions in separate tests that check the same thing
       - Tests that are strict subsets of other tests
 
-7. **Report findings:**
+6. **Report findings:**
+
+   If a team was used, aggregate all reviewer findings and clean up the team (send `shutdown_request` to each reviewer, then `TeamDelete`).
 
    Format the output as follows:
 
@@ -121,7 +126,7 @@ Verify the quality and correctness of test cases in all test files modified sinc
 - Verdict: PASS / NEEDS ATTENTION
 ```
 
-8. **Handle edge cases:**
+7. **Handle edge cases:**
    - If there are no commits on the branch compared to the base branch, inform the user and STOP
    - If modified files include both test and source files, use the source files for context but only report on the test files
    - If a test file imports from files you can't find, note it but continue analysis

@@ -1,11 +1,11 @@
 ---
 name: address-pr-comments
-version: 1.0.0
-description: Retrieve unresolved PR review comments, explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes. After committing, respond to each comment on GitHub with resolution details.
+version: 1.1.0
+description: Retrieve unresolved PR review comments and general conversation comments, explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes. After committing, respond to each comment on GitHub with resolution details.
 argument-hint: ""
 ---
 
-Retrieve unresolved review comments from the current branch's PR, explain each issue to the developer with a proposed fix, allow the developer to discuss and amend proposals, then spawn a coordinated team of developers to implement the fixes. After committing, reply to each comment thread on GitHub with details on how it was addressed.
+Retrieve unresolved review comments and general conversation comments from the current branch's PR, explain each issue to the developer with a proposed fix, allow the developer to discuss and amend proposals, then spawn a coordinated team of developers to implement the fixes. After committing, reply to each comment on GitHub with details on how it was addressed.
 
 **Usage:**
 - `/address-pr-comments` — Fetch and address unresolved PR comments for the current branch
@@ -34,7 +34,9 @@ Retrieve unresolved review comments from the current branch's PR, explain each i
      ```
      Use `AskUserQuestion` to ask if they want to continue anyway.
 
-3. **Retrieve unresolved review comments:**
+3. **Retrieve all PR comments (review comments + general comments):**
+
+   **a) Retrieve unresolved review comments:**
    - Use the GitHub GraphQL API to fetch all review threads and their resolution status:
      ```bash
      gh api graphql -f query='
@@ -48,6 +50,7 @@ Retrieve unresolved review comments from the current branch's PR, explain each i
                  comments(first: 20) {
                    nodes {
                      id
+                     databaseId
                      body
                      path
                      line
@@ -69,17 +72,40 @@ Retrieve unresolved review comments from the current branch's PR, explain each i
      - Full comment thread (original comment + all replies)
      - Author(s)
      - The URL of the first comment in the thread (for linking in replies)
-   - If there are no unresolved comments, display the following and **STOP**:
+
+   **b) Retrieve general conversation comments:**
+   - Fetch general PR comments (issue comments) using the REST API:
+     ```bash
+     gh api repos/{owner}/{repo}/issues/{pr_number}/comments --paginate
      ```
-     No unresolved review comments on PR #<number>. Nothing to address!
+   - **Filter out** comments that should NOT be addressed:
+     - Comments by the PR author (they wrote the PR — these are self-notes or responses)
+     - Comments by bots (author `type` is `"Bot"`, or login ends with `[bot]`)
+     - Comments that are purely approval/acknowledgement (e.g., "LGTM", "Looks good", ":+1:")
+   - For each remaining general comment, record:
+     - Comment ID (for replying later — `id` field)
+     - Author
+     - Comment body
+     - Created date
+     - The `html_url` of the comment (for linking in replies)
+   - **Note:** General comments do not have file/line references and have no resolution status. Include all that pass the filters above.
+
+   **c) Combine and check:**
+   - Merge both lists into a single ordered list, sorted chronologically by creation date
+   - Tag each entry with its **source**: `review` (from step 3a) or `general` (from step 3b)
+   - If there are no comments from either source, display the following and **STOP**:
+     ```
+     No unresolved review comments or actionable general comments on PR #<number>. Nothing to address!
      ```
 
 4. **Analyze each comment and propose fixes:**
 
-   For each unresolved comment thread, present the issue to the developer with a clear explanation and a proposed approach. Structure each one as follows:
+   For each comment (review or general), present the issue to the developer with a clear explanation and a proposed approach.
+
+   **For review comments** (attached to code), use this format:
 
    ```
-   ## Comment <N>/<total> — `<file>:<line>` — @<author>
+   ## Comment <N>/<total> — [Review] `<file>:<line>` — @<author>
 
    ### Reviewer said:
    > <full comment body>
@@ -99,6 +125,33 @@ Retrieve unresolved review comments from the current branch's PR, explain each i
    <Describe the concrete approach to address this comment. If it's a code change,
    describe exactly what will change and where. If it's a question, draft the reply.
    If no fix is needed, explain why.>
+   ```
+
+   **For general comments** (PR conversation), use this format:
+
+   ```
+   ## Comment <N>/<total> — [General] — @<author>
+
+   ### Reviewer said:
+   > <full comment body>
+
+   ### Context:
+   <Identify any files, functions, or areas of the codebase the comment refers to.
+   If the comment mentions specific code, read the relevant files. If the comment is
+   about the PR overall (architecture, approach, etc.), summarize the relevant changes.>
+
+   ### Analysis:
+   <Explain what the reviewer is asking for and why. Categorize as one of:>
+   - **Code change** — specific modifications needed
+   - **Question** — reviewer asks for clarification; may not need a code change
+   - **Suggestion** — an optional improvement worth considering
+   - **Concern** — a potential issue that needs investigation
+   - **Discussion** — a broader topic about approach or architecture
+
+   ### Proposed fix:
+   <Describe the concrete approach to address this comment. If it requires code changes,
+   identify the files and describe exactly what will change. If it's a question or discussion,
+   draft the reply. If no action is needed, explain why.>
    ```
 
    After presenting **all** comments, use `AskUserQuestion` to ask:
@@ -221,10 +274,10 @@ Retrieve unresolved review comments from the current branch's PR, explain each i
 
 10. **Respond to comments on GitHub:**
 
-    After committing, reply to each comment thread on GitHub using the `gh` CLI. For each unresolved thread:
+    After committing, reply to each comment on GitHub using the `gh` CLI.
 
-    **a) If a code fix was made:**
-    - Reply to the comment thread with details on how it was addressed
+    **a) For review comments — if a code fix was made:**
+    - Reply to the review comment thread with details on how it was addressed
     - Include the fixing code if it's short (under ~20 lines) as a fenced code block
     - If the fix is longer, reference the file path and line numbers:
       > Fixed in `<file>` (lines <start>–<end>). <Brief description of the change.>
@@ -233,11 +286,22 @@ Retrieve unresolved review comments from the current branch's PR, explain each i
       gh api repos/{owner}/{repo}/pulls/{pr_number}/comments -f body='<reply>' -f in_reply_to=<comment_id>
       ```
 
-    **b) If no code fix was needed (question/reply-only):**
+    **b) For review comments — if no code fix was needed (question/reply-only):**
     - Post the approved reply explaining why no code change was necessary
     - Be specific: reference the existing code, design decisions, or documentation that addresses the reviewer's concern
 
-    **c) Reply format:**
+    **c) For general comments — reply on the PR conversation:**
+    - Post a new issue comment replying to the original. Quote the original comment for context:
+      ```bash
+      gh api repos/{owner}/{repo}/issues/{pr_number}/comments -f body='<reply>'
+      ```
+    - Format the reply to reference the original author and comment:
+      > Regarding @<author>'s [comment](<html_url>):
+      >
+      > <reply body>
+    - If a code fix was made, include the same details as review comment replies (file paths, line numbers, or short code blocks)
+
+    **d) Reply format (all comment types):**
     - Keep replies professional and concise
     - Start with a brief summary (e.g., "Fixed — ...", "Good catch — ...", "No change needed — ...")
     - Include code references with line numbers when relevant
@@ -273,3 +337,5 @@ Retrieve unresolved review comments from the current branch's PR, explain each i
     - If a comment is ambiguous or unclear, present your best interpretation and ask the developer to confirm during step 5
     - If the developer rejects all proposed fixes, skip implementation and optionally post replies explaining the decisions
     - If a developer agent fails or produces incorrect changes, attempt the fix directly or ask the developer for guidance
+    - If a general comment is vague or doesn't clearly reference any code (e.g., "Can we discuss the approach?"), categorize it as **Discussion** and propose a reply addressing the concern based on the PR's changes
+    - If a general comment has already been answered by another comment in the thread (someone else replied), skip it and note it as already addressed

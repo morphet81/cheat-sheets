@@ -1308,17 +1308,17 @@ fi</pre>
                             <span class="script-lang">Bash</span>
                         </div>
                         <p class="script-description">
-                            Interactive git worktree manager.
-                            Lists all worktrees in a formatted table, lets you select one to inspect its status and recent commits,
-                            and optionally remove it with branch cleanup.
+                            Interactive git worktree manager with arrow-key navigation and colored output.
+                            Browse worktrees, inspect their status and recent commits, and remove them with branch cleanup.
                         </p>
                         <div class="how-it-works">
                             <strong>How it works:</strong>
                             <ol>
                                 <li>Parses <code>git worktree list --porcelain</code> to gather all worktrees with their branches and commits</li>
-                                <li>Displays a numbered table showing branch, commit hash, and path</li>
-                                <li>On selection, shows <code>git status</code> and last 5 commits for that worktree</li>
-                                <li>Offers removal with confirmation (skips the main worktree), including optional branch deletion</li>
+                                <li>Displays a colored list with a cursor &mdash; use <strong>&uarr;&darr;</strong> arrow keys to navigate</li>
+                                <li>Press <strong>Enter</strong> to inspect a worktree (status + last 5 commits)</li>
+                                <li>Press <strong>d</strong> to remove the selected worktree (with confirmation), including optional branch deletion</li>
+                                <li>Press <strong>q</strong> or <strong>Esc</strong> to quit</li>
                             </ol>
                         </div>
                         <div class="script-usage">
@@ -1343,10 +1343,10 @@ fi</pre>
                             </div>
                             <div class="file-content">
                                 <pre id="worktrees-content">#!/usr/bin/env bash
-# Interactive git worktree manager.
+# Interactive git worktree manager with arrow-key navigation.
 #
-# Lists all worktrees in a formatted table. The user can select a worktree
-# to see its git status and optionally remove it.
+# Lists all worktrees with color. Navigate with arrow keys, Enter to inspect,
+# &#x27;d&#x27; to remove, &#x27;q&#x27; to quit.
 #
 # Usage:
 #   worktrees.sh
@@ -1358,168 +1358,221 @@ if ! git rev-parse --is-inside-work-tree &amp;&gt;/dev/null; then
     exit 1
 fi
 
+# -- Colors --------------------------------------------------------------------
+
+BOLD=&#x27;\033[1m&#x27;
+DIM=&#x27;\033[2m&#x27;
+RESET=&#x27;\033[0m&#x27;
+CYAN=&#x27;\033[36m&#x27;
+GREEN=&#x27;\033[32m&#x27;
+YELLOW=&#x27;\033[33m&#x27;
+RED=&#x27;\033[31m&#x27;
+MAGENTA=&#x27;\033[35m&#x27;
+WHITE=&#x27;\033[97m&#x27;
+BG_BLUE=&#x27;\033[44m&#x27;
+BG_RESET=&#x27;\033[49m&#x27;
+
+# -- Terminal helpers ----------------------------------------------------------
+
+hide_cursor() { printf &#x27;\033[?25l&#x27;; }
+show_cursor() { printf &#x27;\033[?25h&#x27;; }
+clear_screen() { printf &#x27;\033[2J\033[H&#x27;; }
+
+cleanup() {
+    show_cursor
+    stty echo 2&gt;/dev/null || true
+}
+trap cleanup EXIT
+
 # -- Gather worktrees ----------------------------------------------------------
 
-declare -a WT_PATHS=()
-declare -a WT_BRANCHES=()
-declare -a WT_COMMITS=()
-declare -a WT_BARE=()
+gather_worktrees() {
+    WT_PATHS=()
+    WT_BRANCHES=()
+    WT_COMMITS=()
+    WT_BARE=()
 
-current_path=&quot;&quot;
-current_branch=&quot;&quot;
-current_commit=&quot;&quot;
-is_bare=false
+    local current_path=&quot;&quot; current_branch=&quot;&quot; current_commit=&quot;&quot; is_bare=false
 
-while IFS= read -r line; do
-    if [[ &quot;$line&quot; =~ ^worktree\ (.+)$ ]]; then
-        # Save previous entry
-        if [[ -n &quot;$current_path&quot; ]]; then
-            WT_PATHS+=(&quot;$current_path&quot;)
-            WT_BRANCHES+=(&quot;${current_branch:-(detached)}&quot;)
-            WT_COMMITS+=(&quot;$current_commit&quot;)
-            WT_BARE+=(&quot;$is_bare&quot;)
+    while IFS= read -r line; do
+        if [[ &quot;$line&quot; =~ ^worktree\ (.+)$ ]]; then
+            if [[ -n &quot;$current_path&quot; ]]; then
+                WT_PATHS+=(&quot;$current_path&quot;)
+                WT_BRANCHES+=(&quot;${current_branch:-(detached)}&quot;)
+                WT_COMMITS+=(&quot;$current_commit&quot;)
+                WT_BARE+=(&quot;$is_bare&quot;)
+            fi
+            current_path=&quot;${BASH_REMATCH[1]}&quot;
+            current_branch=&quot;&quot; current_commit=&quot;&quot; is_bare=false
+        elif [[ &quot;$line&quot; =~ ^HEAD\ (.+)$ ]]; then
+            current_commit=&quot;${BASH_REMATCH[1]:0:8}&quot;
+        elif [[ &quot;$line&quot; =~ ^branch\ refs/heads/(.+)$ ]]; then
+            current_branch=&quot;${BASH_REMATCH[1]}&quot;
+        elif [[ &quot;$line&quot; == &quot;bare&quot; ]]; then
+            is_bare=true
+        elif [[ &quot;$line&quot; == &quot;detached&quot; ]]; then
+            current_branch=&quot;(detached)&quot;
         fi
-        current_path=&quot;${BASH_REMATCH[1]}&quot;
-        current_branch=&quot;&quot;
-        current_commit=&quot;&quot;
-        is_bare=false
-    elif [[ &quot;$line&quot; =~ ^HEAD\ (.+)$ ]]; then
-        current_commit=&quot;${BASH_REMATCH[1]:0:8}&quot;
-    elif [[ &quot;$line&quot; =~ ^branch\ refs/heads/(.+)$ ]]; then
-        current_branch=&quot;${BASH_REMATCH[1]}&quot;
-    elif [[ &quot;$line&quot; == &quot;bare&quot; ]]; then
-        is_bare=true
-    elif [[ &quot;$line&quot; == &quot;detached&quot; ]]; then
-        current_branch=&quot;(detached)&quot;
+    done &lt; &lt;(git worktree list --porcelain)
+
+    if [[ -n &quot;$current_path&quot; ]]; then
+        WT_PATHS+=(&quot;$current_path&quot;)
+        WT_BRANCHES+=(&quot;${current_branch:-(detached)}&quot;)
+        WT_COMMITS+=(&quot;$current_commit&quot;)
+        WT_BARE+=(&quot;$is_bare&quot;)
     fi
-done &lt; &lt;(git worktree list --porcelain)
+    COUNT=${#WT_PATHS[@]}
+}
 
-# Save last entry
-if [[ -n &quot;$current_path&quot; ]]; then
-    WT_PATHS+=(&quot;$current_path&quot;)
-    WT_BRANCHES+=(&quot;${current_branch:-(detached)}&quot;)
-    WT_COMMITS+=(&quot;$current_commit&quot;)
-    WT_BARE+=(&quot;$is_bare&quot;)
-fi
+# -- Read a single keypress ----------------------------------------------------
 
-COUNT=${#WT_PATHS[@]}
+read_key() {
+    local key
+    IFS= read -rsn1 key
+    if [[ &quot;$key&quot; == $&#x27;\x1b&#x27; ]]; then
+        local seq
+        IFS= read -rsn2 -t 0.1 seq || true
+        case &quot;$seq&quot; in
+            &#x27;[A&#x27;) echo &quot;UP&quot; ;;
+            &#x27;[B&#x27;) echo &quot;DOWN&quot; ;;
+            *)    echo &quot;ESC&quot; ;;
+        esac
+    elif [[ &quot;$key&quot; == &quot;&quot; ]]; then echo &quot;ENTER&quot;
+    elif [[ &quot;$key&quot; == &quot;q&quot; || &quot;$key&quot; == &quot;Q&quot; ]]; then echo &quot;QUIT&quot;
+    elif [[ &quot;$key&quot; == &quot;d&quot; || &quot;$key&quot; == &quot;D&quot; ]]; then echo &quot;DELETE&quot;
+    else echo &quot;$key&quot;
+    fi
+}
 
-if [[ $COUNT -eq 0 ]]; then
-    echo &quot;No worktrees found.&quot;
-    exit 0
-fi
+# -- Draw the worktree list ----------------------------------------------------
 
-# -- Display worktrees ---------------------------------------------------------
-
-display_worktrees() {
-    echo
-    echo &quot;  Git Worktrees&quot;
-    echo &quot;  =============&quot;
-    echo
-    printf &quot;  %-4s  %-30s  %-25s  %s\n&quot; &quot;#&quot; &quot;Branch&quot; &quot;Commit&quot; &quot;Path&quot;
-    printf &quot;  %-4s  %-30s  %-25s  %s\n&quot; &quot;---&quot; &quot;------------------------------&quot; &quot;-------------------------&quot; &quot;----&quot;
+draw_list() {
+    clear_screen
+    printf &quot;  ${BOLD}${CYAN}Git Worktrees${RESET}\n&quot;
+    printf &quot;  ${DIM}Use ${WHITE}&uarr;&darr;${RESET}${DIM} navigate, ${WHITE}Enter${RESET}${DIM} inspect, ${WHITE}d${RESET}${DIM} remove, ${WHITE}q${RESET}${DIM} quit${RESET}\n\n&quot;
+    printf &quot;  ${DIM}%-30s  %-10s  %s${RESET}\n&quot; &quot;Branch&quot; &quot;Commit&quot; &quot;Path&quot;
+    printf &quot;  ${DIM}%-30s  %-10s  %s${RESET}\n&quot; &quot;------------------------------&quot; &quot;--------&quot; &quot;----&quot;
 
     for i in $(seq 0 $((COUNT - 1))); do
-        local marker=&quot;&quot;
-        if [[ &quot;${WT_BARE[$i]}&quot; == &quot;true&quot; ]]; then
-            marker=&quot; (bare)&quot;
+        local branch=&quot;${WT_BRANCHES[$i]}&quot; commit=&quot;${WT_COMMITS[$i]}&quot; path=&quot;${WT_PATHS[$i]}&quot;
+        local tag=&quot;&quot;
+        [[ $i -eq 0 ]] &amp;&amp; tag=&quot;${DIM} (main)${RESET}&quot;
+        [[ &quot;${WT_BARE[$i]}&quot; == &quot;true&quot; ]] &amp;&amp; tag=&quot;${DIM} (bare)${RESET}&quot;
+
+        if [[ $i -eq &quot;$SELECTED&quot; ]]; then
+            printf &quot;  ${BG_BLUE}${BOLD}${WHITE}&#x25b8; %-28s  ${YELLOW}%-10s${WHITE}  %s${RESET}${tag}\n&quot; \
+                &quot;$branch&quot; &quot;$commit&quot; &quot;$path&quot;
+        else
+            printf &quot;  ${DIM} ${RESET} ${GREEN}%-28s  ${YELLOW}%-10s${RESET}  ${DIM}%s${RESET}${tag}\n&quot; \
+                &quot;$branch&quot; &quot;$commit&quot; &quot;$path&quot;
         fi
-        # Mark the main worktree
-        local idx=$((i + 1))
-        if [[ $i -eq 0 ]]; then
-            marker=&quot; (main)&quot;
-        fi
-        printf &quot;  %-4s  %-30s  %-25s  %s\n&quot; \
-            &quot;${idx}&quot; \
-            &quot;${WT_BRANCHES[$i]}${marker}&quot; \
-            &quot;${WT_COMMITS[$i]}&quot; \
-            &quot;${WT_PATHS[$i]}&quot;
     done
     echo
 }
 
-# -- Interactive loop ----------------------------------------------------------
+# -- Show detail panel for selected worktree -----------------------------------
 
-while true; do
-    display_worktrees
-
-    echo &quot;  Enter a worktree number to inspect, or &#x27;q&#x27; to quit.&quot;
-    read -rp &quot;  &gt; &quot; choice
-
-    if [[ &quot;$choice&quot; == &quot;q&quot; || &quot;$choice&quot; == &quot;Q&quot; || -z &quot;$choice&quot; ]]; then
-        break
-    fi
-
-    if ! [[ &quot;$choice&quot; =~ ^[0-9]+$ ]] || [[ &quot;$choice&quot; -lt 1 ]] || [[ &quot;$choice&quot; -gt $COUNT ]]; then
-        echo &quot;  Invalid selection.&quot;
-        continue
-    fi
-
-    idx=$((choice - 1))
-    wt_path=&quot;${WT_PATHS[$idx]}&quot;
-    wt_branch=&quot;${WT_BRANCHES[$idx]}&quot;
-
-    echo
-    echo &quot;  &mdash;&mdash; ${wt_branch} &mdash;&mdash;&quot;
-    echo &quot;  Path: ${wt_path}&quot;
-    echo
+show_detail() {
+    local idx=&quot;$1&quot; wt_path=&quot;${WT_PATHS[$idx]}&quot; wt_branch=&quot;${WT_BRANCHES[$idx]}&quot;
+    clear_screen
+    printf &quot;  ${BOLD}${MAGENTA}&mdash;&mdash; ${wt_branch} &mdash;&mdash;${RESET}\n&quot;
+    printf &quot;  ${DIM}Path:${RESET} %s\n\n&quot; &quot;$wt_path&quot;
 
     if [[ -d &quot;$wt_path&quot; ]]; then
-        echo &quot;  Status:&quot;
-        git -C &quot;$wt_path&quot; status --short | sed &#x27;s/^/    /&#x27; || echo &quot;    (clean)&quot;
-        echo
-        echo &quot;  Recent commits:&quot;
-        git -C &quot;$wt_path&quot; log --oneline -5 | sed &#x27;s/^/    /&#x27;
+        printf &quot;  ${BOLD}${CYAN}Status:${RESET}\n&quot;
+        local status_output
+        status_output=$(git -C &quot;$wt_path&quot; status --short 2&gt;/dev/null)
+        if [[ -n &quot;$status_output&quot; ]]; then
+            while IFS= read -r line; do
+                local code=&quot;${line:0:2}&quot; file=&quot;${line:3}&quot;
+                case &quot;$code&quot; in
+                    &quot;M &quot;*|&quot; M&quot;) printf &quot;    ${YELLOW}%s${RESET}  %s\n&quot; &quot;$code&quot; &quot;$file&quot; ;;
+                    &quot;A &quot;*|&quot;??&quot;*) printf &quot;    ${GREEN}%s${RESET}  %s\n&quot; &quot;$code&quot; &quot;$file&quot; ;;
+                    &quot;D &quot;*|&quot; D&quot;) printf &quot;    ${RED}%s${RESET}  %s\n&quot; &quot;$code&quot; &quot;$file&quot; ;;
+                    *) printf &quot;    ${DIM}%s${RESET}  %s\n&quot; &quot;$code&quot; &quot;$file&quot; ;;
+                esac
+            done &lt;&lt;&lt; &quot;$status_output&quot;
+        else
+            printf &quot;    ${GREEN}Clean &mdash; nothing to commit${RESET}\n&quot;
+        fi
+        printf &quot;\n  ${BOLD}${CYAN}Recent commits:${RESET}\n&quot;
+        git -C &quot;$wt_path&quot; log --oneline -5 --format=&quot;    ${YELLOW}%h${RESET} %s&quot; 2&gt;/dev/null || true
     else
-        echo &quot;  (directory not found &mdash; worktree may be prunable)&quot;
+        printf &quot;  ${RED}(directory not found)${RESET}\n&quot;
     fi
 
     echo
+    [[ $idx -eq 0 ]] &amp;&amp; printf &quot;  ${DIM}(Main worktree &mdash; cannot be removed.)${RESET}\n&quot;
+    printf &quot;  ${DIM}Press any key to go back...${RESET}&quot;
+    read -rsn1 _ || true
+}
 
-    # Don&#x27;t offer removal for the main worktree
+# -- Remove a worktree with confirmation ---------------------------------------
+
+remove_worktree() {
+    local idx=&quot;$1&quot; wt_path=&quot;${WT_PATHS[$idx]}&quot; wt_branch=&quot;${WT_BRANCHES[$idx]}&quot;
     if [[ $idx -eq 0 ]]; then
-        echo &quot;  (This is the main worktree and cannot be removed.)&quot;
-        read -rp &quot;  Press Enter to continue...&quot; _
-        continue
+        clear_screen
+        printf &quot;\n  ${RED}Cannot remove the main worktree.${RESET}\n&quot;
+        printf &quot;  ${DIM}Press any key to go back...${RESET}&quot;
+        read -rsn1 _ || true
+        return
     fi
+    show_cursor
+    clear_screen
+    printf &quot;\n  ${BOLD}${RED}Remove worktree${RESET}\n&quot;
+    printf &quot;  ${DIM}Path:${RESET}   %s\n  ${DIM}Branch:${RESET} %s\n\n&quot; &quot;$wt_path&quot; &quot;$wt_branch&quot;
 
-    read -rp &quot;  Remove this worktree? [y/N] &quot; remove
-    if [[ &quot;$remove&quot; =~ ^[Yy]$ ]]; then
-        git worktree remove &quot;$wt_path&quot; &amp;&amp; echo &quot;  Worktree removed.&quot; || {
-            read -rp &quot;  Worktree has changes. Force remove? [y/N] &quot; force
-            if [[ &quot;$force&quot; =~ ^[Yy]$ ]]; then
-                git worktree remove --force &quot;$wt_path&quot;
-                echo &quot;  Worktree force-removed.&quot;
+    read -rp &quot;  Remove this worktree? [y/N] &quot; confirm
+    if [[ ! &quot;$confirm&quot; =~ ^[Yy]$ ]]; then
+        printf &quot;  ${DIM}Aborted.${RESET}\n&quot;; sleep 0.5; hide_cursor; return
+    fi
+    if git worktree remove &quot;$wt_path&quot; 2&gt;/dev/null; then
+        printf &quot;  ${GREEN}Worktree removed.${RESET}\n&quot;
+    else
+        read -rp &quot;  Worktree has changes. Force remove? [y/N] &quot; force
+        if [[ &quot;$force&quot; =~ ^[Yy]$ ]]; then
+            git worktree remove --force &quot;$wt_path&quot;
+            printf &quot;  ${GREEN}Worktree force-removed.${RESET}\n&quot;
+        else
+            printf &quot;  ${DIM}Kept.${RESET}\n&quot;; sleep 0.5; hide_cursor; return
+        fi
+    fi
+    if [[ &quot;$wt_branch&quot; != &quot;(detached)&quot; ]]; then
+        read -rp &quot;  Also delete branch &#x27;${wt_branch}&#x27;? [y/N] &quot; del_branch
+        if [[ &quot;$del_branch&quot; =~ ^[Yy]$ ]]; then
+            if git branch -d &quot;$wt_branch&quot; 2&gt;/dev/null; then
+                printf &quot;  ${GREEN}Branch deleted.${RESET}\n&quot;
             else
-                echo &quot;  Kept.&quot;
-                read -rp &quot;  Press Enter to continue...&quot; _
-                continue
-            fi
-        }
-
-        # Offer branch deletion
-        if [[ &quot;$wt_branch&quot; != &quot;(detached)&quot; ]]; then
-            read -rp &quot;  Also delete branch &#x27;${wt_branch}&#x27;? [y/N] &quot; del_branch
-            if [[ &quot;$del_branch&quot; =~ ^[Yy]$ ]]; then
-                if git branch -d &quot;$wt_branch&quot; 2&gt;/dev/null; then
-                    echo &quot;  Branch &#x27;${wt_branch}&#x27; deleted.&quot;
-                else
-                    read -rp &quot;  Branch not fully merged. Force delete? [y/N] &quot; force_br
-                    if [[ &quot;$force_br&quot; =~ ^[Yy]$ ]]; then
-                        git branch -D &quot;$wt_branch&quot;
-                        echo &quot;  Branch &#x27;${wt_branch}&#x27; force-deleted.&quot;
-                    else
-                        echo &quot;  Branch kept.&quot;
-                    fi
-                fi
+                read -rp &quot;  Not fully merged. Force delete? [y/N] &quot; force_br
+                [[ &quot;$force_br&quot; =~ ^[Yy]$ ]] &amp;&amp; git branch -D &quot;$wt_branch&quot;
             fi
         fi
-
-        # Refresh worktree list after removal (abbreviated for display)
-        # ... (refreshes internal arrays)
     fi
+    sleep 0.5
+    gather_worktrees
+    [[ &quot;$SELECTED&quot; -ge &quot;$COUNT&quot; ]] &amp;&amp; SELECTED=$((COUNT - 1))
+    hide_cursor
+}
 
-    read -rp &quot;  Press Enter to continue...&quot; _
+# -- Main loop -----------------------------------------------------------------
+
+gather_worktrees
+[[ $COUNT -eq 0 ]] &amp;&amp; { echo &quot;No worktrees found.&quot;; exit 0; }
+SELECTED=0
+hide_cursor
+
+while true; do
+    draw_list
+    key=$(read_key)
+    case &quot;$key&quot; in
+        UP)     [[ $SELECTED -gt 0 ]] &amp;&amp; SELECTED=$((SELECTED - 1)) ;;
+        DOWN)   [[ $SELECTED -lt $((COUNT - 1)) ]] &amp;&amp; SELECTED=$((SELECTED + 1)) ;;
+        ENTER)  show_detail &quot;$SELECTED&quot; ;;
+        DELETE) remove_worktree &quot;$SELECTED&quot;
+                [[ $COUNT -eq 0 ]] &amp;&amp; { clear_screen; printf &quot;\n  ${DIM}No worktrees remaining.${RESET}\n&quot;; break; } ;;
+        QUIT|ESC) clear_screen; break ;;
+    esac
 done</pre>
                             </div>
                         </div>

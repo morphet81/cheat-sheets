@@ -557,12 +557,13 @@ Summary and recommendation (approve, request changes, etc.)
                         <div class="skill-title">
                             <h3>Review Pull Request</h3>
                             <code>/review-pull-request</code>
-                            <span class="skill-version">v1.0.0</span>
+                            <span class="skill-version">v1.1.0</span>
                         </div>
                         <p class="skill-description">
                             Review an open pull request by spawning two independent reviewer agents.
                             Each reviewer examines the full PR diff, takes detailed notes, then they debate and challenge each other&#x27;s findings.
                             Produces a consolidated, deduplicated review excluding issues already raised in existing reviews and unresolved comments.
+                            The user selects which findings to post as GitHub review comments (prefixed with &quot;From AI agent&quot;).
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -586,8 +587,8 @@ Summary and recommendation (approve, request changes, etc.)
                             <div class="file-content">
                                 <pre id="review-pull-request-content">---
 name: review-pull-request
-version: 1.0.0
-description: Review an open pull request by spawning a team of 2 independent reviewer agents. Each reviewer examines the full PR diff, takes notes, then they debate their findings before producing a consolidated review. Excludes findings already covered by existing reviews and unresolved comments.
+version: 1.1.0
+description: Review an open pull request by spawning a team of 2 independent reviewer agents. Each reviewer examines the full PR diff, takes notes, then they debate their findings before producing a consolidated review. Excludes findings already covered by existing reviews and unresolved comments. The user selects which findings to post as GitHub review comments.
 argument-hint: &quot;&lt;PR number or URL&gt; [repository]&quot;
 ---
 
@@ -826,19 +827,170 @@ Review an open pull request by spawning two independent reviewer agents. Each re
    Include both reviewers&#x27; individual impressions and the consensus view.&gt;
    ```
 
-9. **Clean up:**
+9. **Select findings to post as review comments:**
 
-   - Send `shutdown_request` to both reviewers via `SendMessage`
-   - Once confirmed, call `TeamDelete`
-   - Present the final consolidated review to the user
+   After presenting the consolidated review, ask the user which findings they want posted as PR review comments using `AskUserQuestion`:
 
-10. **Handle edge cases:**
+   &gt; Here are the findings from the review. Which ones would you like me to post as review comments on the PR?
+   &gt;
+   &gt; Please provide the finding numbers (e.g., &quot;1, 3, 5&quot; or &quot;all&quot; or &quot;none&quot;).
+
+   - If the user says &quot;none&quot;, skip to step 11 (clean up)
+   - If the user says &quot;all&quot;, select every finding
+   - Otherwise, parse the comma-separated list of finding numbers
+   - Confirm the selection back to the user before proceeding:
+     &gt; I&#x27;ll post comments for findings: #1, #3, #5. Proceeding.
+
+10. **Post review comments on GitHub:**
+
+    **a) Determine the authenticated user:**
+    - Run `gh api user --jq .login` to get the current GitHub username
+
+    **b) Check for an existing pending review by the user:**
+    - Query pending reviews on the PR:
+      ```bash
+      gh api graphql -f query=&#x27;
+        query($owner: String!, $repo: String!, $pr: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $pr) {
+              reviews(states: PENDING, first: 10) {
+                nodes {
+                  id
+                  author { login }
+                }
+              }
+            }
+          }
+        }
+      &#x27; -f owner=&#x27;{owner}&#x27; -f repo=&#x27;{repo}&#x27; -F pr={number}
+      ```
+    - Look for a review where `author.login` matches the authenticated user
+    - Record whether a pending review already exists:
+      - If **yes**: use its `id` as `review_id` and set `agent_created_review = false`
+      - If **no**: set `agent_created_review = true` (will create one in the next sub-step)
+
+    **c) Create a pending review if none exists:**
+    - If `agent_created_review` is `true`, create a new pending review:
+      ```bash
+      gh api graphql -f query=&#x27;
+        mutation($prId: ID!) {
+          addPullRequestReview(input: {pullRequestId: $prId}) {
+            pullRequestReview {
+              id
+            }
+          }
+        }
+      &#x27; -f prId=&#x27;{pullRequest_node_id}&#x27;
+      ```
+    - To get the PR node ID (if not already available):
+      ```bash
+      gh api graphql -f query=&#x27;
+        query($owner: String!, $repo: String!, $pr: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $pr) {
+              id
+            }
+          }
+        }
+      &#x27; -f owner=&#x27;{owner}&#x27; -f repo=&#x27;{repo}&#x27; -F pr={number}
+      ```
+    - Store the `review_id` from the response
+
+    **d) Determine the latest commit SHA on the PR:**
+    - Fetch the head commit OID:
+      ```bash
+      gh pr view &lt;number&gt; --repo &lt;owner/repo&gt; --json commits --jq &#x27;.commits[-1].oid&#x27;
+      ```
+
+    **e) Add review comments for each selected finding:**
+
+    For each selected finding, create an inline review comment. **Every comment body must start with &quot;From AI agent&quot;.**
+
+    Format each comment body as:
+    ```
+    From AI agent
+
+    **[&lt;severity&gt;]** &lt;title&gt;
+
+    &lt;explanation from the consolidated review&gt;
+
+    **Suggested fix:** &lt;suggestion if applicable&gt;
+
+    **Confidence:** &lt;High|Medium|Debated&gt;
+    ```
+
+    Add each comment using the GraphQL `addPullRequestReviewThread` mutation:
+    ```bash
+    gh api graphql -f query=&#x27;
+      mutation($reviewId: ID!, $body: String!, $path: String!, $line: Int!, $side: DiffSide!) {
+        addPullRequestReviewThread(input: {
+          pullRequestReviewId: $reviewId,
+          body: $body,
+          path: $path,
+          line: $line,
+          side: RIGHT
+        }) {
+          thread {
+            id
+          }
+        }
+      }
+    &#x27; -f reviewId=&#x27;{review_id}&#x27; -f body=&#x27;{comment_body}&#x27; -f path=&#x27;{file_path}&#x27; -F line={line_number}
+    ```
+
+    - Use the file path and line number from each finding
+    - If a finding references a range of lines, use the last line of the range
+    - If a finding does not have a specific line number (rare), fall back to posting it as a top-level review body comment instead of an inline comment
+
+    **f) Submit the review (only if agent-created):**
+
+    - If `agent_created_review` is `true`, submit the review:
+      ```bash
+      gh api graphql -f query=&#x27;
+        mutation($reviewId: ID!, $event: PullRequestReviewEvent!) {
+          submitPullRequestReview(input: {
+            pullRequestReviewId: $reviewId,
+            event: $event
+          }) {
+            pullRequestReview {
+              id
+              state
+            }
+          }
+        }
+      &#x27; -f reviewId=&#x27;{review_id}&#x27; -f event=&#x27;COMMENT&#x27;
+      ```
+    - If `agent_created_review` is `false` (comments were added to the user&#x27;s existing pending review), do **NOT** submit. Inform the user:
+      &gt; Comments have been added to your existing pending review. Submit it when you&#x27;re ready from the GitHub UI.
+
+    **g) Report what was posted:**
+    ```
+    ## Review Comments Posted
+
+    **PR:** #&lt;number&gt; — &lt;title&gt;
+    **Review:** &lt;&quot;New review created and submitted&quot; | &quot;Added to your existing pending review&quot;&gt;
+    **Comments posted:** &lt;count&gt;
+
+    - #&lt;N&gt; — `&lt;file&gt;:&lt;line&gt;` — &lt;title&gt; — Posted ✓
+    - #&lt;N&gt; — `&lt;file&gt;:&lt;line&gt;` — &lt;title&gt; — Posted ✓
+    ...
+    ```
+
+11. **Clean up:**
+
+    - Send `shutdown_request` to both reviewers via `SendMessage`
+    - Once confirmed, call `TeamDelete`
+    - Present the final summary to the user
+
+12. **Handle edge cases:**
     - If the PR diff is empty, report &quot;No changes to review&quot; and **STOP**
     - If `gh` is not authenticated, display setup instructions and **STOP**
     - If one reviewer fails or times out, proceed with the other reviewer&#x27;s findings alone (note this in the output)
     - If the exclusion list is very large (&gt;30 items), summarize it for reviewers by grouping related items rather than listing each one individually
     - If reviewers find no new issues beyond the exclusion list, report: &quot;No new issues found beyond the &lt;N&gt; already-raised items in existing reviews.&quot;
-    - If the PR URL points to a different host (e.g., GitHub Enterprise), pass the full URL to `gh` commands which handle enterprise hosts automatically</pre>
+    - If the PR URL points to a different host (e.g., GitHub Enterprise), pass the full URL to `gh` commands which handle enterprise hosts automatically
+    - If a GraphQL mutation fails when posting a comment (e.g., invalid line number because the diff has changed), skip that comment, log a warning, and continue with the remaining comments
+    - If all comment postings fail, inform the user and suggest they post manually based on the findings</pre>
                             </div>
                         </div>
                     </div>

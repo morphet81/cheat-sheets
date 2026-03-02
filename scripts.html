@@ -1009,6 +1009,523 @@ if __name__ == &quot;__main__&quot;:
                     </div>
                 </div>
 
+                <!-- Worktree Add Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>Worktree Add</h3>
+                            <code>worktree-add</code>
+                            <span class="script-lang">Bash</span>
+                        </div>
+                        <p class="script-description">
+                            Create a git worktree in the parent directory with automatic branch handling.
+                            Detects conventional commit prefixes (<code>feat/</code>, <code>fix/</code>, etc.) to use as branch names,
+                            or creates a new branch from any other parameter.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <ol>
+                                <li>If the parameter matches a conventional commit pattern (e.g. <code>feat/nero-345</code>), it is used as the branch name and the worktree is placed at <code>../feat-nero-345</code></li>
+                                <li>Otherwise, the parameter is used as both the branch name and directory name (e.g. <code>test-this</code> &rarr; <code>../test-this</code>)</li>
+                                <li>If the branch already exists, it is checked out; otherwise a new branch is created from HEAD</li>
+                            </ol>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>./worktree-add.sh feat/nero-345</code> &mdash; Worktree at <code>../feat-nero-345</code>, branch <code>feat/nero-345</code></li>
+                                <li><code>./worktree-add.sh test-this</code> &mdash; Worktree at <code>../test-this</code>, new branch <code>test-this</code></li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>git</code>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/worktree-add/worktree-add.sh</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'worktree-add-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="worktree-add-content">#!/usr/bin/env bash
+# Create a git worktree in the parent directory with automatic branch handling.
+#
+# Usage:
+#   worktree-add.sh &lt;branch-or-name&gt;
+#
+# If the parameter looks like a conventional commit branch (feat/..., fix/..., etc.),
+# it is used as the branch name and the worktree is created at ../&lt;type-rest&gt;.
+# Otherwise, a new branch with the given name is created at ../&lt;name&gt;.
+#
+# Examples:
+#   worktree-add.sh feat/nero-345    &rarr; worktree at ../feat-nero-345, branch feat/nero-345
+#   worktree-add.sh test-this        &rarr; worktree at ../test-this, branch test-this
+
+set -euo pipefail
+
+# -- Validation ----------------------------------------------------------------
+
+if [[ $# -ne 1 ]]; then
+    echo &quot;Usage: $(basename &quot;$0&quot;) &lt;branch-or-name&gt;&quot;
+    echo
+    echo &quot;Examples:&quot;
+    echo &quot;  $(basename &quot;$0&quot;) feat/nero-345    # worktree at ../feat-nero-345&quot;
+    echo &quot;  $(basename &quot;$0&quot;) test-this        # worktree at ../test-this&quot;
+    exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree &amp;&gt;/dev/null; then
+    echo &quot;Error: not inside a git repository.&quot; &gt;&amp;2
+    exit 1
+fi
+
+PARAM=&quot;$1&quot;
+
+# -- Determine branch name and worktree path -----------------------------------
+
+# Conventional commit prefixes
+CC_PATTERN=&quot;^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|hotfix)/&quot;
+
+if [[ &quot;$PARAM&quot; =~ $CC_PATTERN ]]; then
+    BRANCH=&quot;$PARAM&quot;
+    # Replace slashes with dashes for the directory name
+    DIR_NAME=&quot;${PARAM//\//-}&quot;
+else
+    BRANCH=&quot;$PARAM&quot;
+    DIR_NAME=&quot;$PARAM&quot;
+fi
+
+WORKTREE_PATH=&quot;../${DIR_NAME}&quot;
+
+# Resolve to absolute path for display
+ABS_PATH=&quot;$(cd &quot;$(git rev-parse --show-toplevel)/..&quot; &amp;&amp; pwd)/${DIR_NAME}&quot;
+
+# -- Check if worktree already exists ------------------------------------------
+
+if git worktree list --porcelain | grep -q &quot;worktree ${ABS_PATH}$&quot;; then
+    echo &quot;Error: worktree already exists at ${WORKTREE_PATH}&quot; &gt;&amp;2
+    exit 1
+fi
+
+# -- Create the worktree -------------------------------------------------------
+
+if git show-ref --verify --quiet &quot;refs/heads/${BRANCH}&quot;; then
+    # Branch exists &mdash; use it
+    echo &quot;Branch &#x27;${BRANCH}&#x27; exists, checking out into worktree...&quot;
+    git worktree add &quot;${WORKTREE_PATH}&quot; &quot;${BRANCH}&quot;
+else
+    # Branch does not exist &mdash; create it
+    echo &quot;Creating new branch &#x27;${BRANCH}&#x27; and worktree...&quot;
+    git worktree add -b &quot;${BRANCH}&quot; &quot;${WORKTREE_PATH}&quot;
+fi
+
+echo
+echo &quot;Worktree ready:&quot;
+echo &quot;  Path:   ${ABS_PATH}&quot;
+echo &quot;  Branch: ${BRANCH}&quot;
+echo
+echo &quot;To enter:  cd ${WORKTREE_PATH}&quot;</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Worktree Remove Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>Worktree Remove</h3>
+                            <code>worktree-remove</code>
+                            <span class="script-lang">Bash</span>
+                        </div>
+                        <p class="script-description">
+                            Remove a git worktree by branch name or path.
+                            Confirms before removing and optionally deletes the associated branch.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <ol>
+                                <li>Accepts a branch name (e.g. <code>feat/nero-345</code>) or a worktree path (e.g. <code>../feat-nero-345</code>)</li>
+                                <li>Finds the matching worktree from <code>git worktree list</code></li>
+                                <li>Asks for confirmation, then removes the worktree</li>
+                                <li>Offers to delete the associated branch (with force-delete fallback if not fully merged)</li>
+                            </ol>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>./worktree-remove.sh feat/nero-345</code> &mdash; Remove by branch name</li>
+                                <li><code>./worktree-remove.sh ../feat-nero-345</code> &mdash; Remove by path</li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>git</code>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/worktree-remove/worktree-remove.sh</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'worktree-remove-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="worktree-remove-content">#!/usr/bin/env bash
+# Remove a git worktree by branch name or path.
+#
+# Usage:
+#   worktree-remove.sh &lt;branch-name-or-path&gt;
+#
+# The parameter can be:
+#   - A branch name (e.g., feat/nero-345) &mdash; finds and removes the matching worktree
+#   - A worktree path (e.g., ../feat-nero-345) &mdash; removes that worktree directly
+#
+# The worktree is removed and the associated branch is deleted (with confirmation).
+#
+# Examples:
+#   worktree-remove.sh feat/nero-345
+#   worktree-remove.sh ../feat-nero-345
+
+set -euo pipefail
+
+# -- Validation ----------------------------------------------------------------
+
+if [[ $# -ne 1 ]]; then
+    echo &quot;Usage: $(basename &quot;$0&quot;) &lt;branch-name-or-path&gt;&quot;
+    echo
+    echo &quot;Examples:&quot;
+    echo &quot;  $(basename &quot;$0&quot;) feat/nero-345     # by branch name&quot;
+    echo &quot;  $(basename &quot;$0&quot;) ../feat-nero-345  # by path&quot;
+    exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree &amp;&gt;/dev/null; then
+    echo &quot;Error: not inside a git repository.&quot; &gt;&amp;2
+    exit 1
+fi
+
+PARAM=&quot;$1&quot;
+WORKTREE_PATH=&quot;&quot;
+BRANCH=&quot;&quot;
+
+# -- Resolve worktree from parameter -------------------------------------------
+
+# Try to match as a branch name first
+while IFS= read -r line; do
+    if [[ &quot;$line&quot; =~ ^worktree\ (.+)$ ]]; then
+        current_path=&quot;${BASH_REMATCH[1]}&quot;
+    elif [[ &quot;$line&quot; =~ ^branch\ refs/heads/(.+)$ ]]; then
+        current_branch=&quot;${BASH_REMATCH[1]}&quot;
+        if [[ &quot;$current_branch&quot; == &quot;$PARAM&quot; ]]; then
+            WORKTREE_PATH=&quot;$current_path&quot;
+            BRANCH=&quot;$current_branch&quot;
+            break
+        fi
+    fi
+done &lt; &lt;(git worktree list --porcelain)
+
+# If not found by branch, try as a path
+if [[ -z &quot;$WORKTREE_PATH&quot; ]]; then
+    # Resolve the parameter to an absolute path
+    if [[ -d &quot;$PARAM&quot; ]]; then
+        RESOLVED=&quot;$(cd &quot;$PARAM&quot; &amp;&amp; pwd)&quot;
+    else
+        # Try resolving relative to cwd even if dir doesn&#x27;t exist
+        RESOLVED=&quot;$(cd &quot;$(dirname &quot;$PARAM&quot;)&quot; 2&gt;/dev/null &amp;&amp; pwd)/$(basename &quot;$PARAM&quot;)&quot; || RESOLVED=&quot;$PARAM&quot;
+    fi
+
+    while IFS= read -r line; do
+        if [[ &quot;$line&quot; =~ ^worktree\ (.+)$ ]]; then
+            current_path=&quot;${BASH_REMATCH[1]}&quot;
+            if [[ &quot;$current_path&quot; == &quot;$RESOLVED&quot; ]]; then
+                WORKTREE_PATH=&quot;$current_path&quot;
+            fi
+        elif [[ &quot;$line&quot; =~ ^branch\ refs/heads/(.+)$ ]] &amp;&amp; [[ -n &quot;$WORKTREE_PATH&quot; ]] &amp;&amp; [[ -z &quot;$BRANCH&quot; ]]; then
+            BRANCH=&quot;${BASH_REMATCH[1]}&quot;
+            break
+        fi
+    done &lt; &lt;(git worktree list --porcelain)
+fi
+
+if [[ -z &quot;$WORKTREE_PATH&quot; ]]; then
+    echo &quot;Error: no worktree found for &#x27;${PARAM}&#x27;.&quot; &gt;&amp;2
+    echo &quot;Run &#x27;git worktree list&#x27; to see existing worktrees.&quot; &gt;&amp;2
+    exit 1
+fi
+
+# -- Confirm and remove --------------------------------------------------------
+
+echo &quot;Worktree found:&quot;
+echo &quot;  Path:   ${WORKTREE_PATH}&quot;
+[[ -n &quot;$BRANCH&quot; ]] &amp;&amp; echo &quot;  Branch: ${BRANCH}&quot;
+echo
+
+read -rp &quot;Remove this worktree? [y/N] &quot; confirm
+if [[ ! &quot;$confirm&quot; =~ ^[Yy]$ ]]; then
+    echo &quot;Aborted.&quot;
+    exit 0
+fi
+
+git worktree remove &quot;$WORKTREE_PATH&quot;
+echo &quot;Worktree removed.&quot;
+
+# Offer to delete the branch
+if [[ -n &quot;$BRANCH&quot; ]]; then
+    read -rp &quot;Also delete branch &#x27;${BRANCH}&#x27;? [y/N] &quot; del_branch
+    if [[ &quot;$del_branch&quot; =~ ^[Yy]$ ]]; then
+        if git branch -d &quot;$BRANCH&quot; 2&gt;/dev/null; then
+            echo &quot;Branch &#x27;${BRANCH}&#x27; deleted.&quot;
+        else
+            read -rp &quot;Branch not fully merged. Force delete? [y/N] &quot; force
+            if [[ &quot;$force&quot; =~ ^[Yy]$ ]]; then
+                git branch -D &quot;$BRANCH&quot;
+                echo &quot;Branch &#x27;${BRANCH}&#x27; force-deleted.&quot;
+            else
+                echo &quot;Branch &#x27;${BRANCH}&#x27; kept.&quot;
+            fi
+        fi
+    fi
+fi</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Worktrees (Interactive Manager) Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>Worktrees</h3>
+                            <code>worktrees</code>
+                            <span class="script-lang">Bash</span>
+                        </div>
+                        <p class="script-description">
+                            Interactive git worktree manager.
+                            Lists all worktrees in a formatted table, lets you select one to inspect its status and recent commits,
+                            and optionally remove it with branch cleanup.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <ol>
+                                <li>Parses <code>git worktree list --porcelain</code> to gather all worktrees with their branches and commits</li>
+                                <li>Displays a numbered table showing branch, commit hash, and path</li>
+                                <li>On selection, shows <code>git status</code> and last 5 commits for that worktree</li>
+                                <li>Offers removal with confirmation (skips the main worktree), including optional branch deletion</li>
+                            </ol>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>./worktrees.sh</code> &mdash; Launch the interactive worktree manager</li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>git</code>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/worktrees/worktrees.sh</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'worktrees-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="worktrees-content">#!/usr/bin/env bash
+# Interactive git worktree manager.
+#
+# Lists all worktrees in a formatted table. The user can select a worktree
+# to see its git status and optionally remove it.
+#
+# Usage:
+#   worktrees.sh
+
+set -euo pipefail
+
+if ! git rev-parse --is-inside-work-tree &amp;&gt;/dev/null; then
+    echo &quot;Error: not inside a git repository.&quot; &gt;&amp;2
+    exit 1
+fi
+
+# -- Gather worktrees ----------------------------------------------------------
+
+declare -a WT_PATHS=()
+declare -a WT_BRANCHES=()
+declare -a WT_COMMITS=()
+declare -a WT_BARE=()
+
+current_path=&quot;&quot;
+current_branch=&quot;&quot;
+current_commit=&quot;&quot;
+is_bare=false
+
+while IFS= read -r line; do
+    if [[ &quot;$line&quot; =~ ^worktree\ (.+)$ ]]; then
+        # Save previous entry
+        if [[ -n &quot;$current_path&quot; ]]; then
+            WT_PATHS+=(&quot;$current_path&quot;)
+            WT_BRANCHES+=(&quot;${current_branch:-(detached)}&quot;)
+            WT_COMMITS+=(&quot;$current_commit&quot;)
+            WT_BARE+=(&quot;$is_bare&quot;)
+        fi
+        current_path=&quot;${BASH_REMATCH[1]}&quot;
+        current_branch=&quot;&quot;
+        current_commit=&quot;&quot;
+        is_bare=false
+    elif [[ &quot;$line&quot; =~ ^HEAD\ (.+)$ ]]; then
+        current_commit=&quot;${BASH_REMATCH[1]:0:8}&quot;
+    elif [[ &quot;$line&quot; =~ ^branch\ refs/heads/(.+)$ ]]; then
+        current_branch=&quot;${BASH_REMATCH[1]}&quot;
+    elif [[ &quot;$line&quot; == &quot;bare&quot; ]]; then
+        is_bare=true
+    elif [[ &quot;$line&quot; == &quot;detached&quot; ]]; then
+        current_branch=&quot;(detached)&quot;
+    fi
+done &lt; &lt;(git worktree list --porcelain)
+
+# Save last entry
+if [[ -n &quot;$current_path&quot; ]]; then
+    WT_PATHS+=(&quot;$current_path&quot;)
+    WT_BRANCHES+=(&quot;${current_branch:-(detached)}&quot;)
+    WT_COMMITS+=(&quot;$current_commit&quot;)
+    WT_BARE+=(&quot;$is_bare&quot;)
+fi
+
+COUNT=${#WT_PATHS[@]}
+
+if [[ $COUNT -eq 0 ]]; then
+    echo &quot;No worktrees found.&quot;
+    exit 0
+fi
+
+# -- Display worktrees ---------------------------------------------------------
+
+display_worktrees() {
+    echo
+    echo &quot;  Git Worktrees&quot;
+    echo &quot;  =============&quot;
+    echo
+    printf &quot;  %-4s  %-30s  %-25s  %s\n&quot; &quot;#&quot; &quot;Branch&quot; &quot;Commit&quot; &quot;Path&quot;
+    printf &quot;  %-4s  %-30s  %-25s  %s\n&quot; &quot;---&quot; &quot;------------------------------&quot; &quot;-------------------------&quot; &quot;----&quot;
+
+    for i in $(seq 0 $((COUNT - 1))); do
+        local marker=&quot;&quot;
+        if [[ &quot;${WT_BARE[$i]}&quot; == &quot;true&quot; ]]; then
+            marker=&quot; (bare)&quot;
+        fi
+        # Mark the main worktree
+        local idx=$((i + 1))
+        if [[ $i -eq 0 ]]; then
+            marker=&quot; (main)&quot;
+        fi
+        printf &quot;  %-4s  %-30s  %-25s  %s\n&quot; \
+            &quot;${idx}&quot; \
+            &quot;${WT_BRANCHES[$i]}${marker}&quot; \
+            &quot;${WT_COMMITS[$i]}&quot; \
+            &quot;${WT_PATHS[$i]}&quot;
+    done
+    echo
+}
+
+# -- Interactive loop ----------------------------------------------------------
+
+while true; do
+    display_worktrees
+
+    echo &quot;  Enter a worktree number to inspect, or &#x27;q&#x27; to quit.&quot;
+    read -rp &quot;  &gt; &quot; choice
+
+    if [[ &quot;$choice&quot; == &quot;q&quot; || &quot;$choice&quot; == &quot;Q&quot; || -z &quot;$choice&quot; ]]; then
+        break
+    fi
+
+    if ! [[ &quot;$choice&quot; =~ ^[0-9]+$ ]] || [[ &quot;$choice&quot; -lt 1 ]] || [[ &quot;$choice&quot; -gt $COUNT ]]; then
+        echo &quot;  Invalid selection.&quot;
+        continue
+    fi
+
+    idx=$((choice - 1))
+    wt_path=&quot;${WT_PATHS[$idx]}&quot;
+    wt_branch=&quot;${WT_BRANCHES[$idx]}&quot;
+
+    echo
+    echo &quot;  &mdash;&mdash; ${wt_branch} &mdash;&mdash;&quot;
+    echo &quot;  Path: ${wt_path}&quot;
+    echo
+
+    if [[ -d &quot;$wt_path&quot; ]]; then
+        echo &quot;  Status:&quot;
+        git -C &quot;$wt_path&quot; status --short | sed &#x27;s/^/    /&#x27; || echo &quot;    (clean)&quot;
+        echo
+        echo &quot;  Recent commits:&quot;
+        git -C &quot;$wt_path&quot; log --oneline -5 | sed &#x27;s/^/    /&#x27;
+    else
+        echo &quot;  (directory not found &mdash; worktree may be prunable)&quot;
+    fi
+
+    echo
+
+    # Don&#x27;t offer removal for the main worktree
+    if [[ $idx -eq 0 ]]; then
+        echo &quot;  (This is the main worktree and cannot be removed.)&quot;
+        read -rp &quot;  Press Enter to continue...&quot; _
+        continue
+    fi
+
+    read -rp &quot;  Remove this worktree? [y/N] &quot; remove
+    if [[ &quot;$remove&quot; =~ ^[Yy]$ ]]; then
+        git worktree remove &quot;$wt_path&quot; &amp;&amp; echo &quot;  Worktree removed.&quot; || {
+            read -rp &quot;  Worktree has changes. Force remove? [y/N] &quot; force
+            if [[ &quot;$force&quot; =~ ^[Yy]$ ]]; then
+                git worktree remove --force &quot;$wt_path&quot;
+                echo &quot;  Worktree force-removed.&quot;
+            else
+                echo &quot;  Kept.&quot;
+                read -rp &quot;  Press Enter to continue...&quot; _
+                continue
+            fi
+        }
+
+        # Offer branch deletion
+        if [[ &quot;$wt_branch&quot; != &quot;(detached)&quot; ]]; then
+            read -rp &quot;  Also delete branch &#x27;${wt_branch}&#x27;? [y/N] &quot; del_branch
+            if [[ &quot;$del_branch&quot; =~ ^[Yy]$ ]]; then
+                if git branch -d &quot;$wt_branch&quot; 2&gt;/dev/null; then
+                    echo &quot;  Branch &#x27;${wt_branch}&#x27; deleted.&quot;
+                else
+                    read -rp &quot;  Branch not fully merged. Force delete? [y/N] &quot; force_br
+                    if [[ &quot;$force_br&quot; =~ ^[Yy]$ ]]; then
+                        git branch -D &quot;$wt_branch&quot;
+                        echo &quot;  Branch &#x27;${wt_branch}&#x27; force-deleted.&quot;
+                    else
+                        echo &quot;  Branch kept.&quot;
+                    fi
+                fi
+            fi
+        fi
+
+        # Refresh worktree list after removal (abbreviated for display)
+        # ... (refreshes internal arrays)
+    fi
+
+    read -rp &quot;  Press Enter to continue...&quot; _
+done</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

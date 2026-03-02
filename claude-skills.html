@@ -551,6 +551,299 @@ Summary and recommendation (approve, request changes, etc.)
                     </div>
                 </div>
 
+                <!-- Review Pull Request Skill -->
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Review Pull Request</h3>
+                            <code>/review-pull-request</code>
+                            <span class="skill-version">v1.0.0</span>
+                        </div>
+                        <p class="skill-description">
+                            Review an open pull request by spawning two independent reviewer agents.
+                            Each reviewer examines the full PR diff, takes detailed notes, then they debate and challenge each other&#x27;s findings.
+                            Produces a consolidated, deduplicated review excluding issues already raised in existing reviews and unresolved comments.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/review-pull-request 1654</code> — Review PR #1654 in the current repo</li>
+                                <li><code>/review-pull-request 1654 owner/repo</code> — Review PR #1654 in a specific repository</li>
+                                <li><code>/review-pull-request https://github.com/owner/repo/pull/1654</code> — Review a PR by URL</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#x25B6;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/review-pull-request/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'review-pull-request-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="review-pull-request-content">---
+name: review-pull-request
+version: 1.0.0
+description: Review an open pull request by spawning a team of 2 independent reviewer agents. Each reviewer examines the full PR diff, takes notes, then they debate their findings before producing a consolidated review. Excludes findings already covered by existing reviews and unresolved comments.
+argument-hint: &quot;&lt;PR number or URL&gt; [repository]&quot;
+---
+
+Review an open pull request by spawning two independent reviewer agents. Each reviewer examines the entire PR diff, writes down their observations, then they debate and challenge each other&#x27;s findings. The final output is a deduplicated, consolidated review that excludes issues already raised in existing PR reviews and unresolved comments.
+
+**Usage:**
+- `/review-pull-request 1654` — Review PR #1654 in the current repo
+- `/review-pull-request 1654 owner/repo` — Review PR #1654 in a specific repository
+- `/review-pull-request https://github.com/owner/repo/pull/1654` — Review a PR by URL
+
+**Instructions:**
+
+1. **Parse arguments and identify the PR:**
+
+   - If `$ARGUMENTS` contains a GitHub URL, extract the owner, repo, and PR number from it
+   - If `$ARGUMENTS` contains just a number, use it as the PR number. If a second argument is provided, use it as `owner/repo`. Otherwise:
+     - Run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo
+   - Run the following to verify the PR exists and gather metadata:
+     ```bash
+     gh pr view &lt;number&gt; --repo &lt;owner/repo&gt; --json number,title,url,state,baseRefName,headRefName,author,additions,deletions,changedFiles,files
+     ```
+   - If the PR does not exist or is not open, display an error and **STOP**
+   - Store the PR metadata for later reference
+
+2. **Gather the PR diff and changed files:**
+
+   - Fetch the full diff:
+     ```bash
+     gh pr diff &lt;number&gt; --repo &lt;owner/repo&gt;
+     ```
+   - Fetch the list of changed files:
+     ```bash
+     gh pr view &lt;number&gt; --repo &lt;owner/repo&gt; --json files --jq &#x27;.files[].path&#x27;
+     ```
+   - If the diff is extremely large (more than 5000 lines), note this for the reviewers so they can focus on the most impactful changes
+
+3. **Collect existing reviews and unresolved comments (exclusion list):**
+
+   These findings must be **excluded** from the final review output to avoid duplication.
+
+   **a) Existing reviews:**
+   - Fetch all submitted reviews:
+     ```bash
+     gh api repos/{owner}/{repo}/pulls/{number}/reviews --paginate
+     ```
+   - For each review, record:
+     - Author, state (APPROVED, CHANGES_REQUESTED, COMMENTED)
+     - The review body (top-level review comment)
+   - Fetch all review comments (inline comments from reviews):
+     ```bash
+     gh api repos/{owner}/{repo}/pulls/{number}/comments --paginate
+     ```
+   - For each review comment, record:
+     - File path, line number, body, author
+
+   **b) Unresolved review threads:**
+   - Use the GitHub GraphQL API to fetch review threads and their resolution status:
+     ```bash
+     gh api graphql -f query=&#x27;
+       query($owner: String!, $repo: String!, $pr: Int!) {
+         repository(owner: $owner, name: $repo) {
+           pullRequest(number: $pr) {
+             reviewThreads(first: 100) {
+               nodes {
+                 id
+                 isResolved
+                 comments(first: 20) {
+                   nodes {
+                     body
+                     path
+                     line
+                     author { login }
+                   }
+                 }
+               }
+             }
+           }
+         }
+       }
+     &#x27; -f owner=&#x27;{owner}&#x27; -f repo=&#x27;{repo}&#x27; -F pr={number}
+     ```
+   - Collect all **unresolved** threads with their file paths, line numbers, and comment bodies
+
+   **c) General PR conversation comments:**
+   - Fetch issue comments:
+     ```bash
+     gh api repos/{owner}/{repo}/issues/{number}/comments --paginate
+     ```
+   - Record substantive comments (skip bot comments and simple acknowledgements)
+
+   **d) Build the exclusion list:**
+   - Compile all existing findings into a structured list with:
+     - File path + line (if applicable)
+     - Summary of the issue raised
+     - Author
+   - This list will be given to both reviewers so they skip already-raised issues
+
+4. **Create the review team:**
+
+   - Use `TeamCreate` with name `review-pr-&lt;number&gt;` (e.g., `review-pr-1654`)
+   - Create the following tasks with `TaskCreate`:
+     - &quot;Reviewer A: independent review of PR #&lt;number&gt;&quot;
+     - &quot;Reviewer B: independent review of PR #&lt;number&gt;&quot;
+     - &quot;Debate: reviewers challenge each other&#x27;s findings&quot;
+     - &quot;Consolidation: produce final deduplicated review&quot;
+
+5. **Spawn Reviewer A and Reviewer B** using the `Task` tool (`subagent_type: general-purpose`) with `run_in_background: true` and the team name:
+
+   Give each reviewer the following prompt (adapted with their name):
+
+   &gt; You are **Reviewer &lt;A|B&gt;** on team `review-pr-&lt;number&gt;`. Your job is to independently review PR #&lt;number&gt; in `&lt;owner/repo&gt;`.
+   &gt;
+   &gt; ## PR Context
+   &gt; - **Title:** &lt;title&gt;
+   &gt; - **Author:** @&lt;author&gt;
+   &gt; - **Base:** &lt;baseRefName&gt; ← &lt;headRefName&gt;
+   &gt; - **Changed files:** &lt;count&gt; (+&lt;additions&gt;, -&lt;deletions&gt;)
+   &gt;
+   &gt; ## The Diff
+   &gt; &lt;full PR diff&gt;
+   &gt;
+   &gt; ## Exclusion List — DO NOT report these issues
+   &gt; The following issues have already been raised in existing reviews or unresolved comments on this PR. **Do not include any of these in your findings.** If you independently find the same issue, skip it.
+   &gt;
+   &gt; &lt;formatted exclusion list with file:line and summary for each&gt;
+   &gt;
+   &gt; ## Review Criteria
+   &gt; Review the PR changes (not surrounding unchanged code) for:
+   &gt; - **Correctness**: Bugs, logic errors, off-by-one errors, null/undefined risks, race conditions
+   &gt; - **Security**: Injection, XSS, secrets exposure, auth issues, OWASP top 10
+   &gt; - **Performance**: N+1 queries, unnecessary re-renders, missing memoization, algorithmic complexity
+   &gt; - **Error handling**: Missing try/catch, unhandled promise rejections, silent failures
+   &gt; - **Best practices**: Naming, code organization, DRY violations, dead code, anti-patterns
+   &gt; - **Testing**: Missing test coverage for new functionality, untested edge cases
+   &gt; - **Design**: Architectural concerns, coupling, API design, backwards compatibility
+   &gt;
+   &gt; ## Output Format
+   &gt; Write your findings as a numbered list. For each finding:
+   &gt; ```
+   &gt; #&lt;N&gt;. [&lt;severity&gt;] &lt;file&gt;:&lt;line&gt; — &lt;title&gt;
+   &gt;     &lt;detailed explanation of the issue&gt;
+   &gt;     &lt;suggested fix if applicable&gt;
+   &gt; ```
+   &gt; Severity: CRITICAL, WARNING, or SUGGESTION
+   &gt;
+   &gt; After your findings, write a section called **&quot;Overall Impression&quot;** with 2-3 sentences about the PR quality and whether you&#x27;d approve or request changes.
+   &gt;
+   &gt; **Important:**
+   &gt; - Be thorough — review every changed file and every hunk
+   &gt; - Take notes as you go — don&#x27;t skip details you can revisit during debate
+   &gt; - Be specific — include file paths and line numbers for every finding
+   &gt; - Do NOT duplicate anything from the exclusion list
+   &gt; - When you are done, send your full findings to the team lead via `SendMessage` and mark your task as completed via `TaskUpdate`
+
+6. **Wait for both reviewers to complete their independent reviews:**
+
+   - Both reviewers will send their findings via `SendMessage`
+   - Once both are done, proceed to the debate phase
+
+7. **Initiate the debate phase:**
+
+   Send a message to **both reviewers** (individually, not broadcast) with the other&#x27;s findings:
+
+   &gt; ## Debate Phase
+   &gt;
+   &gt; Your fellow reviewer has completed their independent review. Here are their findings:
+   &gt;
+   &gt; &lt;other reviewer&#x27;s findings&gt;
+   &gt;
+   &gt; Now, carefully review their findings and compare with yours:
+   &gt;
+   &gt; 1. **Challenge**: Are any of their findings incorrect, overstated, or based on a misunderstanding of the code? Point these out with your reasoning.
+   &gt; 2. **Acknowledge**: Which of their findings are valid and important that you missed? Note these.
+   &gt; 3. **Defend**: If they missed something you found, explain why you think it&#x27;s important.
+   &gt; 4. **Reconsider**: Looking at both sets of findings together, do you want to change the severity of any of your own findings? Do you want to retract anything?
+   &gt;
+   &gt; Write your debate response and send it to the team lead via `SendMessage`. Mark the debate task as completed via `TaskUpdate`.
+
+   Wait for both reviewers to respond with their debate notes.
+
+8. **Consolidate the final review:**
+
+   Using both reviewers&#x27; original findings and their debate responses, produce a consolidated review:
+
+   **a) Merge findings:**
+   - Combine findings from both reviewers
+   - Deduplicate: if both reviewers found the same issue, keep one entry and note it was found by both (higher confidence)
+   - Remove findings that were successfully challenged during debate
+   - Adjust severities based on debate consensus
+   - **Re-check against the exclusion list** — remove any finding that overlaps with existing reviews or unresolved comments
+
+   **b) Assign final numbers** sequentially (#1, #2, #3, ...) to all remaining findings
+
+   **c) Format the final review:**
+
+   ```
+   ## PR Review: #&lt;number&gt; — &lt;title&gt;
+
+   **Repository:** &lt;owner/repo&gt;
+   **Author:** @&lt;author&gt;
+   **Reviewers:** Reviewer A, Reviewer B (independent review + debate)
+
+   ### Summary
+   &lt;2-3 sentence summary of what this PR does&gt;
+
+   ### Existing Feedback (excluded from this review)
+   &lt;N&gt; issues were already raised in prior reviews and unresolved comments. These have been excluded from the findings below.
+
+   ### Changes Reviewed
+   - `path/to/file.ts` — Description of changes
+   - `path/to/other.ts` — Description of changes
+
+   ### Findings
+
+   #### 🔴 Critical
+   - **#1** — **file.ts:42** — &lt;title&gt;
+     &lt;explanation&gt;
+     **Confidence:** High (found by both reviewers) | Medium (found by one, unchallenged) | Debated (see note)
+     **Suggested fix:** &lt;suggestion&gt;
+
+   #### 🟡 Warnings
+   - **#2** — **other.ts:15** — &lt;title&gt;
+     &lt;explanation&gt;
+     **Confidence:** ...
+
+   #### 🔵 Suggestions
+   - **#3** — **file.ts:78** — &lt;title&gt;
+     &lt;explanation&gt;
+
+   ### Debate Highlights
+   &lt;Summarize key points of disagreement between reviewers and how they were resolved.
+   This gives the PR author insight into the reasoning behind the findings.&gt;
+
+   ### Overall Assessment
+   &lt;Consolidated recommendation: approve, request changes, or comment.
+   Include both reviewers&#x27; individual impressions and the consensus view.&gt;
+   ```
+
+9. **Clean up:**
+
+   - Send `shutdown_request` to both reviewers via `SendMessage`
+   - Once confirmed, call `TeamDelete`
+   - Present the final consolidated review to the user
+
+10. **Handle edge cases:**
+    - If the PR diff is empty, report &quot;No changes to review&quot; and **STOP**
+    - If `gh` is not authenticated, display setup instructions and **STOP**
+    - If one reviewer fails or times out, proceed with the other reviewer&#x27;s findings alone (note this in the output)
+    - If the exclusion list is very large (&gt;30 items), summarize it for reviewers by grouping related items rather than listing each one individually
+    - If reviewers find no new issues beyond the exclusion list, report: &quot;No new issues found beyond the &lt;N&gt; already-raised items in existing reviews.&quot;
+    - If the PR URL points to a different host (e.g., GitHub Enterprise), pass the full URL to `gh` commands which handle enterprise hosts automatically</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Pre-Push Skill -->
                 <div class="skill-card">
                     <div class="skill-header">

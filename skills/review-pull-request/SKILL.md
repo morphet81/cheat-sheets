@@ -317,11 +317,11 @@ Review an open pull request by spawning two independent reviewer agents. Each re
 
     **e) Add review comments for each selected finding:**
 
-    For each selected finding, create an inline review comment. **Every comment body must start with "From AI agent".**
+    For each selected finding, create an inline review comment. **Every comment body must start with a `## From AI agent` heading.**
 
     Format each comment body as:
     ```
-    From AI agent
+    ## From AI agent
 
     **[<severity>]** <title>
 

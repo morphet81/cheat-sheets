@@ -30,6 +30,16 @@ CYAN='\033[0;36m'
 DIM='\033[2m'
 NC='\033[0m' # No Color
 
+# Helper: call GitHub API (prefers gh CLI for authentication, falls back to curl)
+github_api() {
+    local endpoint="$1"
+    if command -v gh &> /dev/null; then
+        gh api "$endpoint" 2>/dev/null
+    else
+        curl -s "https://api.github.com$endpoint"
+    fi
+}
+
 # Extract version from a SKILL.md file (reads the version: field from YAML frontmatter)
 extract_version() {
     local file="$1"
@@ -51,23 +61,35 @@ if ! command -v curl &> /dev/null; then
     exit 1
 fi
 
+if ! command -v gh &> /dev/null; then
+    echo -e "${YELLOW}Note: 'gh' CLI not found. Using unauthenticated API (60 req/hr limit).${NC}"
+    echo -e "${YELLOW}Install gh (https://cli.github.com) for reliable access.${NC}"
+    echo ""
+fi
+
 # Create skills directory if it doesn't exist
 echo -e "${YELLOW}Setting up skills directory...${NC}"
 mkdir -p "$SKILLS_DIR"
 
 # Fetch list of skill folders from GitHub API
 echo -e "${YELLOW}Fetching available skills...${NC}"
-SKILLS_JSON=$(curl -s "$GITHUB_API_BASE/skills?ref=$BRANCH")
+SKILLS_JSON=$(github_api "/repos/$REPO_OWNER/$REPO_NAME/contents/skills?ref=$BRANCH")
 
-# Check if the API request was successful
-if echo "$SKILLS_JSON" | grep -q '"message"'; then
+# Check if the API request was successful (error responses have a "message" key at top level)
+if echo "$SKILLS_JSON" | grep -q '^{' && echo "$SKILLS_JSON" | grep -q '"message"'; then
     echo -e "${RED}Error: Could not fetch skills list from GitHub.${NC}"
-    echo -e "${RED}Make sure the repository is public and the URL is correct.${NC}"
+    ERROR_MSG=$(echo "$SKILLS_JSON" | grep -o '"message": "[^"]*"' | head -1 | sed 's/"message": "//;s/"$//')
+    if [ -n "$ERROR_MSG" ]; then
+        echo -e "${RED}GitHub API: $ERROR_MSG${NC}"
+    fi
+    if echo "$ERROR_MSG" | grep -qi "rate limit"; then
+        echo -e "${YELLOW}Tip: Install gh CLI (https://cli.github.com) and run 'gh auth login' for authenticated access.${NC}"
+    fi
     exit 1
 fi
 
 # Parse skill folder names (directories only)
-SKILL_FOLDERS=$(echo "$SKILLS_JSON" | grep -o '"name": "[^"]*"' | grep -o '[^"]*"$' | tr -d '"' | sort)
+SKILL_FOLDERS=$(echo "$SKILLS_JSON" | grep -o '"name" *: *"[^"]*"' | sed 's/.*: *"//;s/"$//' | sort)
 
 if [ -z "$SKILL_FOLDERS" ]; then
     echo -e "${RED}Error: No skills found in the repository.${NC}"
@@ -112,8 +134,8 @@ while read -r SKILL_NAME; do
     mkdir -p "$SKILL_TARGET_DIR"
 
     # Fetch files in the skill folder
-    SKILL_FILES_JSON=$(curl -s "$GITHUB_API_BASE/skills/$SKILL_NAME?ref=$BRANCH")
-    SKILL_FILES=$(echo "$SKILL_FILES_JSON" | grep -o '"name": "[^"]*"' | grep -o '[^"]*"$' | tr -d '"')
+    SKILL_FILES_JSON=$(github_api "/repos/$REPO_OWNER/$REPO_NAME/contents/skills/$SKILL_NAME?ref=$BRANCH")
+    SKILL_FILES=$(echo "$SKILL_FILES_JSON" | grep -o '"name" *: *"[^"]*"' | sed 's/.*: *"//;s/"$//')
 
     # Download each file in the skill folder
     while read -r FILE_NAME; do
@@ -222,14 +244,14 @@ install_scripts() {
 
     # Fetch list of script folders from GitHub API
     echo -e "${YELLOW}Fetching available scripts...${NC}"
-    SCRIPTS_JSON=$(curl -s "$GITHUB_API_BASE/scripts?ref=$BRANCH")
+    SCRIPTS_JSON=$(github_api "/repos/$REPO_OWNER/$REPO_NAME/contents/scripts?ref=$BRANCH")
 
-    if echo "$SCRIPTS_JSON" | grep -q '"message"'; then
+    if echo "$SCRIPTS_JSON" | grep -q '^{' && echo "$SCRIPTS_JSON" | grep -q '"message"'; then
         echo -e "${RED}Error: Could not fetch scripts list from GitHub.${NC}"
         return 1
     fi
 
-    SCRIPT_FOLDERS=$(echo "$SCRIPTS_JSON" | grep -o '"name": "[^"]*"' | grep -o '[^"]*"$' | tr -d '"' | sort)
+    SCRIPT_FOLDERS=$(echo "$SCRIPTS_JSON" | grep -o '"name" *: *"[^"]*"' | sed 's/.*: *"//;s/"$//' | grep -v '^\.' | sort)
 
     if [ -z "$SCRIPT_FOLDERS" ]; then
         echo -e "${DIM}No scripts found in the repository.${NC}"
@@ -258,8 +280,8 @@ install_scripts() {
         mkdir -p "$SCRIPT_TARGET_DIR"
 
         # Fetch files in the script folder
-        SCRIPT_FILES_JSON=$(curl -s "$GITHUB_API_BASE/scripts/$SCRIPT_NAME?ref=$BRANCH")
-        SCRIPT_FILES=$(echo "$SCRIPT_FILES_JSON" | grep -o '"name": "[^"]*"' | grep -o '[^"]*"$' | tr -d '"')
+        SCRIPT_FILES_JSON=$(github_api "/repos/$REPO_OWNER/$REPO_NAME/contents/scripts/$SCRIPT_NAME?ref=$BRANCH")
+        SCRIPT_FILES=$(echo "$SCRIPT_FILES_JSON" | grep -o '"name" *: *"[^"]*"' | sed 's/.*: *"//;s/"$//')
 
         while read -r FILE_NAME; do
             [ -z "$FILE_NAME" ] && continue

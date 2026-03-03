@@ -64,7 +64,8 @@ gather_sessions() {
         local clean
         clean=$(printf '%s' "$line" | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g')
         local name
-        name=$(printf '%s' "$clean" | awk '{print $1}')
+        # Extract name as everything before the first ' [' (handles spaces in names)
+        name=$(printf '%s' "$clean" | sed 's/ \[.*//' | sed 's/[[:space:]]*$//')
         [[ -z "$name" ]] && continue
 
         local status="running"

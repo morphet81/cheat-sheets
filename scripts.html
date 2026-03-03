@@ -1711,7 +1711,8 @@ gather_sessions() {
         local clean
         clean=$(printf &#x27;%s&#x27; &quot;$line&quot; | sed &#x27;s/\x1b\[[0-9;]*[a-zA-Z]//g&#x27;)
         local name
-        name=$(printf &#x27;%s&#x27; &quot;$clean&quot; | awk &#x27;{print $1}&#x27;)
+        # Extract name as everything before the first &#x27; [&#x27; (handles spaces in names)
+        name=$(printf &#x27;%s&#x27; &quot;$clean&quot; | sed &#x27;s/ \[.*//&#x27; | sed &#x27;s/[[:space:]]*$//&#x27;)
         [[ -z &quot;$name&quot; ]] &amp;&amp; continue
 
         local status=&quot;running&quot;

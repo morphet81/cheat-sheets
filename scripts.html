@@ -1601,6 +1601,364 @@ done</pre>
                     </div>
                 </div>
 
+                <!-- Zell (Zellij Session Manager) Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>Zell</h3>
+                            <code>zell</code>
+                            <span class="script-lang">Bash</span>
+                        </div>
+                        <p class="script-description">
+                            Interactive zellij session manager with arrow-key navigation and colored output.
+                            Browse sessions, attach to them, delete with confirmation, and rename &mdash; all from a single TUI.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <ol>
+                                <li>Runs <code>zellij list-sessions</code> to gather all active sessions and their status</li>
+                                <li>Displays a colored list with a cursor &mdash; use <strong>&uarr;&darr;</strong> arrow keys to navigate</li>
+                                <li>Press <strong>Enter</strong> to attach to the selected session</li>
+                                <li>Press <strong>d</strong> to delete the selected session (with confirmation)</li>
+                                <li>Press <strong>r</strong> to rename the selected session (uses <code>zellij action rename-session</code>)</li>
+                                <li>Press <strong>q</strong> or <strong>Esc</strong> to quit</li>
+                            </ol>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>./zell.sh</code> &mdash; Launch the interactive session manager</li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>zellij</code>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/zell/zell.sh</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'zell-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="zell-content">#!/usr/bin/env bash
+# Interactive zellij session manager with arrow-key navigation.
+#
+# Lists all zellij sessions. Navigate with arrow keys, Enter to attach,
+# &#x27;d&#x27; to delete (with confirmation), &#x27;r&#x27; to rename, &#x27;q&#x27; to quit.
+#
+# Usage:
+#   zell.sh
+
+set -euo pipefail
+
+if ! command -v zellij &amp;&gt;/dev/null; then
+    echo &quot;Error: zellij is not installed or not in PATH.&quot; &gt;&amp;2
+    exit 1
+fi
+
+# -- Colors --------------------------------------------------------------------
+
+BOLD=&#x27;\033[1m&#x27;
+DIM=&#x27;\033[2m&#x27;
+RESET=&#x27;\033[0m&#x27;
+CYAN=&#x27;\033[36m&#x27;
+GREEN=&#x27;\033[32m&#x27;
+RED=&#x27;\033[31m&#x27;
+MAGENTA=&#x27;\033[35m&#x27;
+WHITE=&#x27;\033[97m&#x27;
+BG_BLUE=&#x27;\033[44m&#x27;
+
+# -- Terminal helpers ----------------------------------------------------------
+
+SAVED_TTY=&quot;&quot;
+
+hide_cursor() { printf &#x27;\033[?25l&#x27;; }
+show_cursor() { printf &#x27;\033[?25h&#x27;; }
+clear_screen() { printf &#x27;\033[2J\033[H&#x27;; }
+
+enter_raw_mode() {
+    SAVED_TTY=$(stty -g)
+    stty -echo -icanon min 1 time 0
+}
+
+exit_raw_mode() {
+    if [[ -n &quot;$SAVED_TTY&quot; ]]; then
+        stty &quot;$SAVED_TTY&quot;
+        SAVED_TTY=&quot;&quot;
+    fi
+}
+
+cleanup() {
+    show_cursor
+    exit_raw_mode
+}
+trap cleanup EXIT
+
+# -- Gather sessions -----------------------------------------------------------
+
+gather_sessions() {
+    SESSION_NAMES=()
+    SESSION_STATUS=()
+
+    while IFS= read -r line; do
+        [[ -z &quot;$line&quot; ]] &amp;&amp; continue
+        # Strip ANSI escape codes
+        local clean
+        clean=$(printf &#x27;%s&#x27; &quot;$line&quot; | sed &#x27;s/\x1b\[[0-9;]*[a-zA-Z]//g&#x27;)
+        local name
+        name=$(printf &#x27;%s&#x27; &quot;$clean&quot; | awk &#x27;{print $1}&#x27;)
+        [[ -z &quot;$name&quot; ]] &amp;&amp; continue
+
+        local status=&quot;running&quot;
+        if printf &#x27;%s&#x27; &quot;$clean&quot; | grep -qi &quot;exited&quot;; then
+            status=&quot;exited&quot;
+        elif printf &#x27;%s&#x27; &quot;$clean&quot; | grep -q &quot;(current)&quot;; then
+            status=&quot;current&quot;
+        fi
+
+        SESSION_NAMES+=(&quot;$name&quot;)
+        SESSION_STATUS+=(&quot;$status&quot;)
+    done &lt; &lt;(zellij list-sessions 2&gt;/dev/null || true)
+
+    COUNT=${#SESSION_NAMES[@]}
+}
+
+# -- Read a single keypress ----------------------------------------------------
+
+read_key() {
+    local char
+    char=$(dd bs=1 count=1 2&gt;/dev/null)
+
+    if [[ &quot;$char&quot; == $&#x27;\x1b&#x27; ]]; then
+        local c1 c2
+        c1=$(dd bs=1 count=1 2&gt;/dev/null)
+        c2=$(dd bs=1 count=1 2&gt;/dev/null)
+        case &quot;${c1}${c2}&quot; in
+            &#x27;[A&#x27;) echo &quot;UP&quot; ;;
+            &#x27;[B&#x27;) echo &quot;DOWN&quot; ;;
+            *)    echo &quot;ESC&quot; ;;
+        esac
+    elif [[ &quot;$char&quot; == &quot;&quot; ]]; then
+        echo &quot;ENTER&quot;
+    elif [[ &quot;$char&quot; == &quot;q&quot; || &quot;$char&quot; == &quot;Q&quot; ]]; then
+        echo &quot;QUIT&quot;
+    elif [[ &quot;$char&quot; == &quot;d&quot; || &quot;$char&quot; == &quot;D&quot; ]]; then
+        echo &quot;DELETE&quot;
+    elif [[ &quot;$char&quot; == &quot;r&quot; || &quot;$char&quot; == &quot;R&quot; ]]; then
+        echo &quot;RENAME&quot;
+    else
+        echo &quot;OTHER&quot;
+    fi
+}
+
+# -- Draw the session list -----------------------------------------------------
+
+draw_list() {
+    clear_screen
+
+    printf &quot;  ${BOLD}${CYAN}Zellij Sessions${RESET}\n&quot;
+    printf &quot;  ${DIM}Use ${WHITE}↑↓${RESET}${DIM} to navigate · ${WHITE}Enter${RESET}${DIM} attach · ${WHITE}d${RESET}${DIM} delete · ${WHITE}r${RESET}${DIM} rename · ${WHITE}q${RESET}${DIM} quit${RESET}\n&quot;
+    echo
+
+    printf &quot;  ${DIM}%-40s  %s${RESET}\n&quot; &quot;Session&quot; &quot;Status&quot;
+    printf &quot;  ${DIM}%-40s  %s${RESET}\n&quot; &quot;────────────────────────────────────────&quot; &quot;───────&quot;
+
+    for i in $(seq 0 $((COUNT - 1))); do
+        local name=&quot;${SESSION_NAMES[$i]}&quot;
+        local status=&quot;${SESSION_STATUS[$i]}&quot;
+        local status_str status_color
+
+        case &quot;$status&quot; in
+            current)
+                status_str=&quot;● current&quot;
+                status_color=&quot;$GREEN&quot;
+                ;;
+            exited)
+                status_str=&quot;○ exited&quot;
+                status_color=&quot;$DIM&quot;
+                ;;
+            *)
+                status_str=&quot;● running&quot;
+                status_color=&quot;$CYAN&quot;
+                ;;
+        esac
+
+        if [[ $i -eq &quot;$SELECTED&quot; ]]; then
+            printf &quot;  ${BG_BLUE}${BOLD}${WHITE}▸ %-38s  &quot; &quot;$name&quot;
+            printf &quot;${status_color}%s${RESET}\n&quot; &quot;$status_str&quot;
+        else
+            printf &quot;   ${GREEN}%-38s  &quot; &quot;$name&quot;
+            printf &quot;${status_color}%s${RESET}\n&quot; &quot;$status_str&quot;
+        fi
+    done
+
+    echo
+}
+
+# -- Attach to session ---------------------------------------------------------
+
+attach_session() {
+    local idx=&quot;$1&quot;
+    local name=&quot;${SESSION_NAMES[$idx]}&quot;
+
+    show_cursor
+    exit_raw_mode
+    clear_screen
+
+    zellij attach &quot;$name&quot; || true
+
+    gather_sessions
+    [[ $COUNT -gt 0 &amp;&amp; &quot;$SELECTED&quot; -ge &quot;$COUNT&quot; ]] &amp;&amp; SELECTED=$((COUNT - 1))
+    [[ $COUNT -eq 0 ]] &amp;&amp; SELECTED=0
+
+    enter_raw_mode
+    hide_cursor
+}
+
+# -- Delete session with confirmation ------------------------------------------
+
+delete_session() {
+    local idx=&quot;$1&quot;
+    local name=&quot;${SESSION_NAMES[$idx]}&quot;
+
+    show_cursor
+    exit_raw_mode
+    clear_screen
+
+    printf &quot;\n  ${BOLD}${RED}Delete session${RESET}\n&quot;
+    printf &quot;  ${DIM}Session:${RESET} %s\n\n&quot; &quot;$name&quot;
+
+    read -rp &quot;  Delete this session? [y/N] &quot; confirm
+    if [[ ! &quot;$confirm&quot; =~ ^[Yy]$ ]]; then
+        printf &quot;  ${DIM}Aborted.${RESET}\n&quot;
+        sleep 0.5
+        enter_raw_mode
+        hide_cursor
+        return
+    fi
+
+    if zellij delete-session &quot;$name&quot; 2&gt;/dev/null; then
+        printf &quot;  ${GREEN}Session &#x27;${name}&#x27; deleted.${RESET}\n&quot;
+    else
+        printf &quot;  ${RED}Failed to delete session &#x27;${name}&#x27;.${RESET}\n&quot;
+        sleep 1
+        enter_raw_mode
+        hide_cursor
+        return
+    fi
+
+    sleep 0.5
+
+    gather_sessions
+    [[ $COUNT -gt 0 &amp;&amp; &quot;$SELECTED&quot; -ge &quot;$COUNT&quot; ]] &amp;&amp; SELECTED=$((COUNT - 1))
+    [[ $COUNT -eq 0 ]] &amp;&amp; SELECTED=0
+
+    enter_raw_mode
+    hide_cursor
+}
+
+# -- Rename session ------------------------------------------------------------
+
+rename_session() {
+    local idx=&quot;$1&quot;
+    local old_name=&quot;${SESSION_NAMES[$idx]}&quot;
+
+    show_cursor
+    exit_raw_mode
+    clear_screen
+
+    printf &quot;\n  ${BOLD}${MAGENTA}Rename session${RESET}\n&quot;
+    printf &quot;  ${DIM}Current name:${RESET} %s\n\n&quot; &quot;$old_name&quot;
+
+    read -rp &quot;  New name: &quot; new_name
+    # Replace spaces with hyphens (zellij session names cannot contain spaces)
+    new_name=&quot;${new_name// /-}&quot;
+
+    if [[ -z &quot;$new_name&quot; || &quot;$new_name&quot; == &quot;$old_name&quot; ]]; then
+        printf &quot;  ${DIM}Aborted.${RESET}\n&quot;
+        sleep 0.5
+        enter_raw_mode
+        hide_cursor
+        return
+    fi
+
+    if zellij --session &quot;$old_name&quot; action rename-session &quot;$new_name&quot; 2&gt;/dev/null; then
+        printf &quot;  ${GREEN}Session renamed to &#x27;${new_name}&#x27;.${RESET}\n&quot;
+    else
+        printf &quot;  ${RED}Failed to rename session.${RESET}\n&quot;
+        sleep 1
+        enter_raw_mode
+        hide_cursor
+        return
+    fi
+
+    sleep 0.5
+
+    gather_sessions
+    # Keep selection on the renamed session
+    SELECTED=0
+    for i in $(seq 0 $((COUNT - 1))); do
+        if [[ &quot;${SESSION_NAMES[$i]}&quot; == &quot;$new_name&quot; ]]; then
+            SELECTED=$i
+            break
+        fi
+    done
+
+    enter_raw_mode
+    hide_cursor
+}
+
+# -- Main loop -----------------------------------------------------------------
+
+gather_sessions
+
+if [[ $COUNT -eq 0 ]]; then
+    echo &quot;No active zellij sessions found.&quot;
+    exit 0
+fi
+
+SELECTED=0
+enter_raw_mode
+hide_cursor
+
+while true; do
+    draw_list
+
+    key=$(read_key)
+    case &quot;$key&quot; in
+        UP)
+            [[ $SELECTED -gt 0 ]] &amp;&amp; SELECTED=$((SELECTED - 1))
+            ;;
+        DOWN)
+            [[ $SELECTED -lt $((COUNT - 1)) ]] &amp;&amp; SELECTED=$((SELECTED + 1))
+            ;;
+        ENTER)
+            attach_session &quot;$SELECTED&quot;
+            [[ $COUNT -eq 0 ]] &amp;&amp; { clear_screen; printf &quot;\n  ${DIM}No sessions remaining.${RESET}\n&quot;; break; }
+            ;;
+        DELETE)
+            delete_session &quot;$SELECTED&quot;
+            [[ $COUNT -eq 0 ]] &amp;&amp; { clear_screen; printf &quot;\n  ${DIM}No sessions remaining.${RESET}\n&quot;; break; }
+            ;;
+        RENAME)
+            rename_session &quot;$SELECTED&quot;
+            ;;
+        QUIT|ESC)
+            clear_screen
+            break
+            ;;
+    esac
+done</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

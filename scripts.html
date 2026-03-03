@@ -1374,13 +1374,27 @@ BG_RESET=&#x27;\033[49m&#x27;
 
 # -- Terminal helpers ----------------------------------------------------------
 
+SAVED_TTY=&quot;&quot;
+
 hide_cursor() { printf &#x27;\033[?25l&#x27;; }
 show_cursor() { printf &#x27;\033[?25h&#x27;; }
 clear_screen() { printf &#x27;\033[2J\033[H&#x27;; }
 
+enter_raw_mode() {
+    SAVED_TTY=$(stty -g)
+    stty -echo -icanon min 1 time 0
+}
+
+exit_raw_mode() {
+    if [[ -n &quot;$SAVED_TTY&quot; ]]; then
+        stty &quot;$SAVED_TTY&quot;
+        SAVED_TTY=&quot;&quot;
+    fi
+}
+
 cleanup() {
     show_cursor
-    stty echo 2&gt;/dev/null || true
+    exit_raw_mode
 }
 trap cleanup EXIT
 
@@ -1427,20 +1441,24 @@ gather_worktrees() {
 # -- Read a single keypress ----------------------------------------------------
 
 read_key() {
-    local key
-    IFS= read -rsn1 key
-    if [[ &quot;$key&quot; == $&#x27;\x1b&#x27; ]]; then
-        local seq
-        IFS= read -rsn2 -t 0.1 seq || true
-        case &quot;$seq&quot; in
+    local char
+    # Read one byte at a time using dd (works reliably on macOS bash 3.2+)
+    char=$(dd bs=1 count=1 2&gt;/dev/null)
+
+    if [[ &quot;$char&quot; == $&#x27;\x1b&#x27; ]]; then
+        # Escape sequence &mdash; read next two bytes one at a time
+        local c1 c2
+        c1=$(dd bs=1 count=1 2&gt;/dev/null)
+        c2=$(dd bs=1 count=1 2&gt;/dev/null)
+        case &quot;${c1}${c2}&quot; in
             &#x27;[A&#x27;) echo &quot;UP&quot; ;;
             &#x27;[B&#x27;) echo &quot;DOWN&quot; ;;
             *)    echo &quot;ESC&quot; ;;
         esac
-    elif [[ &quot;$key&quot; == &quot;&quot; ]]; then echo &quot;ENTER&quot;
-    elif [[ &quot;$key&quot; == &quot;q&quot; || &quot;$key&quot; == &quot;Q&quot; ]]; then echo &quot;QUIT&quot;
-    elif [[ &quot;$key&quot; == &quot;d&quot; || &quot;$key&quot; == &quot;D&quot; ]]; then echo &quot;DELETE&quot;
-    else echo &quot;$key&quot;
+    elif [[ &quot;$char&quot; == &quot;&quot; ]]; then echo &quot;ENTER&quot;
+    elif [[ &quot;$char&quot; == &quot;q&quot; || &quot;$char&quot; == &quot;Q&quot; ]]; then echo &quot;QUIT&quot;
+    elif [[ &quot;$char&quot; == &quot;d&quot; || &quot;$char&quot; == &quot;D&quot; ]]; then echo &quot;DELETE&quot;
+    else echo &quot;OTHER&quot;
     fi
 }
 
@@ -1504,7 +1522,7 @@ show_detail() {
     echo
     [[ $idx -eq 0 ]] &amp;&amp; printf &quot;  ${DIM}(Main worktree &mdash; cannot be removed.)${RESET}\n&quot;
     printf &quot;  ${DIM}Press any key to go back...${RESET}&quot;
-    read -rsn1 _ || true
+    dd bs=1 count=1 &amp;&gt;/dev/null
 }
 
 # -- Remove a worktree with confirmation ---------------------------------------
@@ -1515,17 +1533,19 @@ remove_worktree() {
         clear_screen
         printf &quot;\n  ${RED}Cannot remove the main worktree.${RESET}\n&quot;
         printf &quot;  ${DIM}Press any key to go back...${RESET}&quot;
-        read -rsn1 _ || true
+        dd bs=1 count=1 &amp;&gt;/dev/null
         return
     fi
+    # Switch back to cooked mode for interactive prompts
     show_cursor
+    exit_raw_mode
     clear_screen
     printf &quot;\n  ${BOLD}${RED}Remove worktree${RESET}\n&quot;
     printf &quot;  ${DIM}Path:${RESET}   %s\n  ${DIM}Branch:${RESET} %s\n\n&quot; &quot;$wt_path&quot; &quot;$wt_branch&quot;
 
     read -rp &quot;  Remove this worktree? [y/N] &quot; confirm
     if [[ ! &quot;$confirm&quot; =~ ^[Yy]$ ]]; then
-        printf &quot;  ${DIM}Aborted.${RESET}\n&quot;; sleep 0.5; hide_cursor; return
+        printf &quot;  ${DIM}Aborted.${RESET}\n&quot;; sleep 0.5; enter_raw_mode; hide_cursor; return
     fi
     if git worktree remove &quot;$wt_path&quot; 2&gt;/dev/null; then
         printf &quot;  ${GREEN}Worktree removed.${RESET}\n&quot;
@@ -1535,7 +1555,7 @@ remove_worktree() {
             git worktree remove --force &quot;$wt_path&quot;
             printf &quot;  ${GREEN}Worktree force-removed.${RESET}\n&quot;
         else
-            printf &quot;  ${DIM}Kept.${RESET}\n&quot;; sleep 0.5; hide_cursor; return
+            printf &quot;  ${DIM}Kept.${RESET}\n&quot;; sleep 0.5; enter_raw_mode; hide_cursor; return
         fi
     fi
     if [[ &quot;$wt_branch&quot; != &quot;(detached)&quot; ]]; then
@@ -1552,6 +1572,7 @@ remove_worktree() {
     sleep 0.5
     gather_worktrees
     [[ &quot;$SELECTED&quot; -ge &quot;$COUNT&quot; ]] &amp;&amp; SELECTED=$((COUNT - 1))
+    enter_raw_mode
     hide_cursor
 }
 
@@ -1560,6 +1581,7 @@ remove_worktree() {
 gather_worktrees
 [[ $COUNT -eq 0 ]] &amp;&amp; { echo &quot;No worktrees found.&quot;; exit 0; }
 SELECTED=0
+enter_raw_mode
 hide_cursor
 
 while true; do

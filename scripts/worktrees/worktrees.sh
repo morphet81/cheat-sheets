@@ -30,15 +30,28 @@ BG_RESET='\033[49m'
 
 # -- Terminal helpers ----------------------------------------------------------
 
+SAVED_TTY=""
+
 hide_cursor() { printf '\033[?25l'; }
 show_cursor() { printf '\033[?25h'; }
 clear_screen() { printf '\033[2J\033[H'; }
-move_to() { printf '\033[%d;%dH' "$1" "$2"; }
+
+enter_raw_mode() {
+    SAVED_TTY=$(stty -g)
+    stty -echo -icanon min 1 time 0
+}
+
+exit_raw_mode() {
+    if [[ -n "$SAVED_TTY" ]]; then
+        stty "$SAVED_TTY"
+        SAVED_TTY=""
+    fi
+}
 
 # Restore terminal on exit
 cleanup() {
     show_cursor
-    stty echo 2>/dev/null || true
+    exit_raw_mode
 }
 trap cleanup EXIT
 
@@ -88,24 +101,28 @@ gather_worktrees() {
 # -- Read a single keypress ----------------------------------------------------
 
 read_key() {
-    local key
-    IFS= read -rsn1 key
-    if [[ "$key" == $'\x1b' ]]; then
-        local seq
-        IFS= read -rsn2 -t 0.1 seq || true
-        case "$seq" in
+    local char
+    # Read one byte at a time using dd (works reliably on macOS bash 3.2+)
+    char=$(dd bs=1 count=1 2>/dev/null)
+
+    if [[ "$char" == $'\x1b' ]]; then
+        # Escape sequence — read next two bytes one at a time
+        local c1 c2
+        c1=$(dd bs=1 count=1 2>/dev/null)
+        c2=$(dd bs=1 count=1 2>/dev/null)
+        case "${c1}${c2}" in
             '[A') echo "UP" ;;
             '[B') echo "DOWN" ;;
             *)    echo "ESC" ;;
         esac
-    elif [[ "$key" == "" ]]; then
+    elif [[ "$char" == "" ]]; then
         echo "ENTER"
-    elif [[ "$key" == "q" || "$key" == "Q" ]]; then
+    elif [[ "$char" == "q" || "$char" == "Q" ]]; then
         echo "QUIT"
-    elif [[ "$key" == "d" || "$key" == "D" ]]; then
+    elif [[ "$char" == "d" || "$char" == "D" ]]; then
         echo "DELETE"
     else
-        echo "$key"
+        echo "OTHER"
     fi
 }
 
@@ -190,7 +207,7 @@ show_detail() {
         printf "  ${DIM}(This is the main worktree and cannot be removed.)${RESET}\n"
     fi
     printf "  ${DIM}Press any key to go back...${RESET}"
-    read -rsn1 _ || true
+    dd bs=1 count=1 &>/dev/null
 }
 
 # -- Remove a worktree with confirmation ---------------------------------------
@@ -204,11 +221,13 @@ remove_worktree() {
         clear_screen
         printf "\n  ${RED}Cannot remove the main worktree.${RESET}\n"
         printf "  ${DIM}Press any key to go back...${RESET}"
-        read -rsn1 _ || true
+        dd bs=1 count=1 &>/dev/null
         return
     fi
 
+    # Switch back to cooked mode for interactive prompts
     show_cursor
+    exit_raw_mode
     clear_screen
 
     printf "\n  ${BOLD}${RED}Remove worktree${RESET}\n"
@@ -220,6 +239,7 @@ remove_worktree() {
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         printf "  ${DIM}Aborted.${RESET}\n"
         sleep 0.5
+        enter_raw_mode
         hide_cursor
         return
     fi
@@ -234,6 +254,7 @@ remove_worktree() {
         else
             printf "  ${DIM}Kept.${RESET}\n"
             sleep 0.5
+            enter_raw_mode
             hide_cursor
             return
         fi
@@ -259,12 +280,13 @@ remove_worktree() {
 
     sleep 0.5
 
-    # Refresh
+    # Refresh and re-enter raw mode
     gather_worktrees
     if [[ "$SELECTED" -ge "$COUNT" ]]; then
         SELECTED=$((COUNT - 1))
     fi
 
+    enter_raw_mode
     hide_cursor
 }
 
@@ -278,6 +300,7 @@ if [[ $COUNT -eq 0 ]]; then
 fi
 
 SELECTED=0
+enter_raw_mode
 hide_cursor
 
 while true; do

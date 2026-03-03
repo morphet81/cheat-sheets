@@ -1,11 +1,11 @@
 ---
 name: release-review
-version: 1.0.0
-description: Compare two git tags or commits and analyze all changes for deployment readiness. Lists changes, identifies areas requiring careful testing, checks e2e coverage, and flags potential overlooked issues.
+version: 1.1.0
+description: Compare two git tags or commits and analyze all changes for deployment readiness. Produces two separate reports — one for manual QA (no code details) and one for developers (technical details with code where needed).
 argument-hint: "<base-ref> <target-ref>"
 ---
 
-Compare two git tags or commits and produce a deployment readiness analysis. Lists everything that changed, identifies which aspects of the app need careful verification, checks whether e2e tests cover those areas, and flags potential issues that might have been overlooked.
+Compare two git tags or commits and produce two deployment readiness reports: a **QA report** for manual testers (user-facing flows, no code details) and a **Developer report** (technical details, file paths, code snippets where relevant). Both reports identify what must be verified before deploying and flag potential overlooked issues.
 
 **Usage:**
 - `/release-review v1.2.0 v1.3.0` - Analyze changes between two tags
@@ -204,12 +204,85 @@ Compare two git tags or commits and produce a deployment readiness analysis. Lis
 
    Only include sections that are relevant — don't pad the report with speculative concerns. Each item should be grounded in something observed in the diff.
 
-8. **Present the final report:**
+8. **Present the final reports:**
 
-   Combine all sections into a single report:
+   Output two clearly separated reports. Start with a shared changelog, then present the QA report, then the developer report.
+
+   ---
+
+   **8a. Shared Changelog**
+
+   A human-readable summary of everything that changed, suitable for release notes. Use plain language — no file paths or code. Group changes by feature area and write each entry as a user-facing bullet point.
 
    ```
-   ## Release Review: <base-ref> → <target-ref>
+   ## Changelog: <base-ref> → <target-ref>
+
+   ### New Features
+   - <Feature or improvement visible to users — written in plain English>
+   - ...
+
+   ### Bug Fixes
+   - <Bug that was fixed, described in user-facing terms>
+   - ...
+
+   ### Internal & Infrastructure
+   - <Non-user-facing changes: config, tooling, dependencies, refactors — keep brief>
+   - ...
+   ```
+
+   Only include sections that have entries. Omit sections that are empty.
+
+   ---
+
+   **8b. QA Report — Manual Testing**
+
+   For testers performing manual QA. No file paths, no code snippets, no technical internals. Focus entirely on what a tester needs to know and verify.
+
+   ```
+   ## QA Report: <base-ref> → <target-ref>
+
+   ### What Changed (QA Summary)
+   Describe each changed area in user-facing terms: what the feature does, who it affects, and how users interact with it.
+
+   #### <Area 1> — <Risk level: Critical / Important / Low>
+   <1–3 sentence plain-English description of what changed from a user's perspective>
+
+   #### <Area 2> — <Risk level>
+   ...
+
+   ### Test Scenarios
+
+   #### Critical — Must verify before deploying
+   **<Area/Feature>**
+   - [ ] <User-facing test step — e.g., "Log in with a valid account and confirm the dashboard loads">
+   - [ ] <Another step>
+
+   #### Important — Should verify
+   **<Area/Feature>**
+   - [ ] <Test step>
+
+   #### Low Risk — Spot check
+   **<Area/Feature>**
+   - [ ] <Quick check>
+
+   ### Pre-deployment Checklist (QA)
+   - [ ] <QA action — e.g., "Smoke test the login flow on staging">
+   - [ ] <QA action — e.g., "Verify checkout works end-to-end with a test card">
+
+   ### Verdict
+   **Deployment risk level:** Critical / High / Medium / Low
+   **E2E coverage:** Sufficient / Needs attention / Insufficient
+   **Recommendation:** <one-sentence summary — e.g., "Safe to deploy after verifying items #1 and #2">
+   ```
+
+   ---
+
+   **8c. Developer Report — Technical Details**
+
+   For developers and DevOps. Include file paths, technical context, and code snippets where they help clarify a risk or action. This report contains everything from steps 4–7.
+
+   ```
+   ## Developer Report: <base-ref> → <target-ref>
 
    <Change Inventory from step 4>
 
@@ -219,17 +292,15 @@ Compare two git tags or commits and produce a deployment readiness analysis. Lis
 
    <Potential Overlooked Issues from step 7>
 
-   ## Verdict
+   ### Pre-deployment Checklist (Technical)
+   - [ ] <Technical action — e.g., "Run migration `20240101_add_user_roles.sql`">
+   - [ ] <Technical action — e.g., "Set `FEATURE_FLAG_X=true` in production env">
+   - [ ] <Technical action — e.g., "Notify mobile team of breaking change to `/api/v2/users` response shape">
 
+   ### Verdict
    **Deployment risk level:** Critical / High / Medium / Low
    **E2E coverage:** Sufficient / Needs attention / Insufficient
-   **Recommendation:** <one-sentence summary — e.g., "Safe to deploy after verifying items #1 and #2" or "Recommend adding e2e tests for the new checkout flow before deploying">
-
-   ### Pre-deployment Checklist
-   - [ ] <Action item 1 — e.g., "Run database migration X">
-   - [ ] <Action item 2 — e.g., "Set ENV_VAR=value in production">
-   - [ ] <Action item 3 — e.g., "Verify auth flow end-to-end">
-   - [ ] <Action item 4 — e.g., "Notify mobile team of API change">
+   **Recommendation:** <one-sentence summary>
    ```
 
 9. **Handle edge cases:**

@@ -32,6 +32,11 @@ fi
 
 PARAM="$1"
 
+# -- Fetch latest remote state -------------------------------------------------
+
+echo "Fetching..."
+git fetch
+
 # -- Determine branch name and worktree path -----------------------------------
 
 # Conventional commit prefixes
@@ -58,12 +63,46 @@ if git worktree list --porcelain | grep -q "worktree ${ABS_PATH}$"; then
     exit 1
 fi
 
-# -- Create the worktree -------------------------------------------------------
+# -- Check if branch already exists (local or remote) -------------------------
+
+BRANCH_EXISTS_LOCAL=false
+BRANCH_EXISTS_REMOTE=false
 
 if git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
-    # Branch exists — use it
-    echo "Branch '${BRANCH}' exists, checking out into worktree..."
+    BRANCH_EXISTS_LOCAL=true
+fi
+
+REMOTE_REF="$(git remote | head -1)"
+if [[ -n "$REMOTE_REF" ]] && git show-ref --verify --quiet "refs/remotes/${REMOTE_REF}/${BRANCH}"; then
+    BRANCH_EXISTS_REMOTE=true
+fi
+
+if $BRANCH_EXISTS_LOCAL || $BRANCH_EXISTS_REMOTE; then
+    if $BRANCH_EXISTS_LOCAL && $BRANCH_EXISTS_REMOTE; then
+        echo "Branch '${BRANCH}' already exists (local and remote)."
+    elif $BRANCH_EXISTS_LOCAL; then
+        echo "Branch '${BRANCH}' already exists (local)."
+    else
+        echo "Branch '${BRANCH}' already exists (remote: ${REMOTE_REF}/${BRANCH})."
+    fi
+    printf "Use existing branch? [y/N] "
+    read -r CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 0
+    fi
+fi
+
+# -- Create the worktree -------------------------------------------------------
+
+if $BRANCH_EXISTS_LOCAL; then
+    # Local branch exists — check it out
+    echo "Checking out existing branch '${BRANCH}' into worktree..."
     git worktree add "${WORKTREE_PATH}" "${BRANCH}"
+elif $BRANCH_EXISTS_REMOTE; then
+    # Remote branch exists — create local tracking branch
+    echo "Creating local branch '${BRANCH}' tracking '${REMOTE_REF}/${BRANCH}'..."
+    git worktree add --track -b "${BRANCH}" "${WORKTREE_PATH}" "${REMOTE_REF}/${BRANCH}"
 else
     # Branch does not exist — create it
     echo "Creating new branch '${BRANCH}' and worktree..."

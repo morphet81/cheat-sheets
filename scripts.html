@@ -1009,6 +1009,370 @@ if __name__ == &quot;__main__&quot;:
                     </div>
                 </div>
 
+                <!-- Setup Worktree Script -->
+                <div class="script-card">
+                    <div class="script-header">
+                        <div class="script-title">
+                            <h3>Setup Worktree</h3>
+                            <code>setup-worktree</code>
+                            <span class="script-lang">Bash</span>
+                        </div>
+                        <p class="script-description">
+                            Create a git worktree from a branch name or Jira URL.
+                            Detects conventional commit prefixes automatically, or lets you pick one interactively
+                            with arrow keys. Copies <code>.env</code>, runs <code>mise trust</code>, and writes a
+                            <code>.agent</code> config file in the new worktree.
+                        </p>
+                        <div class="how-it-works">
+                            <strong>How it works:</strong>
+                            <ol>
+                                <li>Accepts a branch name, a plain name, a Jira ID (<code>PROJ-123</code>), or a Jira URL</li>
+                                <li>If a Jira URL or standalone ID is given, extracts the issue number and lowercases it for use as branch suffix</li>
+                                <li>If the input already has a valid conventional commit prefix (e.g. <code>feat/</code>), uses it directly</li>
+                                <li>Otherwise, shows an interactive arrow-key menu to select the commit type (<code>feat</code>, <code>fix</code>, <code>chore</code>, …)</li>
+                                <li>Creates a new branch and worktree one level above the current directory (e.g. <code>../feat-proj-123</code>)</li>
+                                <li>Copies any <code>.env</code> file from the current directory into the new worktree</li>
+                                <li>Runs <code>mise trust</code> in the new worktree (if <code>mise</code> is installed)</li>
+                                <li>Writes a <code>.agent</code> file with <code>baseBranch=&lt;current-branch&gt;</code></li>
+                            </ol>
+                        </div>
+                        <div class="script-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>./setup-worktree.sh feat/my-feature</code> &mdash; Uses branch name as-is</li>
+                                <li><code>./setup-worktree.sh my-feature</code> &mdash; Prompts for commit type, then creates <code>feat/my-feature</code></li>
+                                <li><code>./setup-worktree.sh PROJ-123</code> &mdash; Prompts for type, creates e.g. <code>fix/proj-123</code></li>
+                                <li><code>./setup-worktree.sh https://company.atlassian.net/browse/PROJ-123</code> &mdash; Extracts Jira ID, prompts for type</li>
+                            </ul>
+                        </div>
+                        <div class="script-deps">
+                            <strong>Dependencies:</strong> <code>git</code>, <code>mise</code> (optional)
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#9654;</span>
+                            <span>Show source code</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">scripts/setup-worktree/setup-worktree.sh</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'setup-worktree-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="setup-worktree-content">#!/usr/bin/env bash
+# Create a git worktree from a branch name or Jira URL.
+#
+# Usage:
+#   setup-worktree.sh &lt;branch-name-or-jira-url&gt;
+#
+# If a Jira URL or ID is provided, the Jira issue number is extracted and used as
+# the branch suffix. A conventional commit type is selected interactively.
+# If a branch name with a valid CC prefix is provided, it is used as-is.
+# Otherwise, a CC type is selected interactively and prepended.
+#
+# Examples:
+#   setup-worktree.sh feat/my-feature
+#       &rarr; branch feat/my-feature, worktree at ../feat-my-feature
+#   setup-worktree.sh my-feature
+#       &rarr; prompts for type, e.g. feat/my-feature, worktree at ../feat-my-feature
+#   setup-worktree.sh https://company.atlassian.net/browse/PROJ-123
+#       &rarr; prompts for type, e.g. fix/proj-123, worktree at ../fix-proj-123
+
+set -euo pipefail
+
+# -- Colors &amp; terminal helpers -------------------------------------------------
+
+BOLD=&#x27;\033[1m&#x27;
+DIM=&#x27;\033[2m&#x27;
+RESET=&#x27;\033[0m&#x27;
+CYAN=&#x27;\033[36m&#x27;
+GREEN=&#x27;\033[32m&#x27;
+YELLOW=&#x27;\033[33m&#x27;
+RED=&#x27;\033[31m&#x27;
+WHITE=&#x27;\033[97m&#x27;
+BG_BLUE=&#x27;\033[44m&#x27;
+
+hide_cursor() { printf &#x27;\033[?25l&#x27;; }
+show_cursor() { printf &#x27;\033[?25h&#x27;; }
+
+SAVED_TTY=&quot;&quot;
+
+enter_raw_mode() {
+    SAVED_TTY=$(stty -g)
+    stty -echo -icanon min 1 time 0
+}
+
+exit_raw_mode() {
+    if [[ -n &quot;$SAVED_TTY&quot; ]]; then
+        stty &quot;$SAVED_TTY&quot;
+        SAVED_TTY=&quot;&quot;
+    fi
+}
+
+cleanup() {
+    show_cursor
+    exit_raw_mode
+}
+trap cleanup EXIT
+
+# -- Read a single keypress ----------------------------------------------------
+
+read_key() {
+    local char
+    char=$(dd bs=1 count=1 2&gt;/dev/null)
+
+    if [[ &quot;$char&quot; == $&#x27;\x1b&#x27; ]]; then
+        local c1 c2
+        c1=$(dd bs=1 count=1 2&gt;/dev/null)
+        c2=$(dd bs=1 count=1 2&gt;/dev/null)
+        case &quot;${c1}${c2}&quot; in
+            &#x27;[A&#x27;) echo &quot;UP&quot; ;;
+            &#x27;[B&#x27;) echo &quot;DOWN&quot; ;;
+            *)    echo &quot;ESC&quot; ;;
+        esac
+    elif [[ &quot;$char&quot; == &quot;&quot; ]]; then
+        echo &quot;ENTER&quot;
+    elif [[ &quot;$char&quot; == &quot;q&quot; || &quot;$char&quot; == &quot;Q&quot; ]]; then
+        echo &quot;QUIT&quot;
+    else
+        echo &quot;OTHER&quot;
+    fi
+}
+
+# -- Interactive type selector -------------------------------------------------
+# Sets CC_TYPE to the selected conventional commit type.
+# Returns 1 if the user quit without selecting.
+
+CC_TYPES=(&quot;feat&quot; &quot;fix&quot; &quot;chore&quot; &quot;refactor&quot; &quot;docs&quot; &quot;test&quot; &quot;style&quot; &quot;perf&quot; &quot;build&quot; &quot;ci&quot; &quot;revert&quot; &quot;hotfix&quot;)
+CC_TYPE=&quot;&quot;
+
+draw_type_menu() {
+    local selected=&quot;$1&quot;
+    local num=${#CC_TYPES[@]}
+
+    # Move cursor to beginning of menu block
+    printf &quot;\033[${num}A&quot;
+
+    for i in &quot;${!CC_TYPES[@]}&quot;; do
+        if [[ $i -eq $selected ]]; then
+            printf &quot;  ${BG_BLUE}${BOLD}${WHITE}&#x25B8; %-10s${RESET}  ${DIM}%s${RESET}\n&quot; &quot;${CC_TYPES[$i]}&quot; &quot;$(type_hint &quot;${CC_TYPES[$i]}&quot;)&quot;
+        else
+            printf &quot;  ${DIM}  %-10s${RESET}\n&quot; &quot;${CC_TYPES[$i]}&quot;
+        fi
+    done
+}
+
+type_hint() {
+    case &quot;$1&quot; in
+        feat)     echo &quot;new feature or enhancement&quot; ;;
+        fix)      echo &quot;bug fix&quot; ;;
+        chore)    echo &quot;maintenance, tooling, config&quot; ;;
+        refactor) echo &quot;code restructuring, no behavior change&quot; ;;
+        docs)     echo &quot;documentation only&quot; ;;
+        test)     echo &quot;add or update tests&quot; ;;
+        style)    echo &quot;formatting, no logic change&quot; ;;
+        perf)     echo &quot;performance improvement&quot; ;;
+        build)    echo &quot;build system or dependencies&quot; ;;
+        ci)       echo &quot;CI/CD configuration&quot; ;;
+        revert)   echo &quot;revert a previous commit&quot; ;;
+        hotfix)   echo &quot;urgent production fix&quot; ;;
+        *)        echo &quot;&quot; ;;
+    esac
+}
+
+select_type() {
+    local prompt=&quot;$1&quot;
+    local selected=0
+    local num=${#CC_TYPES[@]}
+
+    echo
+    printf &quot;  ${BOLD}${CYAN}${prompt}${RESET}\n&quot;
+    printf &quot;  ${DIM}Use &#x2191;&#x2193; to navigate, Enter to confirm, q to quit${RESET}\n&quot;
+    echo
+
+    # Print initial menu
+    for i in &quot;${!CC_TYPES[@]}&quot;; do
+        if [[ $i -eq $selected ]]; then
+            printf &quot;  ${BG_BLUE}${BOLD}${WHITE}&#x25B8; %-10s${RESET}  ${DIM}%s${RESET}\n&quot; &quot;${CC_TYPES[$i]}&quot; &quot;$(type_hint &quot;${CC_TYPES[$i]}&quot;)&quot;
+        else
+            printf &quot;  ${DIM}  %-10s${RESET}\n&quot; &quot;${CC_TYPES[$i]}&quot;
+        fi
+    done
+
+    enter_raw_mode
+    hide_cursor
+
+    while true; do
+        local key
+        key=$(read_key)
+        case &quot;$key&quot; in
+            UP)
+                if [[ $selected -gt 0 ]]; then
+                    selected=$((selected - 1))
+                fi
+                draw_type_menu &quot;$selected&quot;
+                ;;
+            DOWN)
+                if [[ $selected -lt $((num - 1)) ]]; then
+                    selected=$((selected + 1))
+                fi
+                draw_type_menu &quot;$selected&quot;
+                ;;
+            ENTER)
+                CC_TYPE=&quot;${CC_TYPES[$selected]}&quot;
+                break
+                ;;
+            QUIT|ESC)
+                exit_raw_mode
+                show_cursor
+                echo
+                echo &quot;Aborted.&quot;
+                exit 0
+                ;;
+        esac
+    done
+
+    exit_raw_mode
+    show_cursor
+    echo
+}
+
+# -- Validation ----------------------------------------------------------------
+
+if [[ $# -ne 1 ]]; then
+    echo &quot;Usage: $(basename &quot;$0&quot;) &lt;branch-name-or-jira-url&gt;&quot;
+    echo
+    echo &quot;Examples:&quot;
+    echo &quot;  $(basename &quot;$0&quot;) feat/my-feature&quot;
+    echo &quot;  $(basename &quot;$0&quot;) my-feature&quot;
+    echo &quot;  $(basename &quot;$0&quot;) https://company.atlassian.net/browse/PROJ-123&quot;
+    echo &quot;  $(basename &quot;$0&quot;) PROJ-123&quot;
+    exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree &amp;&gt;/dev/null; then
+    echo &quot;Error: not inside a git repository.&quot; &gt;&amp;2
+    exit 1
+fi
+
+PARAM=&quot;$1&quot;
+
+# -- Parse input ---------------------------------------------------------------
+
+# Conventional commit prefix pattern
+CC_PATTERN=&quot;^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|hotfix)/&quot;
+
+# Jira URL pattern: contains /browse/ followed by PROJECT-NUMBER
+JIRA_URL_PATTERN=&quot;atlassian\.net/browse/([A-Za-z]+-[0-9]+)&quot;
+
+# Jira ID pattern: PROJECT-NUMBER standalone
+JIRA_ID_PATTERN=&quot;^([A-Za-z]+-[0-9]+)$&quot;
+
+BRANCH_SUFFIX=&quot;&quot;
+NEEDS_TYPE=false
+
+if [[ &quot;$PARAM&quot; =~ $JIRA_URL_PATTERN ]]; then
+    # Jira URL &rarr; extract ID, lowercase it
+    JIRA_ID=&quot;${BASH_REMATCH[1]}&quot;
+    BRANCH_SUFFIX=&quot;${JIRA_ID,,}&quot;
+    NEEDS_TYPE=true
+    printf &quot;  ${CYAN}Jira:${RESET} ${BOLD}${JIRA_ID}${RESET}\n&quot;
+
+elif [[ &quot;$PARAM&quot; =~ $JIRA_ID_PATTERN ]]; then
+    # Standalone Jira ID &rarr; lowercase it
+    JIRA_ID=&quot;${BASH_REMATCH[1]}&quot;
+    BRANCH_SUFFIX=&quot;${JIRA_ID,,}&quot;
+    NEEDS_TYPE=true
+    printf &quot;  ${CYAN}Jira:${RESET} ${BOLD}${JIRA_ID}${RESET}\n&quot;
+
+elif [[ &quot;$PARAM&quot; =~ $CC_PATTERN ]]; then
+    # Branch name already has a valid CC prefix &mdash; use as-is
+    BRANCH=&quot;$PARAM&quot;
+
+else
+    # Plain branch name &mdash; need to pick a type
+    BRANCH_SUFFIX=&quot;$PARAM&quot;
+    NEEDS_TYPE=true
+fi
+
+# -- Select conventional commit type if needed ---------------------------------
+
+if $NEEDS_TYPE; then
+    select_type &quot;Select branch type:&quot;
+    BRANCH=&quot;${CC_TYPE}/${BRANCH_SUFFIX}&quot;
+fi
+
+# -- Determine worktree path ---------------------------------------------------
+
+DIR_NAME=&quot;${BRANCH//\//-}&quot;
+WORKTREE_PATH=&quot;../${DIR_NAME}&quot;
+REPO_ROOT=&quot;$(git rev-parse --show-toplevel)&quot;
+ABS_PATH=&quot;$(cd &quot;${REPO_ROOT}/..&quot; &amp;&amp; pwd)/${DIR_NAME}&quot;
+
+printf &quot;  ${CYAN}Branch:${RESET}   ${BOLD}${BRANCH}${RESET}\n&quot;
+printf &quot;  ${CYAN}Worktree:${RESET} ${BOLD}${ABS_PATH}${RESET}\n&quot;
+echo
+
+# -- Guard: worktree already exists -------------------------------------------
+
+if git worktree list --porcelain | grep -qF &quot;worktree ${ABS_PATH}&quot;; then
+    echo &quot;Error: worktree already exists at ${WORKTREE_PATH}&quot; &gt;&amp;2
+    exit 1
+fi
+
+# -- Guard: branch already exists ---------------------------------------------
+
+if git show-ref --verify --quiet &quot;refs/heads/${BRANCH}&quot;; then
+    echo &quot;Error: branch &#x27;${BRANCH}&#x27; already exists locally.&quot; &gt;&amp;2
+    exit 1
+fi
+
+# -- Record current branch (base) ---------------------------------------------
+
+BASE_BRANCH=&quot;$(git branch --show-current)&quot;
+
+# -- Create the worktree + branch ---------------------------------------------
+
+echo &quot;Creating worktree and branch...&quot;
+git worktree add -b &quot;${BRANCH}&quot; &quot;${WORKTREE_PATH}&quot;
+
+# -- Copy .env files ----------------------------------------------------------
+
+if [[ -f &quot;.env&quot; ]]; then
+    cp &quot;.env&quot; &quot;${WORKTREE_PATH}/.env&quot;
+    printf &quot;  ${GREEN}&#x2713;${RESET} Copied .env\n&quot;
+fi
+
+# -- Post-setup inside the worktree -------------------------------------------
+
+# mise trust
+if command -v mise &amp;&gt;/dev/null; then
+    if mise trust &quot;${ABS_PATH}&quot; &amp;&gt;/dev/null 2&gt;&amp;1; then
+        printf &quot;  ${GREEN}&#x2713;${RESET} mise trust\n&quot;
+    else
+        printf &quot;  ${YELLOW}!${RESET} mise trust failed (non-fatal)\n&quot;
+    fi
+fi
+
+# .agent file
+printf &quot;baseBranch=%s\n&quot; &quot;${BASE_BRANCH}&quot; &gt; &quot;${ABS_PATH}/.agent&quot;
+printf &quot;  ${GREEN}&#x2713;${RESET} .agent &rarr; baseBranch=%s\n&quot; &quot;${BASE_BRANCH}&quot;
+
+# -- Success -------------------------------------------------------------------
+
+echo
+printf &quot;  ${BOLD}${GREEN}Worktree ready!${RESET}\n&quot;
+printf &quot;  ${DIM}Branch:${RESET}   %s\n&quot; &quot;${BRANCH}&quot;
+printf &quot;  ${DIM}Base:${RESET}     %s\n&quot; &quot;${BASE_BRANCH}&quot;
+printf &quot;  ${DIM}Path:${RESET}     %s\n&quot; &quot;${ABS_PATH}&quot;
+echo
+printf &quot;  To enter:  ${BOLD}cd %s${RESET}\n&quot; &quot;${WORKTREE_PATH}&quot;</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Worktree Add Script -->
                 <div class="script-card">
                     <div class="script-header">
@@ -1025,9 +1389,11 @@ if __name__ == &quot;__main__&quot;:
                         <div class="how-it-works">
                             <strong>How it works:</strong>
                             <ol>
+                                <li>Runs <code>git fetch</code> to sync with the remote</li>
                                 <li>If the parameter matches a conventional commit pattern (e.g. <code>feat/nero-345</code>), it is used as the branch name and the worktree is placed at <code>../feat-nero-345</code></li>
                                 <li>Otherwise, the parameter is used as both the branch name and directory name (e.g. <code>test-this</code> &rarr; <code>../test-this</code>)</li>
-                                <li>If the branch already exists, it is checked out; otherwise a new branch is created from HEAD</li>
+                                <li>If the branch already exists locally or remotely, warns the user and asks for confirmation before proceeding</li>
+                                <li>Creates a worktree with a new branch, checks out an existing local branch, or sets up tracking for a remote branch</li>
                             </ol>
                         </div>
                         <div class="script-usage">
@@ -1086,6 +1452,11 @@ fi
 
 PARAM=&quot;$1&quot;
 
+# -- Fetch latest remote state -------------------------------------------------
+
+echo &quot;Fetching...&quot;
+git fetch
+
 # -- Determine branch name and worktree path -----------------------------------
 
 # Conventional commit prefixes
@@ -1112,12 +1483,46 @@ if git worktree list --porcelain | grep -q &quot;worktree ${ABS_PATH}$&quot;; th
     exit 1
 fi
 
-# -- Create the worktree -------------------------------------------------------
+# -- Check if branch already exists (local or remote) -------------------------
+
+BRANCH_EXISTS_LOCAL=false
+BRANCH_EXISTS_REMOTE=false
 
 if git show-ref --verify --quiet &quot;refs/heads/${BRANCH}&quot;; then
-    # Branch exists &mdash; use it
-    echo &quot;Branch &#x27;${BRANCH}&#x27; exists, checking out into worktree...&quot;
+    BRANCH_EXISTS_LOCAL=true
+fi
+
+REMOTE_REF=&quot;$(git remote | head -1)&quot;
+if [[ -n &quot;$REMOTE_REF&quot; ]] &amp;&amp; git show-ref --verify --quiet &quot;refs/remotes/${REMOTE_REF}/${BRANCH}&quot;; then
+    BRANCH_EXISTS_REMOTE=true
+fi
+
+if $BRANCH_EXISTS_LOCAL || $BRANCH_EXISTS_REMOTE; then
+    if $BRANCH_EXISTS_LOCAL &amp;&amp; $BRANCH_EXISTS_REMOTE; then
+        echo &quot;Branch &#x27;${BRANCH}&#x27; already exists (local and remote).&quot;
+    elif $BRANCH_EXISTS_LOCAL; then
+        echo &quot;Branch &#x27;${BRANCH}&#x27; already exists (local).&quot;
+    else
+        echo &quot;Branch &#x27;${BRANCH}&#x27; already exists (remote: ${REMOTE_REF}/${BRANCH}).&quot;
+    fi
+    printf &quot;Use existing branch? [y/N] &quot;
+    read -r CONFIRM
+    if [[ ! &quot;$CONFIRM&quot; =~ ^[Yy]$ ]]; then
+        echo &quot;Aborted.&quot;
+        exit 0
+    fi
+fi
+
+# -- Create the worktree -------------------------------------------------------
+
+if $BRANCH_EXISTS_LOCAL; then
+    # Local branch exists &mdash; check it out
+    echo &quot;Checking out existing branch &#x27;${BRANCH}&#x27; into worktree...&quot;
     git worktree add &quot;${WORKTREE_PATH}&quot; &quot;${BRANCH}&quot;
+elif $BRANCH_EXISTS_REMOTE; then
+    # Remote branch exists &mdash; create local tracking branch
+    echo &quot;Creating local branch &#x27;${BRANCH}&#x27; tracking &#x27;${REMOTE_REF}/${BRANCH}&#x27;...&quot;
+    git worktree add --track -b &quot;${BRANCH}&quot; &quot;${WORKTREE_PATH}&quot; &quot;${REMOTE_REF}/${BRANCH}&quot;
 else
     # Branch does not exist &mdash; create it
     echo &quot;Creating new branch &#x27;${BRANCH}&#x27; and worktree...&quot;

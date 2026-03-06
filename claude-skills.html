@@ -4790,6 +4790,121 @@ Translate a PDF document end-to-end: extract structured Markdown from the source
                     </div>
                 </div>
 
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>Merge Base Branch</h3>
+                            <code>/merge-base-branch</code>
+                            <span class="skill-version">v1.0.0</span>
+                        </div>
+                        <p class="skill-description">
+                            Merge the branch the current branch was branched out from into the current branch.
+                            Determines the base branch automatically (from <code>.agent</code> file or git heuristics) and asks for confirmation before merging.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/merge-base-branch</code> &mdash; Detect the base branch and merge it into the current branch</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#x25B6;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/merge-base-branch/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'merge-base-branch-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="merge-base-branch-content">---
+name: merge-base-branch
+version: 1.0.0
+description: Merge the branch the current branch was branched out from into the current branch. Determines the base branch automatically and asks for confirmation before merging.
+argument-hint: &quot;&quot;
+---
+
+Merge the base branch (the branch this branch was created from) into the current branch. Useful for keeping a feature branch up to date with its parent.
+
+**Usage:**
+- `/merge-base-branch` - Detect the base branch and merge it into the current branch
+
+**Instructions:**
+
+1. **Determine the current branch:**
+   - Run `git branch --show-current` to get the current branch name
+   - If in detached HEAD state (no branch name), inform the user and **STOP**
+
+2. **Determine the base branch:**
+   - **First**, check if a `.agent` file exists in the repository root. If it does, read it and look for a `baseBranch=&lt;value&gt;` line. Use that value as the base branch.
+   - **If no `.agent` file or no `baseBranch` entry**, use `git log --oneline --merges` and `git reflog` heuristics:
+     - Run `git merge-base --fork-point main HEAD` to check if the branch forked from `main`
+     - Run `git merge-base --fork-point master HEAD` to check if the branch forked from `master`
+     - Run `git merge-base --fork-point develop HEAD` to check if the branch forked from `develop`
+     - Use the branch that returns a valid merge-base commit. If multiple match, prefer in order: `main`, `master`, `develop`.
+   - **If none of the above works**, ask the user to provide the base branch name using `AskUserQuestion` with common options (`main`, `master`, `develop`) and **STOP** waiting for their answer.
+
+3. **Verify the base branch exists:**
+   - Run `git rev-parse --verify origin/&lt;base-branch&gt;` to confirm the remote base branch exists
+   - If it does not exist, try `git rev-parse --verify &lt;base-branch&gt;` for a local-only branch
+   - If neither exists, inform the user that the base branch `&lt;base-branch&gt;` was not found and **STOP**
+
+4. **Fetch the latest from origin:**
+   - Run `git fetch origin &lt;base-branch&gt;` to get the latest commits
+   - If the fetch fails, show the error and **STOP**
+
+5. **Show merge preview and ask for confirmation:**
+   - Run `git log --oneline HEAD..origin/&lt;base-branch&gt;` to list the commits that will be merged in
+   - Count the number of incoming commits
+   - If there are **no new commits**, inform the user that the current branch is already up to date with `&lt;base-branch&gt;` and **STOP**
+   - Display a summary:
+     ```
+     ## Merge Preview
+
+     Base branch: &lt;base-branch&gt;
+     Current branch: &lt;current-branch&gt;
+     Incoming commits: &lt;count&gt;
+
+     &lt;list of commits from git log --oneline&gt;
+     ```
+   - Use `AskUserQuestion` to ask: &quot;Proceed with merging origin/&lt;base-branch&gt; into &lt;current-branch&gt;?&quot;
+     - Option 1: &quot;Yes, merge&quot; (description: &quot;Merge the commits listed above into the current branch&quot;)
+     - Option 2: &quot;No, cancel&quot; (description: &quot;Cancel the merge operation&quot;)
+   - If the user selects &quot;No, cancel&quot;, display &quot;Merge cancelled.&quot; and **STOP**
+
+6. **Perform the merge:**
+   - Run `git merge origin/&lt;base-branch&gt; --no-edit`
+   - If the merge succeeds, display:
+     ```
+     ## Merge Complete
+
+     Successfully merged origin/&lt;base-branch&gt; into &lt;current-branch&gt;.
+     &lt;count&gt; commits merged.
+     ```
+   - If the merge fails due to **conflicts**:
+     - Run `git diff --name-only --diff-filter=U` to list conflicting files
+     - Display:
+       ```
+       ## Merge Conflicts
+
+       The merge produced conflicts in the following files:
+       - &lt;file1&gt;
+       - &lt;file2&gt;
+       ...
+
+       Please resolve the conflicts manually, then run:
+         git add .
+         git merge --continue
+       ```
+     - Do NOT attempt to auto-resolve conflicts. Let the user handle them.
+     - **STOP** after displaying the conflict information</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

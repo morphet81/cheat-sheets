@@ -1,6 +1,6 @@
 ---
 name: merge-base-branch
-version: 1.0.0
+version: 1.1.0
 description: Merge the branch the current branch was branched out from into the current branch. Determines the base branch automatically and asks for confirmation before merging.
 argument-hint: ""
 ---
@@ -64,18 +64,23 @@ Merge the base branch (the branch this branch was created from) into the current
      ```
    - If the merge fails due to **conflicts**:
      - Run `git diff --name-only --diff-filter=U` to list conflicting files
+     - Display the list of conflicting files
+     - **Resolve each conflict yourself:**
+       - Read each conflicting file
+       - Analyze the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) and understand the intent of both sides
+       - Choose the correct resolution: keep both changes merged together when they don't contradict, prefer the base branch for upstream fixes, and preserve the current branch's feature work
+       - Edit the file to remove all conflict markers and produce the correct merged content
+       - After resolving, run `git add <file>` for each resolved file
+     - Once all conflicts are resolved, run `git merge --continue --no-edit`
      - Display:
        ```
-       ## Merge Conflicts
+       ## Merge Complete (conflicts resolved)
 
-       The merge produced conflicts in the following files:
+       Successfully merged origin/<base-branch> into <current-branch>.
+       <count> commits merged.
+       Resolved conflicts in:
        - <file1>
        - <file2>
        ...
-
-       Please resolve the conflicts manually, then run:
-         git add .
-         git merge --continue
        ```
-     - Do NOT attempt to auto-resolve conflicts. Let the user handle them.
-     - **STOP** after displaying the conflict information
+     - Ask the user to **review the conflict resolutions** before proceeding further

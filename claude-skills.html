@@ -4795,11 +4795,12 @@ Translate a PDF document end-to-end: extract structured Markdown from the source
                         <div class="skill-title">
                             <h3>Merge Base Branch</h3>
                             <code>/merge-base-branch</code>
-                            <span class="skill-version">v1.0.0</span>
+                            <span class="skill-version">v1.1.0</span>
                         </div>
                         <p class="skill-description">
                             Merge the branch the current branch was branched out from into the current branch.
                             Determines the base branch automatically (from <code>.agent</code> file or git heuristics) and asks for confirmation before merging.
+                            Automatically resolves merge conflicts when they occur.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -4821,7 +4822,7 @@ Translate a PDF document end-to-end: extract structured Markdown from the source
                             <div class="file-content">
                                 <pre id="merge-base-branch-content">---
 name: merge-base-branch
-version: 1.0.0
+version: 1.1.0
 description: Merge the branch the current branch was branched out from into the current branch. Determines the base branch automatically and asks for confirmation before merging.
 argument-hint: &quot;&quot;
 ---
@@ -4885,21 +4886,26 @@ Merge the base branch (the branch this branch was created from) into the current
      ```
    - If the merge fails due to **conflicts**:
      - Run `git diff --name-only --diff-filter=U` to list conflicting files
+     - Display the list of conflicting files
+     - **Resolve each conflict yourself:**
+       - Read each conflicting file
+       - Analyze the conflict markers (`&lt;&lt;&lt;&lt;&lt;&lt;&lt;`, `=======`, `&gt;&gt;&gt;&gt;&gt;&gt;&gt;`) and understand the intent of both sides
+       - Choose the correct resolution: keep both changes merged together when they don't contradict, prefer the base branch for upstream fixes, and preserve the current branch's feature work
+       - Edit the file to remove all conflict markers and produce the correct merged content
+       - After resolving, run `git add &lt;file&gt;` for each resolved file
+     - Once all conflicts are resolved, run `git merge --continue --no-edit`
      - Display:
        ```
-       ## Merge Conflicts
+       ## Merge Complete (conflicts resolved)
 
-       The merge produced conflicts in the following files:
+       Successfully merged origin/&lt;base-branch&gt; into &lt;current-branch&gt;.
+       &lt;count&gt; commits merged.
+       Resolved conflicts in:
        - &lt;file1&gt;
        - &lt;file2&gt;
        ...
-
-       Please resolve the conflicts manually, then run:
-         git add .
-         git merge --continue
        ```
-     - Do NOT attempt to auto-resolve conflicts. Let the user handle them.
-     - **STOP** after displaying the conflict information</pre>
+     - Ask the user to **review the conflict resolutions** before proceeding further</pre>
                             </div>
                         </div>
                     </div>

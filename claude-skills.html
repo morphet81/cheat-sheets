@@ -425,12 +425,12 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v1.5.0</span>
+                            <span class="skill-version">v2.0.0</span>
                         </div>
                         <p class="skill-description">
                             Review changes introduced by the current branch compared to a base branch.
-                            Spawns parallel reviewer agents for large diffs.
-                            Analyzes code quality, security, performance, best practices, testing coverage, and documentation needs.
+                            Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing coverage, testing consistency, and documentation.
+                            A senior engineer orchestrates the team, verifies findings, and produces a consolidated report.
                             Outputs findings categorized by severity with file and line references.
                         </p>
                         <div class="skill-usage">
@@ -455,9 +455,9 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 1.5.0
-description: Review changes introduced by the current branch compared to a base branch. Spawns parallel reviewer agents for large diffs. Use when you want to review code changes before creating a PR or merging.
-argument-hint: "[base-branch]"
+version: 2.0.0
+description: Review changes introduced by the current branch compared to a base branch. Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. Use when you want to review code changes before creating a PR or merging.
+argument-hint: &quot;[base-branch]&quot;
 ---
 
 Review changes introduced by the current branch compared to a base branch.
@@ -480,43 +480,44 @@ Review changes introduced by the current branch compared to a base branch.
    - Run `git log &lt;base-branch&gt;..HEAD --oneline` to see commit history
    - Run `git diff --name-only &lt;base-branch&gt;...HEAD` to get the list of changed files
 
-4. Review the changes using parallel agents if warranted:
+4. Spawn a specialized review team:
 
-   **Determine team size** based on the number of changed files:
-   - 1–3 changed files → review directly (no team needed)
-   - 4–8 changed files → spawn 2 reviewer agents
-   - 9+ changed files → spawn 3 reviewer agents
+   Use `TeamCreate` with name `review-changes`. Spawn all 8 agents simultaneously using the `Agent` tool (`subagent_type: general-purpose`) with `run_in_background: true` and the team name.
 
-   **If spawning a team:**
-   - Use `TeamCreate` with name `review-changes`
-   - Divide changed files across reviewers, grouping related files together (e.g., a component and its test, or files in the same module)
-   - Spawn reviewers using the `Task` tool (`subagent_type: general-purpose`) with `run_in_background: true` and the team name
-   - Each reviewer receives:
-     - Their assigned files with the relevant diff output
-     - The review criteria from step 5 below
-     - Instructions to message the team lead with findings and mark their task as completed
-   - Wait for all reviewers to finish, then aggregate findings
-   - Clean up: send `shutdown_request` to each reviewer, then `TeamDelete`
+   **Shared instructions for all reviewers:**
+   &gt; Focus exclusively on the changes introduced by the current branch. Only review code that was added or modified in the diff — do not flag pre-existing issues in surrounding code that was not changed. The goal is to review what this branch introduces, not to audit the entire codebase.
 
-   **If reviewing directly:**
-   - Proceed with the review yourself following step 5
+   Each reviewer receives the full diff, the list of changed files, and their specific focus area:
 
-5. Review the changes and provide feedback on:
+   | # | Name | Role | Focus |
+   |---|------|------|-------|
+   | 1 | `code-quality` | Code Quality Engineer | Bugs, edge cases, error handling issues |
+   | 2 | `security` | Security Engineer | Vulnerabilities: injection, XSS, secrets exposure, auth issues |
+   | 3 | `performance` | Performance Engineer | Inefficiencies, bottlenecks, unnecessary allocations, resource usage |
+   | 4 | `best-practices` | Best Practices Engineer | Coding standards, design patterns, conventions, code consistency |
+   | 5 | `qa-coverage` | QA Engineer (Coverage) | Missing tests for new or changed functionality |
+   | 6 | `qa-consistency` | QA Engineer (Consistency) | Do test descriptions match actual test logic? Do tests make sense? Are there redundant tests? |
+   | 7 | `documentation` | Documentation Engineer | Missing or outdated documentation, changelog needs, inline comment gaps |
+   | 8 | `senior-lead` | Senior Engineer (Lead) | See below |
 
-   **IMPORTANT: Focus exclusively on the changes introduced by the current branch.** Only review code that was added or modified in the diff — do not flag pre-existing issues in surrounding code that was not changed. The goal is to review what this branch introduces, not to audit the entire codebase.
+   **Senior Engineer responsibilities:**
+   - Available throughout the review to answer questions and assist other reviewers — reviewers should message `senior-lead` when they need guidance or want to validate a finding
+   - Once all 7 specialists have reported their findings, verify each finding for accuracy and relevance
+   - Orchestrate a team-wide conversation (via `broadcast` and direct messages) where reviewers share findings and debate the best approaches to fix identified issues
+   - Produce the final consolidated report (step 6 format) incorporating the team&#x27;s discussion
+   - After the final report is ready, clean up: send `shutdown_request` to each reviewer, then `TeamDelete`
 
-   - **Code Quality**: Look for bugs, edge cases, error handling issues in the changed code
-   - **Security**: Check for vulnerabilities (injection, XSS, secrets, etc.) introduced by the changes
-   - **Performance**: Identify potential performance issues or inefficiencies in the new/modified code
-   - **Best Practices**: Verify adherence to coding standards and patterns in the changed code
-   - **Testing**: Note if tests are missing for new functionality introduced by this branch
-   - **Documentation**: Check if the changes need documentation updates
+5. Each specialist reviewer must:
+   - Read the full diff and changed files relevant to their focus area
+   - Message `senior-lead` with their findings (or confirm no issues found)
+   - Mark their task as completed
+   - Respond to any follow-up questions from `senior-lead` during the team discussion
 
 6. Format the review as:
    - Start with a brief summary of what the changes do
    - List specific issues found with file paths and line references
    - Categorize feedback by severity: 🔴 Critical, 🟡 Warning, 🔵 Suggestion
-   - **Assign a sequential number to each finding** (e.g., #1, #2, #3) across all severity categories, so the developer can easily reference specific findings (e.g., "fix #3, dismiss #5")
+   - **Assign a sequential number to each finding** (e.g., #1, #2, #3) across all severity categories, so the developer can easily reference specific findings (e.g., &quot;fix #3, dismiss #5&quot;)
    - End with an overall assessment and recommendation
 
 **Example output format:**

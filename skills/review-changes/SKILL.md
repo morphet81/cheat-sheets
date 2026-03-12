@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 3.0.1
+version: 3.1.0
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as GitHub review comments.
 argument-hint: "[base-branch] or <PR number or URL> [repository]"
 ---
@@ -288,18 +288,20 @@ Review code changes in two modes: **local branch review** or **PR review**.
 Use `TeamCreate` with name `review-changes`. Spawn all agents simultaneously using the `Agent` tool (`subagent_type: general-purpose`) with `run_in_background: true` and the team name.
 
 **Shared instructions for all reviewers:**
-> Focus exclusively on the changes introduced (in the diff). Only review code that was added or modified — do not flag pre-existing issues in surrounding code that was not changed. The goal is to review what these changes introduce, not to audit the entire codebase.
+> Focus on the changes introduced (in the diff). Only review code that was added or modified — do not flag pre-existing issues in surrounding code that was not changed. However, when reviewing new files or significant additions, **read 2-3 sibling files** (same directory, same type) to understand existing patterns and conventions. Flag any deviation from established patterns (naming, variable usage, style composition, utility reuse).
+>
+> **Convention check:** Before reporting findings, scan the directory of each changed file to identify sibling files. Note any conventions (naming, patterns, utilities, shared variables) that the new code should follow but doesn't.
 
 Each reviewer receives the full diff, the list of changed files, and their specific focus area:
 
 | # | Name | Role | Focus |
 |---|------|------|-------|
-| 1 | `code-quality` | Code Quality Engineer | Bugs, edge cases, error handling issues |
+| 1 | `code-quality` | Code Quality Engineer | Bugs, edge cases, error handling issues. Think about **data conflicts and overlaps** — what happens when two items occupy the same slot, time range, or index? What if the same entity appears twice? Question assumptions: if code skips or filters items, is the skip logic correct from a domain perspective? |
 | 2 | `security` | Security Engineer | Vulnerabilities: injection, XSS, secrets exposure, auth issues |
 | 3 | `performance` | Performance Engineer | Inefficiencies, bottlenecks, unnecessary allocations, resource usage |
-| 4 | `best-practices` | Best Practices Engineer | Coding standards, design patterns, conventions, code consistency |
+| 4 | `best-practices` | Best Practices Engineer | Coding standards, design patterns, conventions, code consistency. Check new code against conventions in sibling files (e.g., global CSS vars vs hardcoded values, style composition patterns, prop type patterns). Flag hardcoded values that should use existing constants/variables. Flag dead or unreachable code that doesn't contribute to the outcome. |
 | 5 | `qa-coverage` | QA Engineer (Coverage) | Missing tests for new or changed functionality |
-| 6 | `qa-consistency` | QA Engineer (Consistency) | Do test descriptions match actual test logic? Do tests make sense? Are there redundant tests? |
+| 6 | `qa-consistency` | QA Engineer (Consistency) | Do test descriptions describe **behavior** (not implementation details like "diagonal stripes", "renders a div")? Are assertions **resilient to implementation changes** — would adding content to a component cause false positives/negatives? Does each test actually validate what its title claims, and does the expected behavior make **domain sense**? Are there duplicate or near-duplicate test cases? Would a reasonable implementation change break these tests for the wrong reasons? |
 | 7 | `documentation` | Documentation Engineer | Missing or outdated documentation, changelog needs, inline comment gaps |
 | 8 | `senior-lead` | Senior Engineer (Lead) | See below |
 | 9 | `ticket-compliance` | Ticket Compliance Engineer | *(PR mode only, if Jira ticket found)* Compare code changes against Jira ticket requirements and acceptance criteria, report any gaps or missing items |

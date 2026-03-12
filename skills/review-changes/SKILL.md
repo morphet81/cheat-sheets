@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 3.0.0
+version: 3.0.1
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as GitHub review comments.
 argument-hint: "[base-branch] or <PR number or URL> [repository]"
 ---
@@ -206,15 +206,19 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
    **e) Add review comments for each selected finding:**
 
+   **CRITICAL: Every comment MUST contain a meaningful body explaining the issue.** Never post a comment that only pinpoints lines without explanation. The comment body is the primary value — it tells the PR author *what* the problem is, *why* it matters, and *how* to fix it.
+
    Every comment body must start with a `## From AI agent` heading. Format:
    ```
    ## From AI agent
 
    **[<severity>]** <title>
 
-   <explanation from the consolidated review>
+   <explanation from the consolidated review — this MUST be a substantive description
+   of the issue, not just a file/line reference. Explain what is wrong, why it matters,
+   and what the expected behavior or correct approach should be.>
 
-   **Suggested fix:** <suggestion if applicable>
+   **Suggested fix:** <concrete suggestion for how to resolve the issue>
 
    **Confidence:** <High|Medium|Debated>
    ```
@@ -239,6 +243,7 @@ Review code changes in two modes: **local branch review** or **PR review**.
    ```
    - If a finding references a range of lines, use the last line
    - If a finding has no specific line number, fall back to a top-level review body comment
+   - **Never** post a comment with an empty or placeholder body — if you cannot produce a meaningful explanation for a finding, skip it and warn the user
 
    **f) Submit the review (only if agent-created):**
    ```bash

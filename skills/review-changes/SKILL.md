@@ -1,7 +1,7 @@
 ---
 name: review-changes
-version: 3.1.0
-description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as GitHub review comments.
+version: 3.2.0
+description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: "[base-branch] or <PR number or URL> [repository]"
 ---
 
@@ -245,31 +245,17 @@ Review code changes in two modes: **local branch review** or **PR review**.
    - If a finding has no specific line number, fall back to a top-level review body comment
    - **Never** post a comment with an empty or placeholder body — if you cannot produce a meaningful explanation for a finding, skip it and warn the user
 
-   **f) Submit the review (only if agent-created):**
-   ```bash
-   gh api graphql -f query='
-     mutation($reviewId: ID!, $event: PullRequestReviewEvent!) {
-       submitPullRequestReview(input: {
-         pullRequestReviewId: $reviewId,
-         event: $event
-       }) {
-         pullRequestReview {
-           id
-           state
-         }
-       }
-     }
-   ' -f reviewId='{review_id}' -f event='COMMENT'
-   ```
-   If `agent_created_review` is `false`, do **NOT** submit. Inform the user:
-   > Comments have been added to your existing pending review. Submit it when you're ready from the GitHub UI.
+   **f) Do NOT submit the review.**
+
+   Never submit the review programmatically. The developer will review the comments and submit the review manually from the GitHub UI. Inform the user:
+   > Comments have been added to your pending review. Please review them and submit the review from the GitHub UI when you're ready.
 
    **g) Report what was posted:**
    ```
    ## Review Comments Posted
 
    **PR:** #<number> — <title>
-   **Review:** <"New review created and submitted" | "Added to your existing pending review">
+   **Review:** <"New pending review created" | "Added to your existing pending review"> — submit manually from the GitHub UI
    **Comments posted:** <count>
 
    - #<N> — `<file>:<line>` — <title> — Posted ✓

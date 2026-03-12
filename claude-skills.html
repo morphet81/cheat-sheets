@@ -425,12 +425,12 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v3.1.0</span>
+                            <span class="skill-version">v3.2.0</span>
                         </div>
                         <p class="skill-description">
                             Review code changes in two modes: local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub).
                             Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing coverage, testing consistency, and documentation.
-                            In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as GitHub review comments.
+                            In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
                             A senior engineer orchestrates the team, verifies findings, and produces a consolidated report with findings categorized by severity.
                         </p>
                         <div class="skill-usage">
@@ -457,8 +457,8 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 3.1.0
-description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as GitHub review comments.
+version: 3.2.0
+description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: &quot;[base-branch] or &lt;PR number or URL&gt; [repository]&quot;
 ---
 
@@ -702,31 +702,17 @@ Review code changes in two modes: **local branch review** or **PR review**.
    - If a finding has no specific line number, fall back to a top-level review body comment
    - **Never** post a comment with an empty or placeholder body — if you cannot produce a meaningful explanation for a finding, skip it and warn the user
 
-   **f) Submit the review (only if agent-created):**
-   ```bash
-   gh api graphql -f query=&#x27;
-     mutation($reviewId: ID!, $event: PullRequestReviewEvent!) {
-       submitPullRequestReview(input: {
-         pullRequestReviewId: $reviewId,
-         event: $event
-       }) {
-         pullRequestReview {
-           id
-           state
-         }
-       }
-     }
-   &#x27; -f reviewId=&#x27;{review_id}&#x27; -f event=&#x27;COMMENT&#x27;
-   ```
-   If `agent_created_review` is `false`, do **NOT** submit. Inform the user:
-   &gt; Comments have been added to your existing pending review. Submit it when you&#x27;re ready from the GitHub UI.
+   **f) Do NOT submit the review.**
+
+   Never submit the review programmatically. The developer will review the comments and submit the review manually from the GitHub UI. Inform the user:
+   &gt; Comments have been added to your pending review. Please review them and submit the review from the GitHub UI when you&#x27;re ready.
 
    **g) Report what was posted:**
    ```
    ## Review Comments Posted
 
    **PR:** #&lt;number&gt; — &lt;title&gt;
-   **Review:** &lt;&quot;New review created and submitted&quot; | &quot;Added to your existing pending review&quot;&gt;
+   **Review:** &lt;&quot;New pending review created&quot; | &quot;Added to your existing pending review&quot;&gt; — submit manually from the GitHub UI
    **Comments posted:** &lt;count&gt;
 
    - #&lt;N&gt; — `&lt;file&gt;:&lt;line&gt;` — &lt;title&gt; — Posted ✓

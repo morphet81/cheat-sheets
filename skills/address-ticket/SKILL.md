@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.1.0
+version: 3.2.0
 description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
 argument-hint: ""
 ---
@@ -82,17 +82,19 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
         The response will contain the Figma design URL(s) and metadata.
    - If the REST API calls fail (auth issues, no properties found, etc.), **continue** with the remaining information — this is a best-effort retrieval.
 
-   **c) Use retrieved Figma designs:**
+   **c) Request design assets from the user:**
    - If Figma URLs are found from either source:
-     - Use the Figma MCP tools to retrieve design information (component structure, layout, spacing, colors, typography, assets, etc.)
-     - Store the retrieved design data — it will be passed to the PO and design agents
-     - If the Figma MCP is not installed or the request fails, display the following message and **continue** with the remaining ticket information:
-       ```
-       Figma MCP is not available or failed to retrieve design data.
-       Figma reference found: <URL>
-       Please review the design manually and share relevant details if needed.
-       Continuing with the available ticket information.
-       ```
+     - Display the Figma URLs to the developer and use `AskUserQuestion` to request design assets:
+       > Figma design link(s) found in the ticket:
+       > - <URL 1>
+       > - <URL 2>
+       >
+       > Please export the relevant screens/components as PNG or SVG files and provide the file path(s).
+       > You can drag and drop the files into the chat, or provide absolute paths to already-exported files.
+     - Options: **"I've provided the files"**, **"Skip — no design assets needed"**
+     - If the developer provides file paths, read and analyze the PNG/SVG files to understand the design (layout, components, spacing, colors, typography, visual hierarchy, interaction states)
+     - Store the design data extracted from the images — it will be passed to the PO and design agents
+     - If the developer chooses to skip, **continue** with the remaining ticket information and note that Figma designs were referenced but no assets were provided
    - If no Figma URLs are found from either source, skip this step silently
 
 5. **Determine the conventional commit prefix:**
@@ -275,14 +277,14 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
     If designers are needed, spawn them FIRST and wait for them to complete before spawning developers and testers.
 
-    **If 1 designer (Figma provided):**
+    **If 1 designer (design assets provided):**
     - Spawn 1 designer agent using the `Task` tool
     - The designer's job is to:
-      - Analyze the Figma designs retrieved in step 4
-      - Map Figma components to existing codebase components
+      - Analyze the PNG/SVG design assets provided by the developer in step 4
+      - Map visual components in the designs to existing codebase components
       - Produce a design implementation guide: which components to use, spacing, colors, typography, responsive behavior, interaction states
-      - Identify any gaps between the Figma designs and the requirements
-    - Pass the agent: the approved requirements, the Figma design data, and the codebase analysis (existing components, design system, styling patterns)
+      - Identify any gaps between the design assets and the requirements
+    - Pass the agent: the approved requirements, the design asset file paths (so the agent can read/view them), and the codebase analysis (existing components, design system, styling patterns)
 
     **If 2 designers (no Figma):**
     - Spawn 2 designer agents in parallel using the `Task` tool with `run_in_background: true`

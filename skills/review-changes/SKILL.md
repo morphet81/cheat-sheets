@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 3.3.0
+version: 3.3.1
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: "[base-branch] or <PR number or URL> [repository]"
 ---
@@ -80,19 +80,16 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
    These findings must be **excluded** from the final review output to avoid duplication.
 
-   - **Existing reviews:** Fetch all submitted reviews:
+   - **Existing reviews, inline comments, and general comments:** Fetch in a single call:
      ```bash
-     gh api repos/{owner}/{repo}/pulls/{number}/reviews --paginate
+     gh pr view <number> --repo <owner/repo> --json reviews,reviewComments,comments
      ```
-     For each review, record: author, state (APPROVED, CHANGES_REQUESTED, COMMENTED), review body.
+     From the JSON output, record:
+     - `reviews`: author, state (APPROVED, CHANGES_REQUESTED, COMMENTED), body
+     - `reviewComments`: file path, line number, body, author
+     - `comments`: substantive general PR conversation comments (skip bot comments and simple acknowledgements)
 
-   - **Review comments (inline):**
-     ```bash
-     gh api repos/{owner}/{repo}/pulls/{number}/comments --paginate
-     ```
-     For each comment, record: file path, line number, body, author.
-
-   - **Unresolved review threads:**
+   - **Unresolved review threads** (requires GraphQL since `gh pr view` does not expose thread resolution status):
      ```bash
      gh api graphql -f query='
        query($owner: String!, $repo: String!, $pr: Int!) {
@@ -118,12 +115,6 @@ Review code changes in two modes: **local branch review** or **PR review**.
      ' -f owner='{owner}' -f repo='{repo}' -F pr={number}
      ```
      Collect all **unresolved** threads with their file paths, line numbers, and comment bodies.
-
-   - **General PR conversation comments:**
-     ```bash
-     gh api repos/{owner}/{repo}/issues/{number}/comments --paginate
-     ```
-     Record substantive comments (skip bot comments and simple acknowledgements).
 
    - **Compile the exclusion list** with: file path + line (if applicable), summary of the issue raised, author.
 

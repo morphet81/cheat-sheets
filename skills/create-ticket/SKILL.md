@@ -1,6 +1,6 @@
 ---
 name: create-ticket
-version: 1.0.0
+version: 1.1.0
 description: Create a JIRA ticket from developer instructions. Previews the ticket before creation. Supports attaching Figma design links via the Figma for Jira integration.
 argument-hint: "<description of the ticket>"
 ---
@@ -12,19 +12,28 @@ Create a JIRA ticket based on instructions provided by the developer. Shows a pr
 
 **Instructions:**
 
-1. **Validate that JIRA MCP is available:**
-   - Run `/mcp` to list the MCP servers available in the current context
-   - Check that a JIRA (or Atlassian) MCP server is present and shows as connected/authenticated
-   - If JIRA MCP is NOT available or not authenticated, display the following error and STOP:
+1. **Validate that the Atlassian CLI is available and authenticated:**
+   - Run `acli auth status` to check if the CLI is installed and authenticated
+   - If the command is not found, display the following error and STOP:
      ```
-     ❌ JIRA MCP is not configured or not authenticated.
-     This skill requires a working JIRA MCP integration.
-     Please configure and authenticate the JIRA MCP server before using /create-ticket.
+     Atlassian CLI (acli) is not installed.
+     This skill requires the Atlassian CLI.
+     Install it with: brew tap atlassian/acli && brew install acli
+     ```
+   - If the command fails with an authentication error, display the following error and STOP:
+     ```
+     Atlassian CLI is not authenticated.
+     This skill requires an authenticated Atlassian CLI.
+     Please run `acli auth login` to authenticate before using /create-ticket.
      ```
 
 2. **Determine the target project:**
    - Check if the current branch contains a JIRA ID (pattern `[A-Z][A-Z0-9]+-[0-9]+`). If so, extract the project key from it (e.g., `PROJ` from `PROJ-123`).
-   - If no JIRA ID is found in the branch, use the JIRA MCP to list available projects and ask the developer to choose one using `AskUserQuestion`.
+   - If no JIRA ID is found in the branch, use the Atlassian CLI to list available projects and ask the developer to choose one:
+     ```bash
+     acli jira project list --json
+     ```
+     Present the project keys to the developer using `AskUserQuestion`.
 
 3. **Parse the developer's instructions from $ARGUMENTS:**
    - The developer provides a free-text description of the ticket they want to create.
@@ -90,25 +99,31 @@ Create a JIRA ticket based on instructions provided by the developer. Shows a pr
    - Do NOT create the ticket until the developer confirms.
 
 6. **Create the ticket:**
-   - Use the JIRA MCP `createJiraIssue` tool to create the ticket with the confirmed details:
-     - `projectKey`: the project key from step 2
-     - `issueTypeName`: the issue type from step 3
-     - `summary`: the summary from step 3
-     - `description`: the description from step 4
-     - `parent`: the parent key if creating a sub-task
+   - Use the Atlassian CLI to create the ticket with the confirmed details:
+     ```bash
+     acli jira workitem create \
+       --project "<project-key>" \
+       --type "<issue-type>" \
+       --summary "<summary>" \
+       --description-file <temp-file-with-description> \
+       --parent "<parent-key>" \
+       --json
+     ```
+     - Omit `--parent` if not creating a sub-task
+     - Write the description to a temp file and use `--description-file` to avoid shell escaping issues
    - If creation fails, display the error and STOP.
 
 7. **Attach Figma designs (if provided):**
    - If the developer included Figma URLs in their instructions, attach them to the newly created ticket using the Figma for Jira "Add Design" mechanism.
-   - Figma designs attached via "Add Design" are stored as **issue-level entity properties**, not as standard fields or remote links. To set them via the REST API:
+   - Figma designs attached via "Add Design" are stored as **issue-level entity properties**, not as standard fields or remote links. To set them via the REST API, retrieve the site URL from the created ticket's JSON response, then:
      1. **Determine the Figma property key:** List the issue's entity properties to check if a Figma property key already exists:
         ```bash
-        curl -s -H "Authorization: Bearer $ATLASSIAN_TOKEN" \
+        curl -s -H "Authorization: Bearer $(acli auth token)" \
           "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/"
         ```
      2. **Set the Figma design property:** Use a PUT request to set the design link as an entity property. The property key and value format depend on the Figma for Jira app installation, but typically:
         ```bash
-        curl -s -X PUT -H "Authorization: Bearer $ATLASSIAN_TOKEN" \
+        curl -s -X PUT -H "Authorization: Bearer $(acli auth token)" \
           -H "Content-Type: application/json" \
           "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/<figma-property-key>" \
           -d '{"figmaDesigns": [{"url": "<figma-url>", "name": "<design-name>"}]}'

@@ -1,6 +1,6 @@
 ---
 name: setup-branch
-version: 1.4.0
+version: 1.5.0
 description: Create a new branch and worktree from a JIRA ID or URL. Determines branch prefix (fix/ or feat/) from the JIRA item type, sets up the worktree one level up, and installs dependencies.
 argument-hint: "<JIRA-ID or URL>"
 ---
@@ -14,14 +14,21 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
 **Instructions:**
 
 1. **Check prerequisites:**
-   - **JIRA MCP server:** Verify that a JIRA MCP tool is available (e.g., by checking if any MCP tools related to JIRA/Atlassian are accessible). If no JIRA MCP server is configured, display the following message and **STOP**:
-     ```
-     ## Missing Prerequisite: JIRA MCP Server
+   - **Atlassian CLI (`acli`):** Run `acli auth status` to check if the CLI is installed and authenticated.
+     - If the command is not found, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI
 
-     No JIRA MCP server is configured. This skill requires a JIRA MCP integration to fetch issue details.
+       The `acli` command is not installed. This skill requires the Atlassian CLI to fetch JIRA issue details.
 
-     Please configure a JIRA MCP server in your Claude Code settings before using this skill.
-     ```
+       Install it with: brew tap atlassian/acli && brew install acli
+       ```
+     - If the command fails with an authentication error, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI Authentication
+
+       The Atlassian CLI is not authenticated. Please run `acli auth login` to authenticate before using this skill.
+       ```
    - **GitHub CLI (`gh`):** Run `gh --version` to check if the `gh` CLI is installed. If the command fails (not found), display the following message and **STOP**:
      ```
      ## Missing Prerequisite: GitHub CLI
@@ -44,9 +51,12 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
    - If the argument cannot be parsed as either a URL or JIRA ID, inform the user and STOP
 
 3. **Fetch the JIRA item type:**
-   - Use the JIRA MCP tool or API to fetch the issue details for the extracted JIRA ID
+   - Use the Atlassian CLI to fetch the issue details for the extracted JIRA ID:
+     ```bash
+     acli jira workitem view <JIRA-ID> --fields issuetype --json
+     ```
    - Identify the issue type (Bug, Story, Task, Epic, Sub-task, etc.)
-   - If the JIRA API is not available or the fetch fails, ask the developer to provide the issue type manually using `AskUserQuestion` with options: "Bug", "Story/Task/Other"
+   - If the fetch fails, ask the developer to provide the issue type manually using `AskUserQuestion` with options: "Bug", "Story/Task/Other"
 
 4. **Determine the branch name:**
    - Lowercase the JIRA ID for use in the branch name (e.g., `PROJ-123` → `proj-123`)

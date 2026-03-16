@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.0.0
+version: 3.1.0
 description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
 argument-hint: ""
 ---
@@ -14,14 +14,19 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 ## Phase 1 — Gather Context
 
-1. **Validate that JIRA MCP is available:**
-   - Run `/mcp` to list the MCP servers available in the current context
-   - Check that a JIRA (or Atlassian) MCP server is present and shows as connected/authenticated
-   - If JIRA MCP is NOT available or not authenticated, display the following error and STOP:
+1. **Validate that the Atlassian CLI is available and authenticated:**
+   - Run `acli auth status` to check if the CLI is installed and authenticated
+   - If the command is not found, display the following error and STOP:
      ```
-     JIRA MCP is not configured or not authenticated.
-     This skill requires a working JIRA MCP integration.
-     Please configure and authenticate the JIRA MCP server before using /address-ticket.
+     Atlassian CLI (acli) is not installed.
+     This skill requires the Atlassian CLI.
+     Install it with: brew tap atlassian/acli && brew install acli
+     ```
+   - If the command fails with an authentication error, display the following error and STOP:
+     ```
+     Atlassian CLI is not authenticated.
+     This skill requires an authenticated Atlassian CLI.
+     Please run `acli auth login` to authenticate before using /address-ticket.
      ```
 
 2. **Extract the JIRA ID from the current branch name:**
@@ -36,8 +41,11 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
      ```
 
 3. **Fetch the JIRA ticket:**
-   - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
-   - Fetch **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context — for example, bugs often have "Expected Behavior" and "Actual Behavior" fields, stories may have "Acceptance Criteria" fields, etc. Custom fields vary by project, so read whatever the ticket provides.
+   - Use the Atlassian CLI to retrieve the issue by its JIRA ID:
+     ```bash
+     acli jira workitem view <JIRA-ID> --fields '*all' --json
+     ```
+   - This fetches **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context — for example, bugs often have "Expected Behavior" and "Actual Behavior" fields, stories may have "Acceptance Criteria" fields, etc. Custom fields vary by project, so read whatever the ticket provides.
    - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
    - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
      ```
@@ -54,18 +62,21 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
    - Search all ticket fields (description, comments, attachments, custom fields) for Figma URLs (e.g., `https://www.figma.com/design/...`, `https://www.figma.com/file/...`, `https://www.figma.com/proto/...`)
 
    **b) Check issue-level entity properties (Figma for Jira app):**
-   - Figma designs added via the "Add Design" button are **not** stored in standard issue fields, remote links, or attachments. They are stored as **issue-level entity properties** — a separate data layer that the standard `GET /rest/api/3/issue/{key}` call does not return.
-   - The Atlassian MCP tools do not include a "get issue properties" endpoint, so you must hit the REST API directly using the Bash tool:
+   - Figma designs added via the "Add Design" button are **not** stored in standard issue fields, remote links, or attachments. They are stored as **issue-level entity properties** — a separate data layer that the standard issue view does not return.
+   - Retrieve the Atlassian site URL from `acli config list` or the authenticated site context, then hit the REST API directly using the Bash tool:
      1. **List the issue's entity properties:**
         ```bash
-        curl -s -H "Authorization: Bearer $ATLASSIAN_TOKEN" \
+        acli jira workitem view <JIRA-ID> --json
+        ```
+        Extract the site URL from the `self` link in the response, then:
+        ```bash
+        curl -s -H "Authorization: Bearer $(acli auth token)" \
           "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/"
         ```
-        Or use the `gh` CLI or any available HTTP tool. The Cloud ID and auth credentials should match the Atlassian MCP configuration.
      2. **Identify the Figma property key:** In the response, look for a property key related to Figma (the exact key name varies by installation, but typically contains "figma" or "design").
      3. **Fetch the Figma URL data:**
         ```bash
-        curl -s -H "Authorization: Bearer $ATLASSIAN_TOKEN" \
+        curl -s -H "Authorization: Bearer $(acli auth token)" \
           "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/<figma-property-key>"
         ```
         The response will contain the Figma design URL(s) and metadata.
@@ -118,7 +129,10 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
    **a) Identify the parent epic:**
    - From the ticket fields fetched in step 3, look for the parent epic link (e.g., the `Epic Link` field, `parent` field, or any field that references an epic).
-   - If the ticket has a parent epic, fetch the epic using the JIRA MCP to get its summary, description, and acceptance criteria.
+   - If the ticket has a parent epic, fetch the epic using the Atlassian CLI to get its summary, description, and acceptance criteria:
+     ```bash
+     acli jira workitem view <EPIC-KEY> --fields summary,description,acceptance-criteria --json
+     ```
    - If the ticket has no parent epic, skip this step entirely.
 
    **b) Check for an existing lore file:**
@@ -372,7 +386,10 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - Options: **Yes — update the ticket**, **No — skip**
 
     **d) Update the ticket (if approved):**
-    - If the developer approves, use the JIRA MCP tool to update the ticket's description field
+    - If the developer approves, use the Atlassian CLI to update the ticket's description field:
+      ```bash
+      acli jira workitem edit --key <JIRA-ID> --description-file <temp-file-with-description> --yes
+      ```
     - Confirm the update was successful:
       ```
       Ticket <JIRA-ID> description updated.

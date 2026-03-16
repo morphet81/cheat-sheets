@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 3.2.0
+version: 3.3.0
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: "[base-branch] or <PR number or URL> [repository]"
 ---
@@ -70,7 +70,10 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
    **c) Check for Jira ticket reference:**
    - Scan the PR title, description, and branch name for a Jira ticket reference (pattern: project key + number, e.g., `PROJ-123`, `ABC-42`)
-   - If found, attempt to fetch Jira ticket details (summary, description, acceptance criteria) using available tools (`jira-mcp` or similar)
+   - If found, attempt to fetch Jira ticket details (summary, description, acceptance criteria) using the Atlassian CLI:
+     ```bash
+     acli jira workitem view <JIRA-ID> --fields summary,description,acceptance-criteria --json
+     ```
    - Store the ticket details for the review team; if fetch fails, note the ticket reference but proceed without details
 
    **d) Build the exclusion list:**

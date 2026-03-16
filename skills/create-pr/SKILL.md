@@ -1,6 +1,6 @@
 ---
 name: create-pr
-version: 1.5.0
+version: 1.6.0
 description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -14,14 +14,21 @@ Push the current branch and create a GitHub pull request with title and descript
 **Instructions:**
 
 1. **Check prerequisites:**
-   - **JIRA MCP server:** Verify that a JIRA MCP tool is available. If not configured, display the following message and **STOP**:
-     ```
-     ## Missing Prerequisite: JIRA MCP Server
+   - **Atlassian CLI (`acli`):** Run `acli auth status` to check if the CLI is installed and authenticated.
+     - If the command is not found, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI
 
-     No JIRA MCP server is configured. This skill requires a JIRA MCP integration to fetch issue details.
+       The `acli` command is not installed. This skill requires the Atlassian CLI to fetch JIRA issue details.
 
-     Please configure a JIRA MCP server in your Claude Code settings before using this skill.
-     ```
+       Install it with: brew tap atlassian/acli && brew install acli
+       ```
+     - If the command fails with an authentication error, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI Authentication
+
+       The Atlassian CLI is not authenticated. Please run `acli auth login` to authenticate before using this skill.
+       ```
    - **GitHub CLI (`gh`):** Run `gh --version`. If not found, display the following message and **STOP**:
      ```
      ## Missing Prerequisite: GitHub CLI
@@ -53,8 +60,11 @@ Push the current branch and create a GitHub pull request with title and descript
      ```
 
 4. **Fetch the JIRA ticket details:**
-   - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
-   - Fetch: **summary**, **description**, **issue type** (Bug, Story, Task, etc.)
+   - Use the Atlassian CLI to retrieve the issue by its JIRA ID:
+     ```bash
+     acli jira workitem view <JIRA-ID> --fields summary,description,issuetype --json
+     ```
+   - Extract: **summary**, **description**, **issue type** (Bug, Story, Task, etc.)
    - If the fetch fails, ask the developer to provide the issue type and summary manually using `AskUserQuestion`
 
 5. **Determine the base branch:**

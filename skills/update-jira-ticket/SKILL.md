@@ -1,6 +1,6 @@
 ---
 name: update-jira-ticket
-version: 1.0.0
+version: 1.1.0
 description: Compare the JIRA ticket description to changes made in the current branch and propose description edits and/or comments to keep the ticket accurate and well-documented.
 argument-hint: ""
 ---
@@ -13,14 +13,21 @@ Compare the JIRA ticket associated with the current branch against the actual ch
 **Instructions:**
 
 1. **Check prerequisites:**
-   - **JIRA MCP server:** Verify that a JIRA MCP tool is available. If not configured, display the following message and **STOP**:
-     ```
-     ## Missing Prerequisite: JIRA MCP Server
+   - **Atlassian CLI (`acli`):** Run `acli auth status` to check if the CLI is installed and authenticated.
+     - If the command is not found, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI
 
-     No JIRA MCP server is configured. This skill requires a JIRA MCP integration to fetch and update issue details.
+       The `acli` command is not installed. This skill requires the Atlassian CLI to fetch and update JIRA issue details.
 
-     Please configure a JIRA MCP server in your Claude Code settings before using this skill.
-     ```
+       Install it with: brew tap atlassian/acli && brew install acli
+       ```
+     - If the command fails with an authentication error, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI Authentication
+
+       The Atlassian CLI is not authenticated. Please run `acli auth login` to authenticate before using this skill.
+       ```
 
 2. **Extract the JIRA ID from the current branch name:**
    - Run `git branch --show-current` to get the current branch name
@@ -34,8 +41,11 @@ Compare the JIRA ticket associated with the current branch against the actual ch
      ```
 
 3. **Fetch the JIRA ticket:**
-   - Use the JIRA MCP tool to retrieve the issue by its JIRA ID
-   - Fetch **all available fields**: summary, description, issue type, priority, comments, acceptance criteria, custom fields, etc.
+   - Use the Atlassian CLI to retrieve the issue by its JIRA ID:
+     ```bash
+     acli jira workitem view <JIRA-ID> --fields '*all' --json
+     ```
+   - Parse **all available fields**: summary, description, issue type, priority, comments, acceptance criteria, custom fields, etc.
    - Store the **original description** for comparison — this is the baseline
    - If the fetch fails, display the error and **STOP**
 
@@ -137,11 +147,17 @@ Compare the JIRA ticket associated with the current branch against the actual ch
    - Read the current ticket description
    - Apply all approved description edits, integrating them naturally into the existing description structure
    - Preserve the original description's tone, formatting, and structure — don't rewrite sections that aren't being updated
-   - Use the JIRA MCP `editJiraIssue` tool to update the description field
+   - Use the Atlassian CLI to update the description field:
+     ```bash
+     acli jira workitem edit --key <JIRA-ID> --description-file <temp-file-with-description> --yes
+     ```
    - If the update fails, show the error and provide the proposed description as copyable text
 
    **b) Comments:**
-   - For each approved comment, use the JIRA MCP `addCommentToJiraIssue` tool
+   - For each approved comment, use the Atlassian CLI:
+     ```bash
+     acli jira workitem comment create --key <JIRA-ID> --body "<comment text>"
+     ```
    - Each comment should be self-contained and clearly explain the context
    - Prefix implementation decision comments with "**Implementation note:**" for clarity
    - If a comment fails to post, show the error and provide the comment text as copyable text

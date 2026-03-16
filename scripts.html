@@ -1385,11 +1385,13 @@ printf &quot;  To enter:  ${BOLD}cd %s${RESET}\n&quot; &quot;${WORKTREE_PATH}&qu
                             Create a git worktree in the parent directory with automatic branch handling.
                             Detects conventional commit prefixes (<code>feat/</code>, <code>fix/</code>, etc.) to use as branch names,
                             or creates a new branch from any other parameter.
+                            The new branch is nested under the current branch&rsquo;s parent path so that sibling branches stay at the same level in the hierarchy.
                         </p>
                         <div class="how-it-works">
                             <strong>How it works:</strong>
                             <ol>
                                 <li>Runs <code>git fetch</code> to sync with the remote</li>
+                                <li>Detects the current branch&rsquo;s parent path (e.g. <code>project-x/main</code> &rarr; prefix <code>project-x/</code>) and prepends it to the new branch name</li>
                                 <li>If the parameter matches a conventional commit pattern (e.g. <code>feat/nero-345</code>), it is used as the branch name and the worktree is placed at <code>../feat-nero-345</code></li>
                                 <li>Otherwise, the parameter is used as both the branch name and directory name (e.g. <code>test-this</code> &rarr; <code>../test-this</code>)</li>
                                 <li>If the branch already exists locally or remotely, warns the user and asks for confirmation before proceeding</li>
@@ -1399,8 +1401,9 @@ printf &quot;  To enter:  ${BOLD}cd %s${RESET}\n&quot; &quot;${WORKTREE_PATH}&qu
                         <div class="script-usage">
                             <strong>Usage:</strong>
                             <ul>
-                                <li><code>./worktree-add.sh feat/nero-345</code> &mdash; Worktree at <code>../feat-nero-345</code>, branch <code>feat/nero-345</code></li>
-                                <li><code>./worktree-add.sh test-this</code> &mdash; Worktree at <code>../test-this</code>, new branch <code>test-this</code></li>
+                                <li><code>./worktree-add.sh feat/nero-345</code> (on <code>main</code>) &mdash; Worktree at <code>../feat-nero-345</code>, branch <code>feat/nero-345</code></li>
+                                <li><code>./worktree-add.sh feat/nero-345</code> (on <code>project-x/main</code>) &mdash; Worktree at <code>../feat-nero-345</code>, branch <code>project-x/feat/nero-345</code></li>
+                                <li><code>./worktree-add.sh test-this</code> &mdash; Worktree at <code>../test-this</code>, new branch <code>[prefix/]test-this</code></li>
                             </ul>
                         </div>
                         <div class="script-deps">
@@ -1428,9 +1431,16 @@ printf &quot;  To enter:  ${BOLD}cd %s${RESET}\n&quot; &quot;${WORKTREE_PATH}&qu
 # it is used as the branch name and the worktree is created at ../&lt;type-rest&gt;.
 # Otherwise, a new branch with the given name is created at ../&lt;name&gt;.
 #
-# Examples:
+# The new branch is nested under the current branch&#x27;s parent path, so all
+# branches created from the same parent stay at the same level in the hierarchy.
+#
+# Examples (on branch &quot;main&quot;):
 #   worktree-add.sh feat/nero-345    &rarr; worktree at ../feat-nero-345, branch feat/nero-345
 #   worktree-add.sh test-this        &rarr; worktree at ../test-this, branch test-this
+#
+# Examples (on branch &quot;project-x/main&quot;):
+#   worktree-add.sh feat/nero-345    &rarr; worktree at ../feat-nero-345, branch project-x/feat/nero-345
+#   worktree-add.sh test-this        &rarr; worktree at ../test-this, branch project-x/test-this
 
 set -euo pipefail
 
@@ -1459,15 +1469,23 @@ git fetch
 
 # -- Determine branch name and worktree path -----------------------------------
 
+# Nest the new branch under the current branch&#x27;s parent path.
+# e.g. current branch &quot;this-function/main&quot; + param &quot;feat/btn&quot; &rarr; &quot;this-function/feat/btn&quot;
+CURRENT_BRANCH=&quot;$(git symbolic-ref --short HEAD 2&gt;/dev/null || true)&quot;
+BRANCH_PREFIX=&quot;&quot;
+if [[ &quot;$CURRENT_BRANCH&quot; == */* ]]; then
+    BRANCH_PREFIX=&quot;${CURRENT_BRANCH%/*}/&quot;
+fi
+
 # Conventional commit prefixes
 CC_PATTERN=&quot;^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|hotfix)/&quot;
 
 if [[ &quot;$PARAM&quot; =~ $CC_PATTERN ]]; then
-    BRANCH=&quot;$PARAM&quot;
+    BRANCH=&quot;${BRANCH_PREFIX}${PARAM}&quot;
     # Replace slashes with dashes for the directory name
     DIR_NAME=&quot;${PARAM//\//-}&quot;
 else
-    BRANCH=&quot;$PARAM&quot;
+    BRANCH=&quot;${BRANCH_PREFIX}${PARAM}&quot;
     DIR_NAME=&quot;$PARAM&quot;
 fi
 

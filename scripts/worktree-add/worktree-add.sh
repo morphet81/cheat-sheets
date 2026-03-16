@@ -8,9 +8,16 @@
 # it is used as the branch name and the worktree is created at ../<type-rest>.
 # Otherwise, a new branch with the given name is created at ../<name>.
 #
-# Examples:
+# The new branch is nested under the current branch's parent path, so all
+# branches created from the same parent stay at the same level in the hierarchy.
+#
+# Examples (on branch "main"):
 #   worktree-add.sh feat/nero-345    → worktree at ../feat-nero-345, branch feat/nero-345
 #   worktree-add.sh test-this        → worktree at ../test-this, branch test-this
+#
+# Examples (on branch "project-x/main"):
+#   worktree-add.sh feat/nero-345    → worktree at ../feat-nero-345, branch project-x/feat/nero-345
+#   worktree-add.sh test-this        → worktree at ../test-this, branch project-x/test-this
 
 set -euo pipefail
 
@@ -39,15 +46,23 @@ git fetch
 
 # -- Determine branch name and worktree path -----------------------------------
 
+# Nest the new branch under the current branch's parent path.
+# e.g. current branch "this-function/main" + param "feat/btn" → "this-function/feat/btn"
+CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+BRANCH_PREFIX=""
+if [[ "$CURRENT_BRANCH" == */* ]]; then
+    BRANCH_PREFIX="${CURRENT_BRANCH%/*}/"
+fi
+
 # Conventional commit prefixes
 CC_PATTERN="^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert|hotfix)/"
 
 if [[ "$PARAM" =~ $CC_PATTERN ]]; then
-    BRANCH="$PARAM"
+    BRANCH="${BRANCH_PREFIX}${PARAM}"
     # Replace slashes with dashes for the directory name
     DIR_NAME="${PARAM//\//-}"
 else
-    BRANCH="$PARAM"
+    BRANCH="${BRANCH_PREFIX}${PARAM}"
     DIR_NAME="$PARAM"
 fi
 

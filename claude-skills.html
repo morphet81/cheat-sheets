@@ -382,15 +382,14 @@
             </div>
 
             <div class="instructions">
-                <h2>MCP Servers</h2>
-                <p>Some skills rely on MCP servers for browser automation. Install them scoped to local development ports for security:</p>
-                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Playwright</strong> <span style="opacity: 0.7;">(official Microsoft MCP server, used by <code>/screenshots</code>)</span></p>
-                <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">Uses stdio transport &mdash; the server runs as a local child process communicating over stdin/stdout, so no network port is opened and no inbound traffic is possible.</p>
+                <h2>Prerequisites</h2>
+                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Playwright CLI</strong> <span style="opacity: 0.7;">(used by <code>/screenshots</code>)</span></p>
+                <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">The <code>/screenshots</code> skill uses the Playwright CLI directly (<code>npx playwright</code>) &mdash; no MCP server needed.</p>
                 <div class="command-wrapper" style="margin-bottom: 0;">
                     <div class="command-box">
-                        <code id="mcp-playwright-command">claude mcp add --scope user playwright -- npx @playwright/mcp@latest --allowed-origins="http://localhost:6006,http://localhost:3000,http://localhost:5173"</code>
+                        <code id="playwright-install-command">npm install -D playwright</code>
                     </div>
-                    <button class="copy-btn" onclick="copyContent(this, 'mcp-playwright-command')">Copy</button>
+                    <button class="copy-btn" onclick="copyContent(this, 'playwright-install-command')">Copy</button>
                 </div>
                 <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Atlassian CLI (<code>acli</code>)</strong> <span style="opacity: 0.7;">(used by <code>/address-ticket</code>, <code>/setup-branch</code>, <code>/create-pr</code>, <code>/create-ticket</code>, <code>/update-jira-ticket</code>)</span></p>
                 <div class="command-wrapper" style="margin-bottom: 0;">

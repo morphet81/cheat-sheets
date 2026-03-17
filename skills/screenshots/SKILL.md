@@ -1,6 +1,6 @@
 ---
 name: screenshots
-version: 1.3.0
+version: 1.3.1
 description: Take screenshots of components affected by recent changes, from the running app or Storybook. Supports custom instructions for pages to visit and actions to perform. App screenshots are captured via temporary e2e tests.
 argument-hint: "[custom instructions]"
 ---
@@ -18,14 +18,14 @@ Take screenshots of components affected by recent changes, either from the runni
    - If `$ARGUMENTS` is empty, continue with the automatic detection flow below (steps 2–5, then 7–10)
 
 2. **Check prerequisites:**
-   - Run `npx playwright --version` to verify Playwright is available
+   - Run `playwright-cli --help` to verify the Playwright CLI is available
    - If the command fails (not found or errors), display the following message and **STOP**:
      ```
-     ## Missing Prerequisite: Playwright
+     ## Missing Prerequisite: Playwright CLI
 
-     Playwright is not installed. This skill requires Playwright for taking screenshots.
+     Playwright CLI is not installed. This skill requires the Playwright CLI for taking screenshots.
 
-     Install it with: npm install -D playwright
+     Install it with: npm install -g @playwright/cli@latest
      ```
 
 3. **Determine the base branch:**
@@ -66,7 +66,7 @@ Take screenshots of components affected by recent changes, either from the runni
       - Create the `.tmp/` directory if it doesn't exist: `mkdir -p .tmp`
 
    c. **Run the temporary test:**
-      - Run only the temporary test file using the project's Playwright test command (e.g., `npx playwright test e2e/tmp-screenshots.e2e.ts`)
+      - Run only the temporary test file using the project's Playwright test command (e.g., `playwright-cli test e2e/tmp-screenshots.e2e.ts`)
       - If the test fails, show the error, attempt to fix the test, and re-run. If it still fails after a reasonable attempt, show the error and continue to cleanup.
 
    d. **View results:**
@@ -106,7 +106,7 @@ Take screenshots of components affected by recent changes, either from the runni
       - Create the `.tmp/` directory if it doesn't exist: `mkdir -p .tmp`
       - For each story, run:
         ```
-        npx playwright screenshot --browser chromium --wait-for-timeout 2000 "<iframe-URL>" .tmp/<component-name>-<story-name>.png
+        playwright-cli screenshot --browser chromium --wait-for-timeout 2000 "<iframe-URL>" .tmp/<component-name>-<story-name>.png
         ```
       - Run screenshots in parallel when there are multiple stories (use `&` and `wait` in Bash)
       - Inform the developer that `--wait-for-timeout 2000` is the default; they can ask to increase it for heavier components
@@ -137,7 +137,7 @@ Take screenshots of components affected by recent changes, either from the runni
       - Create the `.tmp/` directory if it doesn't exist: `mkdir -p .tmp`
 
    d. **Run the temporary test:**
-      - Run only the temporary test file (e.g., `npx playwright test e2e/tmp-screenshots.e2e.ts`)
+      - Run only the temporary test file (e.g., `playwright-cli test e2e/tmp-screenshots.e2e.ts`)
       - If the test fails, show the error, attempt to fix, and re-run
 
    e. **View results:**

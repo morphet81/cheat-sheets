@@ -391,6 +391,14 @@
                     </div>
                     <button class="copy-btn" onclick="copyContent(this, 'playwright-install-command')">Copy</button>
                 </div>
+                <p style="margin-top: 12px; margin-bottom: 6px;"><strong>GitHub CLI (<code>gh</code>)</strong> <span style="opacity: 0.7;">(used by <code>/create-pr</code>, <code>/review-changes</code>, <code>/address-comments</code>, <code>/address-pr-comments</code>)</span></p>
+                <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">Used for creating pull requests, posting review comments, and fetching PR data from GitHub.</p>
+                <div class="command-wrapper" style="margin-bottom: 0;">
+                    <div class="command-box">
+                        <code id="gh-install-command">brew install gh &amp;&amp; gh auth login</code>
+                    </div>
+                    <button class="copy-btn" onclick="copyContent(this, 'gh-install-command')">Copy</button>
+                </div>
                 <p style="margin-top: 12px; margin-bottom: 6px;"><strong>Atlassian CLI (<code>acli</code>)</strong> <span style="opacity: 0.7;">(used by <code>/address-ticket</code>, <code>/setup-branch</code>, <code>/create-pr</code>, <code>/create-ticket</code>, <code>/update-jira-ticket</code>)</span></p>
                 <div class="command-wrapper" style="margin-bottom: 0;">
                     <div class="command-box">
@@ -417,13 +425,13 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v3.3.1</span>
+                            <span class="skill-version">v3.4.0</span>
                         </div>
                         <p class="skill-description">
                             Review code changes in two modes: local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub).
                             Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing coverage, testing consistency, and documentation.
                             In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
-                            A senior engineer orchestrates the team, verifies findings, and produces a consolidated report with findings categorized by severity.
+                            A senior engineer orchestrates the team, verifies findings, and produces a consolidated report with findings categorized by severity. Reviewers only report potential issues — affirmative "no action needed" findings are filtered out.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -449,7 +457,7 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 3.3.1
+version: 3.4.0
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: &quot;[base-branch] or &lt;PR number or URL&gt; [repository]&quot;
 ---
@@ -720,6 +728,8 @@ Use `TeamCreate` with name `review-changes`. Spawn all agents simultaneously usi
 &gt; Focus on the changes introduced (in the diff). Only review code that was added or modified — do not flag pre-existing issues in surrounding code that was not changed. However, when reviewing new files or significant additions, **read 2-3 sibling files** (same directory, same type) to understand existing patterns and conventions. Flag any deviation from established patterns (naming, variable usage, style composition, utility reuse).
 &gt;
 &gt; **Convention check:** Before reporting findings, scan the directory of each changed file to identify sibling files. Note any conventions (naming, patterns, utilities, shared variables) that the new code should follow but doesn't.
+&gt;
+&gt; **Only report potential issues.** Do NOT include findings that conclude with "no action needed", "looks good", "correctly handled", or similar affirmations. If you reviewed an area and found nothing wrong, simply state "No issues found" for that area — do not list things that are fine. Every finding you report must identify a concrete problem, risk, or improvement opportunity.
 
 Each reviewer receives the full diff, the list of changed files, and their specific focus area:
 
@@ -757,6 +767,7 @@ Each reviewer receives the full diff, the list of changed files, and their speci
    - Respond to any follow-up questions from `senior-lead` during the team discussion
 
 5. The senior-lead consolidates all findings and produces the report.
+   - **Filter out non-issues:** During consolidation, discard any finding that concludes as "no action needed", "good as is", "correctly implemented", or otherwise affirms the current code without identifying a concrete problem. Only actionable findings (bugs, risks, missing coverage, improvement opportunities) belong in the final report.
 
 6. Format the review as:
    - Start with a brief summary of what the changes do
@@ -4796,6 +4807,166 @@ Merge the base branch (the branch this branch was created from) into the current
        ...
        ```
      - Ask the user to **review the conflict resolutions** before proceeding further</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="skill-card">
+                    <div class="skill-header">
+                        <div class="skill-title">
+                            <h3>ADB</h3>
+                            <code>/adb</code>
+                            <span class="skill-version">v1.0.0</span>
+                        </div>
+                        <p class="skill-description">
+                            Use ADB to interact with an Android device or emulator. Takes a screenshot, understands the screen, performs actions (tap, swipe, type, navigate), and loops until the mission is complete.
+                            Operates in a screenshot-act-verify loop: capture the screen, analyze it, execute the next action, and repeat.
+                        </p>
+                        <div class="skill-usage">
+                            <strong>Usage:</strong>
+                            <ul>
+                                <li><code>/adb open Settings and enable Dark Mode</code> &mdash; Describe the mission to accomplish on the device</li>
+                            </ul>
+                        </div>
+                        <div class="skill-usage">
+                            <strong>Prerequisites:</strong>
+                            <ul>
+                                <li><code>adb</code> must be in PATH</li>
+                                <li>A device or emulator must be connected</li>
+                            </ul>
+                        </div>
+                        <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+                            <span class="arrow">&#x25B6;</span>
+                            <span>Show raw skill file</span>
+                        </button>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="file-container">
+                            <div class="file-header">
+                                <span class="file-name">skills/adb/SKILL.md</span>
+                                <button class="copy-btn" onclick="copyContent(this, 'adb-content')">Copy</button>
+                            </div>
+                            <div class="file-content">
+                                <pre id="adb-content">---
+name: adb
+version: 1.0.0
+description: Use ADB to interact with an Android device or emulator. Takes a screenshot, understands the screen, performs actions (tap, swipe, type, navigate), and loops until the mission is complete.
+argument-hint: &quot;&lt;mission description&gt;&quot;
+---
+
+Use ADB commands to interact with an Android device or emulator to complete a user-defined mission. Operates in a **screenshot-act-verify loop** until the mission is accomplished.
+
+**Usage:**
+- `/adb &lt;mission&gt;` &mdash; Describe what you want done on the device (e.g., &quot;open Settings and enable Dark Mode&quot;)
+
+**Prerequisites:**
+- `adb` must be in PATH
+- A device or emulator must be connected
+
+**Instructions:**
+
+1. **Verify ADB connectivity:**
+   - Run `adb devices` and confirm at least one device is listed (not &quot;unauthorized&quot;)
+   - If no device is found, inform the user and **STOP**
+   - If multiple devices are found, use `AskUserQuestion` to ask which device to target, then pass `-s &lt;serial&gt;` to all subsequent `adb` commands
+
+2. **Understand the mission:**
+   - Parse `$ARGUMENTS` as the mission description
+   - If `$ARGUMENTS` is empty, use `AskUserQuestion` to ask what the user wants to accomplish on the device
+   - Break the mission into a mental checklist of expected steps (do not output this &mdash; it's for your own planning)
+
+3. **Enter the screenshot-act-verify loop:**
+
+   Repeat the following cycle until the mission is complete or you determine it cannot be completed:
+
+   **a) Take a screenshot:**
+   ```bash
+   mkdir -p .tmp &amp;&amp; adb exec-out screencap -p &gt; .tmp/screen.png
+   ```
+   - Read the screenshot with the `Read` tool to understand the current screen state
+
+   **b) Analyze the screen:**
+   - Identify what app/screen is currently displayed
+   - Determine what UI elements are visible (buttons, text fields, toggles, lists, etc.)
+   - Assess progress toward the mission goal
+   - If the screen is unclear or you need more detail about the UI element tree, run a UI dump:
+     ```bash
+     adb shell uiautomator dump /sdcard/ui.xml &amp;&amp; adb pull /sdcard/ui.xml .tmp/ui.xml
+     ```
+     Then read `.tmp/ui.xml` to get element bounds, text, and resource IDs for precise tap coordinates.
+
+   **c) Decide and execute the next action:**
+
+   Use one or more of these ADB commands:
+
+   | Action | Command |
+   |--------|---------|
+   | Tap at coordinates | `adb shell input tap &lt;x&gt; &lt;y&gt;` |
+   | Swipe | `adb shell input swipe &lt;x1&gt; &lt;y1&gt; &lt;x2&gt; &lt;y2&gt; [duration_ms]` |
+   | Type text | `adb shell input text &quot;&lt;text&gt;&quot;` |
+   | Press Back | `adb shell input keyevent 4` |
+   | Press Home | `adb shell input keyevent 3` |
+   | Press Enter | `adb shell input keyevent 66` |
+   | Press Recent Apps | `adb shell input keyevent 187` |
+   | Launch an app | `adb shell am start -n &lt;package&gt;/&lt;activity&gt;` |
+   | Open a URL | `adb shell am start -a android.intent.action.VIEW -d &quot;&lt;url&gt;&quot;` |
+   | Long press | `adb shell input swipe &lt;x&gt; &lt;y&gt; &lt;x&gt; &lt;y&gt; 1000` |
+
+   **Coordinate tips:**
+   - When tapping a UI element, aim for its center based on the screenshot or the `bounds` attribute from the UI dump (e.g., bounds `[0,200][1080,350]` &rarr; tap at `540,275`)
+   - For scrolling down, swipe from the lower third to the upper third of the screen (e.g., `adb shell input swipe 540 1500 540 500 300`)
+   - For text input, tap the field first, wait briefly, then type
+
+   **d) Wait and verify:**
+   - After each action, wait briefly for the UI to settle (`sleep 1`)
+   - Take another screenshot to verify the action had the expected effect
+   - If the action did not work as expected (e.g., wrong element tapped, dialog appeared, screen didn't change), adjust and retry
+   - **Do not retry the same failing action more than 2 times** &mdash; if it keeps failing, try an alternative approach (different coordinates, different navigation path, use the UI dump for precise bounds)
+
+4. **Handle common situations:**
+
+   - **Keyboard covering the screen:** After typing, press Back (`keyevent 4`) to dismiss the keyboard before taking a verification screenshot
+   - **Dialogs/popups:** If an unexpected dialog appears, read it and dismiss it appropriately (tap &quot;OK&quot;, &quot;Allow&quot;, &quot;Deny&quot;, etc. based on what makes sense for the mission)
+   - **Loading screens:** If the screen shows a loading state, wait 2-3 seconds and take another screenshot
+   - **App not installed:** If the target app isn't found, inform the user and **STOP**
+   - **Permission prompts:** Grant permissions that are necessary for the mission (tap &quot;Allow&quot;), deny those that aren't relevant
+   - **Screen locked:** If the device shows a lock screen, try swiping up (`adb shell input swipe 540 1800 540 800`) to unlock. If a PIN/password is needed, ask the user
+
+5. **Check logcat when things go wrong:**
+   - If an app crashes or behaves unexpectedly, check recent logs:
+     ```bash
+     adb logcat -d -t 50
+     ```
+   - Use the logs to understand what happened and inform the user if the issue is not recoverable
+
+6. **Mission complete:**
+   - Once the mission objective is achieved, take a final screenshot as confirmation
+   - Present the final screenshot to the user with a brief summary:
+     ```
+     ## Mission Complete
+
+     &lt;description of what was accomplished&gt;
+
+     Final state: &lt;what's currently on screen&gt;
+     Actions taken: &lt;count&gt; steps
+     ```
+
+7. **Cleanup:**
+   - Remove temporary files:
+     ```bash
+     rm -f .tmp/screen.png .tmp/ui.xml
+     ```
+
+---
+
+## Edge Cases
+
+- If `adb` is not found in PATH, display setup instructions and **STOP**
+- If the device becomes disconnected mid-mission, attempt `adb devices` to check &mdash; if disconnected, inform the user and **STOP**
+- If the mission requires installing an app, ask the user for the APK path or package name before proceeding
+- If you get stuck in a loop (same screen after 3 attempts), take a UI dump, reassess, and try a completely different approach. If still stuck, inform the user and ask for guidance
+- If the screen resolution is unknown, read it from the first screenshot dimensions or run `adb shell wm size`</pre>
                             </div>
                         </div>
                     </div>

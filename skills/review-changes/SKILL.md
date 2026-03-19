@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 3.5.0
+version: 3.6.0
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: "[base-branch] or <PR number or URL> [repository]"
 ---
@@ -76,9 +76,9 @@ Review code changes in two modes: **local branch review** or **PR review**.
      ```
    - Store the ticket details for the review team; if fetch fails, note the ticket reference but proceed without details
 
-   **d) Build the exclusion list:**
+   **d) Build the exclusion list and collect all unresolved threads:**
 
-   These findings must be **excluded** from the final review output to avoid duplication.
+   These findings must be **excluded** from the final review output to avoid duplication. Additionally, **every unresolved thread will receive a reply** from the agent after the review (see step 5b).
 
    - **Existing reviews, inline comments, and general comments:** Fetch in a single call:
      ```bash
@@ -114,14 +114,15 @@ Review code changes in two modes: **local branch review** or **PR review**.
        }
      ' -f owner='{owner}' -f repo='{repo}' -F pr={number}
      ```
-     Collect all **unresolved** threads with their file paths, line numbers, and comment bodies.
+     Collect all **unresolved** threads with their thread `id`, file paths, line numbers, and comment bodies.
 
    - **Compile the exclusion list** with: file path + line (if applicable), summary of the issue raised, author.
+   - **Store all unresolved threads** (with their thread IDs) separately — these will be used in step 5b to post replies.
 
 3. **Spawn the review team** (see [Step 3: Spawn the review team](#step-3-spawn-the-review-team) below)
 
    **PR mode additions:**
-   - All reviewers also receive the exclusion list with instructions: "Do NOT report these issues — they have already been raised in existing reviews or unresolved comments."
+   - All reviewers also receive the exclusion list with instructions: "Do NOT report these issues — they have already been raised in existing reviews or unresolved comments. However, for each excluded comment relevant to your focus area, provide a brief assessment: do you agree with the comment, and is the issue still present in the current code? Report these assessments to `senior-lead` separately from your new findings."
    - If a Jira ticket was found, spawn a 9th agent: `ticket-compliance` (see table below)
 
 4. **Review, consolidation, output** (see [Steps 4-6](#steps-4-6-review-consolidation-output) below)
@@ -239,21 +240,52 @@ Review code changes in two modes: **local branch review** or **PR review**.
    - If a finding has no specific line number, fall back to a top-level review body comment
    - **Never** post a comment with an empty or placeholder body — if you cannot produce a meaningful explanation for a finding, skip it and warn the user
 
-   **f) Do NOT submit the review.**
+   **f) Reply to all existing unresolved comment threads:**
+
+   For **every** unresolved thread collected in step 2d, post a reply using the reviewers' assessments consolidated by `senior-lead`. This ensures every existing comment gets a response, not just those that overlap with new findings.
+
+   Each reply must start with `## From AI agent` and contain one of:
+   - **Agreement + status:** Confirm the issue is valid and whether it's still present or has been addressed
+   - **Disagreement + rationale:** Explain why the agent believes the comment is no longer applicable or was incorrect
+   - **Partial agreement:** Acknowledge part of the comment while noting what has changed
+
+   Post each reply using:
+   ```bash
+   gh api graphql -f query='
+     mutation($threadId: ID!, $body: String!) {
+       addPullRequestReviewThreadReply(input: {
+         pullRequestReviewThreadId: $threadId,
+         body: $body
+       }) {
+         comment {
+           id
+         }
+       }
+     }
+   ' -f threadId='{thread_id}' -f body='{reply_body}'
+   ```
+
+   **g) Do NOT submit the review.**
 
    Never submit the review programmatically. The developer will review the comments and submit the review manually from the GitHub UI. Inform the user:
    > Comments have been added to your pending review. Please review them and submit the review from the GitHub UI when you're ready.
 
-   **g) Report what was posted:**
+   **h) Report what was posted:**
    ```
    ## Review Comments Posted
 
    **PR:** #<number> — <title>
    **Review:** <"New pending review created" | "Added to your existing pending review"> — submit manually from the GitHub UI
-   **Comments posted:** <count>
+   **New comments posted:** <count>
+   **Replies to existing threads:** <count>
 
+   ### New findings
    - #<N> — `<file>:<line>` — <title> — Posted ✓
    - #<N> — `<file>:<line>` — <title> — Posted ✓
+
+   ### Replies to existing comments
+   - `<file>:<line>` — <summary of original comment> — Replied ✓
+   - `<file>:<line>` — <summary of original comment> — Replied ✓
    ...
    ```
 
@@ -306,8 +338,8 @@ Each reviewer receives the full diff, the list of changed files, and their speci
 4. Each specialist reviewer must:
    - Read the full diff and changed files relevant to their focus area
    - Message `senior-lead` with their findings (or confirm no issues found)
-   - **Reply to every message from `senior-lead`** — not just questions, but also comments, requests for clarification, and discussion points. Every message received must get a response, even if it's a brief acknowledgement or agreement. Do not leave any message unanswered.
-   - Mark their task as completed only after the team discussion is finished
+   - Mark their task as completed
+   - Respond to any follow-up questions from `senior-lead` during the team discussion
 
 5. The senior-lead consolidates all findings and produces the report.
    - **Filter out non-issues:** During consolidation, discard any finding that concludes as "no action needed", "good as is", "correctly implemented", or otherwise affirms the current code without identifying a concrete problem. Only actionable findings (bugs, risks, missing coverage, improvement opportunities) belong in the final report.

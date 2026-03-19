@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 3.4.0
+version: 3.5.0
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: "[base-branch] or <PR number or URL> [repository]"
 ---
@@ -306,8 +306,8 @@ Each reviewer receives the full diff, the list of changed files, and their speci
 4. Each specialist reviewer must:
    - Read the full diff and changed files relevant to their focus area
    - Message `senior-lead` with their findings (or confirm no issues found)
-   - Mark their task as completed
-   - Respond to any follow-up questions from `senior-lead` during the team discussion
+   - **Reply to every message from `senior-lead`** — not just questions, but also comments, requests for clarification, and discussion points. Every message received must get a response, even if it's a brief acknowledgement or agreement. Do not leave any message unanswered.
+   - Mark their task as completed only after the team discussion is finished
 
 5. The senior-lead consolidates all findings and produces the report.
    - **Filter out non-issues:** During consolidation, discard any finding that concludes as "no action needed", "good as is", "correctly implemented", or otherwise affirms the current code without identifying a concrete problem. Only actionable findings (bugs, risks, missing coverage, improvement opportunities) belong in the final report.

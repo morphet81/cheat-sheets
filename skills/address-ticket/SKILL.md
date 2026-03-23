@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.2.0
+version: 3.3.0
 description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
 argument-hint: ""
 ---
@@ -388,9 +388,20 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - Options: **Yes — update the ticket**, **No — skip**
 
     **d) Update the ticket (if approved):**
-    - If the developer approves, use the Atlassian CLI to update the ticket's description field:
+    - If the developer approves, write the description as an ADF JSON payload and use `--from-json` to update (see [ADF Format Reference](#adf-format-reference) below):
       ```bash
-      acli jira workitem edit --key <JIRA-ID> --description-file <temp-file-with-description> --yes
+      acli jira workitem edit --from-json <temp-file.json> --yes
+      ```
+      The JSON file must contain the full edit payload with the description as an ADF object:
+      ```json
+      {
+        "issues": ["<JIRA-ID>"],
+        "description": {
+          "version": 1,
+          "type": "doc",
+          "content": [ ... ADF nodes ... ]
+        }
+      }
       ```
     - Confirm the update was successful:
       ```
@@ -444,3 +455,66 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - If designer agents produce conflicting recommendations, present both to the developer and let them choose
     - If developer agents produce conflicting changes to the same file, resolve the conflicts before spawning testers
     - If test fixes loop (fix -> fail -> fix -> fail), stop after 2 attempts and report remaining issues to the developer
+
+---
+
+## ADF Format Reference
+
+JIRA does **not** render Markdown. Descriptions must use **Atlassian Document Format (ADF)** — a JSON-based document format. The `--description-file` flag treats file content as a plain text string, so it cannot be used for rich descriptions. Use `--from-json` instead.
+
+**Important:** `--from-json` expects a structured JSON file with the full edit payload. The `description` field must be an ADF object, not a string. You can run `acli jira workitem edit --generate-json` to see the expected schema.
+
+**Edit payload format (`--from-json`):**
+
+```json
+{
+  "issues": ["<JIRA-ID>"],
+  "description": {
+    "version": 1,
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": { "level": 2 },
+        "content": [{ "type": "text", "text": "Description" }]
+      },
+      {
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "What was implemented." }]
+      },
+      {
+        "type": "heading",
+        "attrs": { "level": 2 },
+        "content": [{ "type": "text", "text": "Acceptance Criteria" }]
+      },
+      {
+        "type": "taskList",
+        "attrs": { "localId": "ac-list" },
+        "content": [
+          {
+            "type": "taskItem",
+            "attrs": { "localId": "ac-1", "state": "TODO" },
+            "content": [{ "type": "text", "text": "First criterion" }]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Common ADF node types:**
+
+| Markdown | ADF `type` | Notes |
+|----------|-----------|-------|
+| `## Heading` | `heading` with `attrs.level` | Levels 1–6 |
+| Plain text | `paragraph` with `text` children | |
+| `**bold**` | `text` with `marks: [{"type": "strong"}]` | |
+| `*italic*` | `text` with `marks: [{"type": "em"}]` | |
+| `- item` | `bulletList` > `listItem` > `paragraph` | |
+| `1. item` | `orderedList` > `listItem` > `paragraph` | |
+| `- [ ] task` | `taskList` > `taskItem` (state: `TODO`/`DONE`) | |
+| `` `code` `` | `text` with `marks: [{"type": "code"}]` | Inline code |
+| Code block | `codeBlock` with `attrs.language` | |
+| `---` | `rule` | Horizontal rule |
+| `[link](url)` | `text` with `marks: [{"type": "link", "attrs": {"href": "url"}}]` | |

@@ -1744,7 +1744,7 @@ Push the current branch and create a GitHub pull request with title and descript
                         <div class="skill-title">
                             <h3>Create Ticket</h3>
                             <code>/create-ticket</code>
-                            <span class="skill-version">v1.1.0</span>
+                            <span class="skill-version">v1.2.0</span>
                         </div>
                         <p class="skill-description">
                             Create a JIRA ticket from developer instructions.
@@ -1772,7 +1772,7 @@ Push the current branch and create a GitHub pull request with title and descript
                             <div class="file-content">
                                 <pre id="create-ticket-content">---
 name: create-ticket
-version: 1.1.0
+version: 1.2.0
 description: Create a JIRA ticket from developer instructions. Previews the ticket before creation. Supports attaching Figma design links via the Figma for Jira integration.
 argument-hint: &quot;&lt;description of the ticket&gt;&quot;
 ---
@@ -1871,18 +1871,26 @@ Create a JIRA ticket based on instructions provided by the developer. Shows a pr
    - Do NOT create the ticket until the developer confirms.
 
 6. **Create the ticket:**
-   - Use the Atlassian CLI to create the ticket with the confirmed details:
+   - Write a JSON payload file and use `--from-json` to create the ticket with a rich ADF description (see ADF Format Reference below):
      ```bash
-     acli jira workitem create \
-       --project "&lt;project-key&gt;" \
-       --type "&lt;issue-type&gt;" \
-       --summary "&lt;summary&gt;" \
-       --description-file &lt;temp-file-with-description&gt; \
-       --parent "&lt;parent-key&gt;" \
-       --json
+     acli jira workitem create --from-json &lt;temp-file.json&gt; --json
      ```
-     - Omit `--parent` if not creating a sub-task
-     - Write the description to a temp file and use `--description-file` to avoid shell escaping issues
+     The JSON file must contain the full create payload:
+     ```json
+     {
+       &quot;project&quot;: &quot;&lt;project-key&gt;&quot;,
+       &quot;type&quot;: &quot;&lt;issue-type&gt;&quot;,
+       &quot;summary&quot;: &quot;&lt;summary&gt;&quot;,
+       &quot;parent&quot;: &quot;&lt;parent-key&gt;&quot;,
+       &quot;description&quot;: {
+         &quot;version&quot;: 1,
+         &quot;type&quot;: &quot;doc&quot;,
+         &quot;content&quot;: [ ... ADF nodes ... ]
+       }
+     }
+     ```
+     - Omit `parent` if not creating a sub-task
+     - You can run `acli jira workitem create --generate-json` to see the expected schema
    - If creation fails, display the error and STOP.
 
 7. **Attach Figma designs (if provided):**
@@ -2142,7 +2150,7 @@ Take screenshots of components affected by recent changes, either from the runni
                         <div class="skill-title">
                             <h3>Address Ticket</h3>
                             <code>/address-ticket</code>
-                            <span class="skill-version">v3.2.0</span>
+                            <span class="skill-version">v3.3.0</span>
                         </div>
                         <p class="skill-description">
                             End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details,
@@ -2170,7 +2178,7 @@ Take screenshots of components affected by recent changes, either from the runni
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
-version: 3.2.0
+version: 3.3.0
 description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
 argument-hint: &quot;&quot;
 ---
@@ -2555,9 +2563,20 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - Options: **Yes &mdash; update the ticket**, **No &mdash; skip**
 
     **d) Update the ticket (if approved):**
-    - If the developer approves, use the Atlassian CLI to update the ticket&#x27;s description field:
+    - If the developer approves, write the description as an ADF JSON payload and use `--from-json` to update (see ADF Format Reference below):
       ```bash
-      acli jira workitem edit --key &lt;JIRA-ID&gt; --description-file &lt;temp-file-with-description&gt; --yes
+      acli jira workitem edit --from-json &lt;temp-file.json&gt; --yes
+      ```
+      The JSON file must contain the full edit payload with the description as an ADF object:
+      ```json
+      {
+        &quot;issues&quot;: [&quot;&lt;JIRA-ID&gt;&quot;],
+        &quot;description&quot;: {
+          &quot;version&quot;: 1,
+          &quot;type&quot;: &quot;doc&quot;,
+          &quot;content&quot;: [ ... ADF nodes ... ]
+        }
+      }
       ```
     - Confirm the update was successful:
       ```
@@ -3622,7 +3641,7 @@ Retrieve unresolved review comments and general conversation comments from the c
                         <div class="skill-title">
                             <h3>Update JIRA Ticket</h3>
                             <code>/update-jira-ticket</code>
-                            <span class="skill-version">v1.1.0</span>
+                            <span class="skill-version">v1.2.0</span>
                         </div>
                         <p class="skill-description">
                             Compare the JIRA ticket description to changes made in the current branch and propose
@@ -3650,7 +3669,7 @@ Retrieve unresolved review comments and general conversation comments from the c
                             <div class="file-content">
                                 <pre id="update-jira-ticket-content">---
 name: update-jira-ticket
-version: 1.1.0
+version: 1.2.0
 description: Compare the JIRA ticket description to changes made in the current branch and propose description edits and/or comments to keep the ticket accurate and well-documented.
 argument-hint: &quot;&quot;
 ---
@@ -3797,10 +3816,11 @@ Compare the JIRA ticket associated with the current branch against the actual ch
    - Read the current ticket description
    - Apply all approved description edits, integrating them naturally into the existing description structure
    - Preserve the original description&#x27;s tone, formatting, and structure &mdash; don&#x27;t rewrite sections that aren&#x27;t being updated
-   - Use the Atlassian CLI to update the description field:
+   - Write the description as an ADF (Atlassian Document Format) JSON payload and use `--from-json` to update:
      ```bash
-     acli jira workitem edit --key &lt;JIRA-ID&gt; --description-file &lt;temp-file-with-description&gt; --yes
+     acli jira workitem edit --from-json &lt;temp-file.json&gt; --yes
      ```
+     The JSON file must contain the full edit payload with the description as an ADF object (see ADF Format Reference below).
    - If the update fails, show the error and provide the proposed description as copyable text
 
    **b) Comments:**

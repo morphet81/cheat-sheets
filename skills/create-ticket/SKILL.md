@@ -1,6 +1,6 @@
 ---
 name: create-ticket
-version: 1.1.0
+version: 1.2.0
 description: Create a JIRA ticket from developer instructions. Previews the ticket before creation. Supports attaching Figma design links via the Figma for Jira integration.
 argument-hint: "<description of the ticket>"
 ---
@@ -99,18 +99,26 @@ Create a JIRA ticket based on instructions provided by the developer. Shows a pr
    - Do NOT create the ticket until the developer confirms.
 
 6. **Create the ticket:**
-   - Use the Atlassian CLI to create the ticket with the confirmed details:
+   - Write a JSON payload file and use `--from-json` to create the ticket with a rich ADF description (see [ADF Format Reference](#adf-format-reference) below):
      ```bash
-     acli jira workitem create \
-       --project "<project-key>" \
-       --type "<issue-type>" \
-       --summary "<summary>" \
-       --description-file <temp-file-with-description> \
-       --parent "<parent-key>" \
-       --json
+     acli jira workitem create --from-json <temp-file.json> --json
      ```
-     - Omit `--parent` if not creating a sub-task
-     - Write the description to a temp file and use `--description-file` to avoid shell escaping issues
+     The JSON file must contain the full create payload:
+     ```json
+     {
+       "project": "<project-key>",
+       "type": "<issue-type>",
+       "summary": "<summary>",
+       "parent": "<parent-key>",
+       "description": {
+         "version": 1,
+         "type": "doc",
+         "content": [ ... ADF nodes ... ]
+       }
+     }
+     ```
+     - Omit `parent` if not creating a sub-task
+     - You can run `acli jira workitem create --generate-json` to see the expected schema
    - If creation fails, display the error and STOP.
 
 7. **Attach Figma designs (if provided):**
@@ -153,3 +161,67 @@ Create a JIRA ticket based on instructions provided by the developer. Shows a pr
    - If `$ARGUMENTS` is empty, use `AskUserQuestion` to ask the developer to describe the ticket they want to create
    - If the JIRA project has required custom fields that weren't provided, display them and ask the developer to fill them in before retrying
    - If the developer cancels at the preview step, display "Ticket creation cancelled." and STOP
+
+---
+
+## ADF Format Reference
+
+JIRA does **not** render Markdown. Descriptions must use **Atlassian Document Format (ADF)** — a JSON-based document format. The `--description-file` flag treats file content as a plain text string, so it cannot be used for rich descriptions. Use `--from-json` instead.
+
+**Important:** `--from-json` expects a structured JSON file with the full create/edit payload. The `description` field must be an ADF object, not a string. You can run `acli jira workitem create --generate-json` to see the expected schema.
+
+**Common ADF node types:**
+
+| Markdown | ADF `type` | Notes |
+|----------|-----------|-------|
+| `## Heading` | `heading` with `attrs.level` | Levels 1–6 |
+| Plain text | `paragraph` with `text` children | |
+| `**bold**` | `text` with `marks: [{"type": "strong"}]` | |
+| `*italic*` | `text` with `marks: [{"type": "em"}]` | |
+| `- item` | `bulletList` > `listItem` > `paragraph` | |
+| `1. item` | `orderedList` > `listItem` > `paragraph` | |
+| `- [ ] task` | `taskList` > `taskItem` (state: `TODO`/`DONE`) | |
+| `` `code` `` | `text` with `marks: [{"type": "code"}]` | Inline code |
+| Code block | `codeBlock` with `attrs.language` | |
+| `---` | `rule` | Horizontal rule |
+| `[link](url)` | `text` with `marks: [{"type": "link", "attrs": {"href": "url"}}]` | |
+
+**Example ADF description:**
+
+```json
+{
+  "version": 1,
+  "type": "doc",
+  "content": [
+    {
+      "type": "heading",
+      "attrs": { "level": 2 },
+      "content": [{ "type": "text", "text": "Description" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "What needs to be done and why." }]
+    },
+    {
+      "type": "heading",
+      "attrs": { "level": 2 },
+      "content": [{ "type": "text", "text": "Acceptance Criteria" }]
+    },
+    {
+      "type": "taskList",
+      "attrs": { "localId": "ac-list" },
+      "content": [
+        {
+          "type": "taskItem",
+          "attrs": { "localId": "ac-1", "state": "TODO" },
+          "content": [{ "type": "text", "text": "First criterion" }]
+        },
+        {
+          "type": "taskItem",
+          "attrs": { "localId": "ac-2", "state": "TODO" },
+          "content": [{ "type": "text", "text": "Second criterion" }]
+        }
+      ]
+    }
+  ]
+}

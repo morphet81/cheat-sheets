@@ -1,6 +1,6 @@
 ---
 name: update-jira-ticket
-version: 1.1.0
+version: 1.2.0
 description: Compare the JIRA ticket description to changes made in the current branch and propose description edits and/or comments to keep the ticket accurate and well-documented.
 argument-hint: ""
 ---
@@ -147,10 +147,11 @@ Compare the JIRA ticket associated with the current branch against the actual ch
    - Read the current ticket description
    - Apply all approved description edits, integrating them naturally into the existing description structure
    - Preserve the original description's tone, formatting, and structure — don't rewrite sections that aren't being updated
-   - Use the Atlassian CLI to update the description field:
+   - Write the description as an ADF (Atlassian Document Format) JSON payload and use `--from-json` to update:
      ```bash
-     acli jira workitem edit --key <JIRA-ID> --description-file <temp-file-with-description> --yes
+     acli jira workitem edit --from-json <temp-file.json> --yes
      ```
+     The JSON file must contain the full edit payload with the description as an ADF object (see [ADF Format Reference](#adf-format-reference) below).
    - If the update fails, show the error and provide the proposed description as copyable text
 
    **b) Comments:**
@@ -190,3 +191,91 @@ Compare the JIRA ticket associated with the current branch against the actual ch
     - If the diff is too large to analyze in full, focus on the most significant changes (new files, large modifications) and note that some minor changes were not reviewed
     - If the JIRA update fails partially (e.g., description updated but a comment failed), report what succeeded and what failed
     - If the branch has changes from multiple tickets (e.g., cherry-picks), only propose updates for the ticket matching the branch name
+
+---
+
+## ADF Format Reference
+
+JIRA does **not** render Markdown. Descriptions must use **Atlassian Document Format (ADF)** — a JSON-based document format. The `--description-file` flag treats file content as a plain text string, so it cannot be used for rich descriptions. Use `--from-json` instead.
+
+**Important:** `--from-json` expects a structured JSON file with the full edit payload. The `description` field must be an ADF object, not a string. You can run `acli jira workitem edit --generate-json` to see the expected schema.
+
+**Edit payload format (`--from-json`):**
+
+```json
+{
+  "issues": ["<JIRA-ID>"],
+  "description": {
+    "version": 1,
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": { "level": 2 },
+        "content": [{ "type": "text", "text": "Description" }]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          { "type": "text", "text": "Regular text. " },
+          { "type": "text", "text": "Bold text", "marks": [{ "type": "strong" }] }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              { "type": "paragraph", "content": [{ "type": "text", "text": "List item" }] }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "orderedList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              { "type": "paragraph", "content": [{ "type": "text", "text": "Numbered item" }] }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "taskList",
+        "attrs": { "localId": "unique-id" },
+        "content": [
+          {
+            "type": "taskItem",
+            "attrs": { "localId": "task-1", "state": "TODO" },
+            "content": [{ "type": "text", "text": "Acceptance criterion" }]
+          }
+        ]
+      },
+      {
+        "type": "codeBlock",
+        "attrs": { "language": "typescript" },
+        "content": [{ "type": "text", "text": "const x = 1;" }]
+      }
+    ]
+  }
+}
+```
+
+**Common ADF node types:**
+
+| Markdown | ADF `type` | Notes |
+|----------|-----------|-------|
+| `## Heading` | `heading` with `attrs.level` | Levels 1–6 |
+| Plain text | `paragraph` with `text` children | |
+| `**bold**` | `text` with `marks: [{"type": "strong"}]` | |
+| `*italic*` | `text` with `marks: [{"type": "em"}]` | |
+| `- item` | `bulletList` > `listItem` > `paragraph` | |
+| `1. item` | `orderedList` > `listItem` > `paragraph` | |
+| `- [ ] task` | `taskList` > `taskItem` (state: `TODO`/`DONE`) | |
+| `` `code` `` | `text` with `marks: [{"type": "code"}]` | Inline code |
+| Code block | `codeBlock` with `attrs.language` | |
+| `---` | `rule` | Horizontal rule |
+| `[link](url)` | `text` with `marks: [{"type": "link", "attrs": {"href": "url"}}]` | |

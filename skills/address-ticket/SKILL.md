@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.3.0
+version: 3.4.0
 description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
 argument-hint: ""
 ---
@@ -125,7 +125,46 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
      - The e2e test setup: look for Playwright config (`playwright.config.ts`), existing e2e test files, test directory structure, authentication patterns (storage state, global setup), and helper utilities
    - Consider the conventional commit prefix as context for the type of work expected (e.g., `fix` implies a bug fix, `feat` implies new functionality, `refactor` implies restructuring)
 
-7. **Maintain the epic lore file:**
+7. **Evaluate whether the ticket should be split (only if necessary):**
+
+   After analyzing the ticket and the codebase, assess whether the work is too large for a single PR. PRs should be as small and independently testable as possible. **Only suggest splitting if at least one of these conditions is met:**
+
+   - **Too many changes:** The implementation would touch a large number of files across multiple areas, making the PR hard to review and risky to merge
+   - **Distinct, independent concerns:** The ticket covers work in unrelated parts of the app (e.g., backend API + frontend UI + database migration) that can each be delivered and tested independently
+   - **Mixed types of work:** The ticket combines fundamentally different types of changes (e.g., a refactor that is a prerequisite for a feature, or a bug fix bundled with a new capability)
+   - **Sequential dependencies:** Part of the work must be merged first before the rest can begin (e.g., a shared utility or data model change that other parts depend on)
+
+   **If splitting is warranted**, propose a split to the developer using `AskUserQuestion`:
+
+   > This ticket appears large enough to benefit from being split into smaller, independently reviewable PRs.
+   >
+   > **Proposed split:**
+   > 1. **<Short title>** — <What this chunk covers and why it's independent>
+   > 2. **<Short title>** — <What this chunk covers>
+   > 3. ...
+   >
+   > Would you like to split this ticket?
+
+   - **"Yes — split"**: Use the Atlassian CLI to create sub-tasks under the current ticket for each chunk. Then proceed with only the **first chunk** for this session — the remaining chunks will be addressed in future sessions.
+     ```bash
+     acli jira workitem create --from-json <temp-file.json> --json
+     ```
+     Each sub-task payload should include:
+     ```json
+     {
+       "project": "<project-key>",
+       "type": "Sub-task",
+       "summary": "<chunk title>",
+       "parent": "<JIRA-ID>",
+       "description": { ... ADF description of the chunk scope ... }
+     }
+     ```
+     After creating the sub-tasks, inform the developer which chunk will be addressed now and list the created sub-task IDs.
+   - **"No — keep as one"**: Proceed with the full ticket as a single PR.
+
+   **If splitting is NOT warranted** (the ticket is small, focused, or only touches one area), skip this step silently — do not mention splitting at all.
+
+8. **Maintain the epic lore file:**
 
    Before spawning the PO, check whether the current ticket belongs to a parent epic and maintain a lore file that captures accumulated context about the epic and its child tickets.
 
@@ -168,7 +207,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 ## Phase 2 — Product Owner: Requirements & Acceptance Criteria
 
-8. **Spawn the Product Owner agent:**
+9. **Spawn the Product Owner agent:**
 
    Use the `Task` tool to spawn a PO agent. This agent is responsible for writing requirements and acceptance criteria based on all the context gathered in Phase 1. The PO agent does NOT implement anything — it only produces a requirements document.
 
@@ -241,7 +280,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
    **c) Wait for the PO agent to complete** and collect its requirements document.
 
-9. **Present requirements to the developer for approval:**
+10. **Present requirements to the developer for approval:**
 
    Display the PO's requirements document to the developer and use `AskUserQuestion` to ask for confirmation:
    > The Product Owner has prepared the following requirements and acceptance criteria. Would you like to proceed?
@@ -260,7 +299,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 ## Phase 3 — Implementation Team
 
-10. **Determine team composition:**
+11. **Determine team composition:**
 
     Based on the approved requirements, decide which agents to spawn. The team always includes developers and testers, but designers are conditional.
 
@@ -273,7 +312,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
     **c) Testers:** always spawn **1–2 tester** agents (based on the amount of test work needed)
 
-11. **Spawn designer agents (if needed):**
+12. **Spawn designer agents (if needed):**
 
     If designers are needed, spawn them FIRST and wait for them to complete before spawning developers and testers.
 
@@ -294,7 +333,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
     **Pass the design guide to the developer and tester agents** as additional context.
 
-12. **Spawn developer agents:**
+13. **Spawn developer agents:**
 
     Spawn 2–3 developer agents using the `Task` tool with `run_in_background: true`. Partition the work so agents work on independent areas and don't conflict.
 
@@ -322,7 +361,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - If conflicts exist, resolve them by reading both agents' changes and merging intelligently
     - Run a quick sanity check: ensure the codebase compiles/lints after all changes are applied
 
-13. **Spawn tester agents:**
+14. **Spawn tester agents:**
 
     Spawn 1–2 tester agents using the `Task` tool with `run_in_background: true`. Testers work AFTER developers so they can test the actual implementation.
 
@@ -346,7 +385,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 ## Phase 4 — Suggest JIRA Ticket Updates
 
-14. **Suggest ticket edits based on requirements and acceptance criteria:**
+15. **Suggest ticket edits based on requirements and acceptance criteria:**
 
     After the team finishes, suggest improvements to the original JIRA ticket based on the requirements and acceptance criteria written during this skill's execution.
 
@@ -409,7 +448,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
       ```
     - If the update fails, show the error and provide the proposed description as copyable text so the developer can update it manually
 
-15. **Final report:**
+16. **Final report:**
 
     Present a comprehensive summary to the developer:
 
@@ -446,7 +485,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - <Any issues that need human judgment>
     ```
 
-16. **Handle edge cases:**
+17. **Handle edge cases:**
     - If the ticket description is empty, note it and the PO should base requirements on the summary and comments only
     - If there are no comments, skip that section in the analysis
     - If the codebase exploration reveals the ticket may already be addressed, inform the developer before spawning the PO

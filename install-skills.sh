@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Claude Code Skills & Scripts Installer
-# Downloads skills from the cheat-sheets repository to ~/.claude/skills
+# Claude Code & Cursor Skills & Scripts Installer
+# Downloads skills from the cheat-sheets repository to ~/.claude/skills and ~/.cursor/skills
 # Downloads scripts to ~/.scripts and symlinks them into /usr/local/bin
-# Skills are auto-discovered by Claude Code - no CLAUDE.md references needed
+# Skills are auto-discovered by Claude Code and Cursor - no CLAUDE.md references needed
 
 set -e
 
@@ -12,6 +12,7 @@ REPO_OWNER="morphet81"
 REPO_NAME="cheat-sheets"
 BRANCH="main"
 SKILLS_DIR="$HOME/.claude/skills"
+CURSOR_SKILLS_DIR="$HOME/.cursor/skills"
 SCRIPTS_DIR="$HOME/.scripts"
 SYMLINK_DIR="/usr/local/bin"
 GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
@@ -67,9 +68,10 @@ if ! command -v gh &> /dev/null; then
     echo ""
 fi
 
-# Create skills directory if it doesn't exist
-echo -e "${YELLOW}Setting up skills directory...${NC}"
+# Create skills directories if they don't exist
+echo -e "${YELLOW}Setting up skills directories...${NC}"
 mkdir -p "$SKILLS_DIR"
+mkdir -p "$CURSOR_SKILLS_DIR"
 
 # Fetch list of skill folders from GitHub API
 echo -e "${YELLOW}Fetching available skills...${NC}"
@@ -172,6 +174,17 @@ while read -r SKILL_NAME; do
 
     echo ""
 done <<< "$SKILL_FOLDERS"
+
+# Mirror skills to Cursor skills directory
+echo -e "${YELLOW}Mirroring skills to Cursor...${NC}"
+while read -r SKILL_NAME; do
+    [ -z "$SKILL_NAME" ] && continue
+    CURSOR_SKILL_TARGET="$CURSOR_SKILLS_DIR/$SKILL_NAME"
+    rm -rf "$CURSOR_SKILL_TARGET"
+    cp -R "$SKILLS_DIR/$SKILL_NAME" "$CURSOR_SKILL_TARGET"
+    echo -e "  ${GREEN}✓${NC} $SKILL_NAME"
+done <<< "$SKILL_FOLDERS"
+echo ""
 
 # Install global instructions into ~/.claude/CLAUDE.md
 install_global_instructions() {
@@ -386,6 +399,7 @@ echo -e "${GREEN}║   Installation complete!               ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "Skills installed to:  ${BLUE}$SKILLS_DIR${NC}"
+echo -e "                      ${BLUE}$CURSOR_SKILLS_DIR${NC}"
 echo -e "Scripts installed to: ${BLUE}$SCRIPTS_DIR${NC}"
 echo ""
 
@@ -414,5 +428,5 @@ if [ -n "$UNCHANGED_SKILLS" ]; then
 fi
 
 echo ""
-echo -e "${YELLOW}Skills are auto-discovered. Open a new Claude Code session to use them.${NC}"
+echo -e "${YELLOW}Skills are auto-discovered. Open a new Claude Code or Cursor session to use them.${NC}"
 echo -e "${YELLOW}Scripts are available from the terminal via /usr/local/bin symlinks.${NC}"

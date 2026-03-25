@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.5.1
+version: 3.5.2
 description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green).
 argument-hint: ""
 ---
@@ -414,6 +414,7 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - Unit tests should be focused and test one behavior each
     - E2E tests should cover complete user flows
     - Specify which existing test files need updates (not just new tests)
+    - **Localization:** Never assert against a translated/localized string (e.g., `"Submit"`, `"Enregistrer"`). Always assert against the translation key (e.g., `"common.submit"`) so tests do not break when translations change or when running in a different locale
 
 14. **Present the test plan to the developer for review:**
 
@@ -447,6 +448,7 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - Explicit instruction: **write only test code — do NOT write or modify any production code**
     - For unit tests: write tests that import the modules/functions that will be created or modified, and assert the expected behavior
     - For e2e tests: write tests that perform user actions and assert expected outcomes
+    - **Localization:** Never assert against translated/localized strings. Always assert against the translation key so tests are locale-independent and don't break when translations change
 
     **b) Partition test work across agents:**
     - By test type: one agent handles unit tests, another handles e2e tests

@@ -46,10 +46,32 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
      acli jira workitem view <JIRA-ID> --fields '*all' --json
      ```
    - This fetches **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context — for example, bugs often have "Expected Behavior" and "Actual Behavior" fields, stories may have "Acceptance Criteria" fields, etc. Custom fields vary by project, so read whatever the ticket provides.
-   - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
-   - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
+   - **Attachments**: The JSON response includes an `attachment` array with metadata for each attached file. Download all attachments and use them as context throughout the skill.
+
+     **a) Create a local directory for attachments:**
+     ```bash
+     mkdir -p /tmp/<JIRA-ID>-attachments
      ```
-     Could not analyze attachment: "<filename>" (<reason: too large / unsupported format / etc.>)
+
+     **b) Download each attachment** using the `content` URL from the attachment metadata:
+     ```bash
+     curl -s -L -H "Authorization: Bearer $(acli auth token)" \
+       -o "/tmp/<JIRA-ID>-attachments/<filename>" \
+       "<content-url>"
+     ```
+     Repeat for every attachment in the array. Download all of them — images (screenshots, mockups, diagrams), documents (PDFs, CSVs), data files (JSON, XML), logs, config files, etc.
+
+     **c) Analyze the downloaded files:**
+     - **Images** (PNG, JPG, GIF, SVG, WebP): Read them to understand visual context — UI expectations, bug screenshots, mockups, diagrams, workflow illustrations
+     - **Text-based files** (CSV, JSON, XML, log files, config files, `.txt`): Read their content to extract data, error patterns, configuration details, or reproduction steps
+     - **PDFs**: Read them for requirements, specifications, or design documents
+     - **Other formats**: Note the filename and MIME type; if unreadable, skip gracefully
+
+     **d) Track all downloaded file paths** — they will be passed to the PO, test planner, test authors, and developer agents so every agent has access to the original ticket attachments.
+
+   - If an individual attachment download fails or the file is too large to process, **continue working** with the remaining attachments but notify the developer:
+     ```
+     Could not download/analyze attachment: "<filename>" (<reason: download failed / too large / unsupported format / etc.>)
      Proceeding with the available information.
      ```
    - If the JIRA fetch fails (issue not found, permission denied, etc.), offer a fallback: use `AskUserQuestion` to ask the developer if they want to paste the ticket content manually. If the developer declines, STOP. If the developer provides content, continue with that.
@@ -117,7 +139,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 6. **Analyze the codebase:**
    - Read all available ticket fields thoroughly — summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
-   - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
+   - Incorporate the downloaded attachments from step 3 into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation, use data files to understand expected inputs/outputs)
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
      - Existing patterns and conventions in the affected areas
@@ -213,7 +235,8 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
    **a) Prepare the PO prompt:**
    - Pass the PO agent ALL context gathered so far:
-     - The full JIRA ticket content (summary, description, all fields, comments, attachments)
+     - The full JIRA ticket content (summary, description, all fields, comments)
+     - The downloaded attachment file paths from step 3 (so the PO can read images for visual context and text files for data/requirements)
      - Figma design data (if any was retrieved)
      - The conventional commit prefix determined in step 5
      - The codebase analysis from step 6 (relevant files, patterns, conventions, test setup)
@@ -343,6 +366,7 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - The full approved requirements and acceptance criteria
     - The implementation plan (files to modify, new files, expected behavior)
     - The codebase analysis (existing test files, test framework, conventions, directory structure)
+    - The downloaded attachment file paths from step 3 (so the planner can reference screenshots, data files, or logs when designing test scenarios)
     - The design guide (if designers produced one)
 
     **b) The test planner must produce a structured test plan:**
@@ -412,6 +436,7 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - The approved test plan (the exact list of tests to implement)
     - The full approved requirements and acceptance criteria
     - The project's test setup, conventions, existing test files, and helper utilities
+    - The downloaded attachment file paths from step 3 (test authors may need screenshots for visual regression tests or data files for test fixtures)
     - The design guide (if designers produced one)
     - Explicit instruction: **write only test code — do NOT write or modify any production code**
     - For unit tests: write tests that import the modules/functions that will be created or modified, and assert the expected behavior
@@ -448,6 +473,7 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - Their specific assigned steps from the implementation plan
     - The relevant file paths and what changes are needed
     - The coding conventions and patterns observed in the codebase (from step 6)
+    - The downloaded attachment file paths from step 3 (developers may need screenshots for UI reference or data files as implementation context)
     - The design guide (if designers produced one)
     - Instructions to follow existing project patterns and not introduce new dependencies or abstractions unless specified in the plan
     - Explicit instruction: **do NOT modify any test files — only write production code to make the existing tests pass**

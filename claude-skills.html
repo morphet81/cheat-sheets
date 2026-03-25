@@ -2150,12 +2150,12 @@ Take screenshots of components affected by recent changes, either from the runni
                         <div class="skill-title">
                             <h3>Address Ticket</h3>
                             <code>/address-ticket</code>
-                            <span class="skill-version">v3.4.0</span>
+                            <span class="skill-version">v3.5.0</span>
                         </div>
                         <p class="skill-description">
-                            End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details,
-                            requests PNG/SVG design assets from the user when Figma links are found, spawns a PO to write requirements, gets developer approval, then ramps up
-                            designers (if needed), developers, and testers to implement everything. Requires the Atlassian CLI (`acli`)
+                            End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details,
+                            requests PNG/SVG design assets from the user when Figma links are found, spawns a PO to write requirements, gets developer approval, then proposes
+                            a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green). Requires the Atlassian CLI (`acli`)
                             and a branch containing a JIRA ID.
                         </p>
                         <div class="skill-usage">
@@ -2178,19 +2178,19 @@ Take screenshots of components affected by recent changes, either from the runni
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
-version: 3.4.0
-description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
+version: 3.5.0
+description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green).
 argument-hint: &quot;&quot;
 ---
 
-Read the JIRA ticket for the current branch and drive it to completion using a multi-agent team: a PO writes requirements, the developer approves, then designers, developers, and testers execute the work.
+Read the JIRA ticket for the current branch and drive it to completion using a multi-agent team with TDD: a PO writes requirements, the developer approves, then a test plan is proposed and reviewed. Once confirmed, tests are written first (red), then production code is implemented to make them pass (green).
 
 **Usage:**
 - `/address-ticket` - Retrieve the ticket and drive it to full implementation with a team
 
 **Instructions:**
 
-## Phase 1 &mdash; Gather Context
+## Phase 1 — Gather Context
 
 1. **Validate that the Atlassian CLI is available and authenticated:**
    - Run `acli auth status` to check if the CLI is installed and authenticated
@@ -2221,9 +2221,9 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 3. **Fetch the JIRA ticket:**
    - Use the Atlassian CLI to retrieve the issue by its JIRA ID:
      ```bash
-     acli jira workitem view &lt;JIRA-ID&gt; --fields '*all' --json
+     acli jira workitem view &lt;JIRA-ID&gt; --fields &#x27;*all&#x27; --json
      ```
-   - This fetches **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context &mdash; for example, bugs often have &quot;Expected Behavior&quot; and &quot;Actual Behavior&quot; fields, stories may have &quot;Acceptance Criteria&quot; fields, etc. Custom fields vary by project, so read whatever the ticket provides.
+   - This fetches **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context — for example, bugs often have &quot;Expected Behavior&quot; and &quot;Actual Behavior&quot; fields, stories may have &quot;Acceptance Criteria&quot; fields, etc. Custom fields vary by project, so read whatever the ticket provides.
    - **Attachments**: Check for any images or files attached to the ticket. Download and analyze all attachments that are relevant to understanding the ticket (screenshots, mockups, diagrams, config files, logs, etc.). Use images as visual context for UI work. Use attached files (CSV, JSON, logs, etc.) as input for understanding the expected behavior or reproducing the issue.
    - If an attachment is too large to process or in an unsupported format, **continue working** with the remaining information but notify the developer:
      ```
@@ -2240,14 +2240,17 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
    - Search all ticket fields (description, comments, attachments, custom fields) for Figma URLs (e.g., `https://www.figma.com/design/...`, `https://www.figma.com/file/...`, `https://www.figma.com/proto/...`)
 
    **b) Check issue-level entity properties (Figma for Jira app):**
-   - Figma designs added via the &quot;Add Design&quot; button are **not** stored in standard issue fields, remote links, or attachments. They are stored as **issue-level entity properties** &mdash; a separate data layer that the standard `GET /rest/api/3/issue/{key}` call does not return.
+   - Figma designs added via the &quot;Add Design&quot; button are **not** stored in standard issue fields, remote links, or attachments. They are stored as **issue-level entity properties** — a separate data layer that the standard issue view does not return.
    - Retrieve the Atlassian site URL from `acli config list` or the authenticated site context, then hit the REST API directly using the Bash tool:
      1. **List the issue&#x27;s entity properties:**
+        ```bash
+        acli jira workitem view &lt;JIRA-ID&gt; --json
+        ```
+        Extract the site URL from the `self` link in the response, then:
         ```bash
         curl -s -H &quot;Authorization: Bearer $(acli auth token)&quot; \
           &quot;https://&lt;site&gt;.atlassian.net/rest/api/3/issue/&lt;JIRA-ID&gt;/properties/&quot;
         ```
-        Or use the `gh` CLI or any available HTTP tool. The Cloud ID and auth credentials should match the Atlassian CLI configuration.
      2. **Identify the Figma property key:** In the response, look for a property key related to Figma (the exact key name varies by installation, but typically contains &quot;figma&quot; or &quot;design&quot;).
      3. **Fetch the Figma URL data:**
         ```bash
@@ -2255,7 +2258,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
           &quot;https://&lt;site&gt;.atlassian.net/rest/api/3/issue/&lt;JIRA-ID&gt;/properties/&lt;figma-property-key&gt;&quot;
         ```
         The response will contain the Figma design URL(s) and metadata.
-   - If the REST API calls fail (auth issues, no properties found, etc.), **continue** with the remaining information &mdash; this is a best-effort retrieval.
+   - If the REST API calls fail (auth issues, no properties found, etc.), **continue** with the remaining information — this is a best-effort retrieval.
 
    **c) Request design assets from the user:**
    - If Figma URLs are found from either source:
@@ -2266,32 +2269,32 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
        &gt;
        &gt; Please export the relevant screens/components as PNG or SVG files and provide the file path(s).
        &gt; You can drag and drop the files into the chat, or provide absolute paths to already-exported files.
-     - Options: **&quot;I've provided the files&quot;**, **&quot;Skip &mdash; no design assets needed&quot;**
+     - Options: **&quot;I&#x27;ve provided the files&quot;**, **&quot;Skip — no design assets needed&quot;**
      - If the developer provides file paths, read and analyze the PNG/SVG files to understand the design (layout, components, spacing, colors, typography, visual hierarchy, interaction states)
-     - Store the design data extracted from the images &mdash; it will be passed to the PO and design agents
+     - Store the design data extracted from the images — it will be passed to the PO and design agents
      - If the developer chooses to skip, **continue** with the remaining ticket information and note that Figma designs were referenced but no assets were provided
    - If no Figma URLs are found from either source, skip this step silently
 
 5. **Determine the conventional commit prefix:**
    - Based on all available ticket fields (issue type, summary, description, custom fields, etc.), deduce the most appropriate conventional commit prefix:
-     - `feat` &mdash; new functionality or feature
-     - `fix` &mdash; bug fix
-     - `docs` &mdash; documentation-only changes
-     - `style` &mdash; code style changes (formatting, whitespace, etc.)
-     - `refactor` &mdash; code restructuring without behavior change
-     - `perf` &mdash; performance improvement
-     - `test` &mdash; adding or updating tests only
-     - `build` &mdash; build system or dependency changes
-     - `ci` &mdash; CI/CD configuration changes
-     - `chore` &mdash; maintenance tasks, tooling, etc.
-     - `revert` &mdash; reverting a previous change
-   - Use the issue type as the primary signal (e.g., Bug &rarr; `fix`, Story with new functionality &rarr; `feat`)
+     - `feat` — new functionality or feature
+     - `fix` — bug fix
+     - `docs` — documentation-only changes
+     - `style` — code style changes (formatting, whitespace, etc.)
+     - `refactor` — code restructuring without behavior change
+     - `perf` — performance improvement
+     - `test` — adding or updating tests only
+     - `build` — build system or dependency changes
+     - `ci` — CI/CD configuration changes
+     - `chore` — maintenance tasks, tooling, etc.
+     - `revert` — reverting a previous change
+   - Use the issue type as the primary signal (e.g., Bug -&gt; `fix`, Story with new functionality -&gt; `feat`)
    - Use the summary and description to refine when the issue type is ambiguous (e.g., a Task could be `refactor`, `chore`, `docs`, etc.)
    - If the branch name already contains a conventional commit prefix (e.g., `fix/PROJ-123`), use it as a hint but verify it makes sense given the ticket content
    - If you hesitate between multiple prefixes, use `AskUserQuestion` to let the developer choose. Present the top candidates with a brief explanation of why each could apply.
 
 6. **Analyze the codebase:**
-   - Read all available ticket fields thoroughly &mdash; summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
+   - Read all available ticket fields thoroughly — summary, description, comments, and any custom fields (expected/actual behavior, acceptance criteria, steps to reproduce, etc.)
    - Incorporate any attached images or files into the analysis (e.g., use screenshots to understand UI expectations, use logs to identify error patterns, use mockups to guide implementation)
    - Explore the codebase to understand:
      - Which files and modules are relevant to the ticket
@@ -2314,13 +2317,13 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
    &gt; This ticket appears large enough to benefit from being split into smaller, independently reviewable PRs.
    &gt;
    &gt; **Proposed split:**
-   &gt; 1. **&lt;Short title&gt;** &mdash; &lt;What this chunk covers and why it&#x27;s independent&gt;
-   &gt; 2. **&lt;Short title&gt;** &mdash; &lt;What this chunk covers&gt;
+   &gt; 1. **&lt;Short title&gt;** — &lt;What this chunk covers and why it&#x27;s independent&gt;
+   &gt; 2. **&lt;Short title&gt;** — &lt;What this chunk covers&gt;
    &gt; 3. ...
    &gt;
    &gt; Would you like to split this ticket?
 
-   - **&quot;Yes &mdash; split&quot;**: Use the Atlassian CLI to create sub-tasks under the current ticket for each chunk. Then proceed with only the **first chunk** for this session &mdash; the remaining chunks will be addressed in future sessions.
+   - **&quot;Yes — split&quot;**: Use the Atlassian CLI to create sub-tasks under the current ticket for each chunk. Then proceed with only the **first chunk** for this session — the remaining chunks will be addressed in future sessions.
      ```bash
      acli jira workitem create --from-json &lt;temp-file.json&gt; --json
      ```
@@ -2335,9 +2338,9 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
      }
      ```
      After creating the sub-tasks, inform the developer which chunk will be addressed now and list the created sub-task IDs.
-   - **&quot;No &mdash; keep as one&quot;**: Proceed with the full ticket as a single PR.
+   - **&quot;No — keep as one&quot;**: Proceed with the full ticket as a single PR.
 
-   **If splitting is NOT warranted** (the ticket is small, focused, or only touches one area), skip this step silently &mdash; do not mention splitting at all.
+   **If splitting is NOT warranted** (the ticket is small, focused, or only touches one area), skip this step silently — do not mention splitting at all.
 
 8. **Maintain the epic lore file:**
 
@@ -2380,11 +2383,11 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
      ```
    - The lore file serves as a living document that builds context as tickets in the epic are worked on. Each ticket entry should be concise but capture enough detail to understand the ticket&#x27;s purpose within the broader epic.
 
-## Phase 2 &mdash; Product Owner: Requirements &amp; Acceptance Criteria
+## Phase 2 — Product Owner: Requirements &amp; Acceptance Criteria
 
 9. **Spawn the Product Owner agent:**
 
-   Use the `Task` tool to spawn a PO agent. This agent is responsible for writing requirements and acceptance criteria based on all the context gathered in Phase 1. The PO agent does NOT implement anything &mdash; it only produces a requirements document.
+   Use the `Task` tool to spawn a PO agent. This agent is responsible for writing requirements and acceptance criteria based on all the context gathered in Phase 1. The PO agent does NOT implement anything — it only produces a requirements document.
 
    **a) Prepare the PO prompt:**
    - Pass the PO agent ALL context gathered so far:
@@ -2404,12 +2407,12 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
    &lt;Brief summary of what the ticket is asking for, synthesized from the description, comments, and Figma designs. Call out any ambiguities or conflicting information.&gt;
 
    ### Requirements
-   1. &lt;Requirement 1 &mdash; clear, testable statement of what the implementation must do&gt;
+   1. &lt;Requirement 1 — clear, testable statement of what the implementation must do&gt;
    2. &lt;Requirement 2&gt;
    3. ...
 
    ### Acceptance Criteria
-   - [ ] &lt;Criterion 1 &mdash; specific, verifiable condition that must be true when done&gt;
+   - [ ] &lt;Criterion 1 — specific, verifiable condition that must be true when done&gt;
    - [ ] &lt;Criterion 2&gt;
    - [ ] ...
 
@@ -2419,16 +2422,16 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
    - &lt;If Figma designs are provided, note which aspects are already covered and which need further design work&gt;
 
    ### Implementation Plan
-   1. &lt;Step 1 &mdash; what to do and which files to touch&gt;
+   1. &lt;Step 1 — what to do and which files to touch&gt;
    2. &lt;Step 2&gt;
    3. ...
 
    ### Files to Modify
-   - `path/to/file.ts` &mdash; &lt;what changes are needed&gt;
-   - `path/to/other.ts` &mdash; &lt;what changes are needed&gt;
+   - `path/to/file.ts` — &lt;what changes are needed&gt;
+   - `path/to/other.ts` — &lt;what changes are needed&gt;
 
    ### New Files
-   - `path/to/new-file.ts` &mdash; &lt;purpose&gt;
+   - `path/to/new-file.ts` — &lt;purpose&gt;
    (or &quot;None&quot; if no new files are needed)
 
    ### Unit Tests
@@ -2439,7 +2442,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
    - &lt;Which e2e test files to update or create&gt;
    - &lt;User flows to cover: describe each flow as a sequence of actions and expected outcomes&gt;
    - &lt;Authentication requirements for the test scenarios&gt;
-   (or &quot;None &mdash; changes are not user-facing&quot; if e2e tests are not applicable)
+   (or &quot;None — changes are not user-facing&quot; if e2e tests are not applicable)
 
    ### Risks / Open Questions
    - &lt;Any uncertainties, assumptions, or things to clarify with the team&gt;
@@ -2460,9 +2463,9 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
    Display the PO&#x27;s requirements document to the developer and use `AskUserQuestion` to ask for confirmation:
    &gt; The Product Owner has prepared the following requirements and acceptance criteria. Would you like to proceed?
 
-   - **Approve** &mdash; requirements are accepted, proceed to Phase 3
-   - **Request changes** &mdash; the developer provides feedback on what to adjust
-   - **Reject** &mdash; stop the skill execution entirely
+   - **Approve** — requirements are accepted, proceed to Phase 3
+   - **Request changes** — the developer provides feedback on what to adjust
+   - **Reject** — stop the skill execution entirely
 
    **If &quot;Request changes&quot;:**
    - Use `AskUserQuestion` to collect the developer&#x27;s feedback
@@ -2472,24 +2475,26 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
    **Do NOT proceed to Phase 3 until the developer explicitly approves.**
 
-## Phase 3 &mdash; Implementation Team
+## Phase 3 — Implementation Team (TDD)
+
+The team follows a strict **Test-Driven Development** workflow: tests are proposed and approved before any code is written, then implemented so they fail (red), and only then is the production code written to make them pass (green).
 
 11. **Determine team composition:**
 
-    Based on the approved requirements, decide which agents to spawn. The team always includes developers and testers, but designers are conditional.
+    Based on the approved requirements, decide which agents to spawn. The team always includes test authors and developers, but designers are conditional.
 
-    **a) Designers &mdash; conditional:**
+    **a) Designers — conditional:**
     - If the requirements&#x27; &quot;Design Needs&quot; section says **No**: skip designers entirely
     - If the requirements say **Yes** and Figma designs were provided (step 4): spawn **1 designer** agent
     - If the requirements say **Yes** and no Figma designs are available: spawn **2 designer** agents
 
-    **b) Developers:** always spawn **2&ndash;3 developer** agents (based on the scope of implementation work)
+    **b) Test authors:** always spawn **1–2 test author** agents (they write the tests before any production code exists)
 
-    **c) Testers:** always spawn **1&ndash;2 tester** agents (based on the amount of test work needed)
+    **c) Developers:** always spawn **2–3 developer** agents (they write production code to make the tests pass)
 
 12. **Spawn designer agents (if needed):**
 
-    If designers are needed, spawn them FIRST and wait for them to complete before spawning developers and testers.
+    If designers are needed, spawn them FIRST and wait for them to complete before proceeding to the test plan.
 
     **If 1 designer (design assets provided):**
     - Spawn 1 designer agent using the `Task` tool
@@ -2502,32 +2507,128 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
     **If 2 designers (no Figma):**
     - Spawn 2 designer agents in parallel using the `Task` tool with `run_in_background: true`
-    - **Designer 1 &mdash; Research:** Explore the existing codebase for design patterns, component libraries, design tokens, and styling conventions. Document the design system already in use.
-    - **Designer 2 &mdash; Propose:** Based on the requirements and the existing design patterns (share Designer 1&#x27;s findings once available), propose a UI/UX approach: component structure, layout, interactions, and visual design decisions.
+    - **Designer 1 — Research:** Explore the existing codebase for design patterns, component libraries, design tokens, and styling conventions. Document the design system already in use.
+    - **Designer 2 — Propose:** Based on the requirements and the existing design patterns (share Designer 1&#x27;s findings once available), propose a UI/UX approach: component structure, layout, interactions, and visual design decisions.
     - Wait for both to complete and consolidate their output into a design guide for the developers.
 
-    **Pass the design guide to the developer and tester agents** as additional context.
+    **Pass the design guide to subsequent agents** as additional context.
 
-13. **Spawn developer agents:**
+13. **Propose the test plan:**
 
-    Spawn 2&ndash;3 developer agents using the `Task` tool with `run_in_background: true`. Partition the work so agents work on independent areas and don&#x27;t conflict.
+    Spawn 1 test planner agent using the `Task` tool. This agent does NOT write test code — it produces a complete list of tests that verify the expected behavior.
+
+    **a) Prompt the test planner agent with:**
+    - The full approved requirements and acceptance criteria
+    - The implementation plan (files to modify, new files, expected behavior)
+    - The codebase analysis (existing test files, test framework, conventions, directory structure)
+    - The design guide (if designers produced one)
+
+    **b) The test planner must produce a structured test plan:**
+
+    ```
+    ## Test Plan
+
+    ### Unit Tests
+
+    #### &lt;test-file-path&gt; (new / existing)
+    - `&lt;test name&gt;` — &lt;what it verifies, expected input → expected output&gt;
+    - `&lt;test name&gt;` — &lt;what it verifies&gt;
+    ...
+
+    #### &lt;another-test-file-path&gt; (new / existing)
+    - `&lt;test name&gt;` — &lt;what it verifies&gt;
+    ...
+
+    ### E2E Tests
+
+    #### &lt;e2e-test-file-path&gt; (new / existing)
+    - `&lt;test name&gt;` — &lt;user flow: step-by-step actions and expected outcomes&gt;
+    ...
+
+    (or &quot;None — changes are not user-facing&quot; if e2e tests are not applicable)
+
+    ### Coverage Summary
+    - Total unit tests: &lt;N&gt;
+    - Total e2e tests: &lt;N&gt;
+    - Acceptance criteria covered: &lt;list which criteria each test addresses&gt;
+    - Edge cases covered: &lt;list edge cases&gt;
+    ```
+
+    **c) Test plan guidelines:**
+    - Every acceptance criterion must be covered by at least one test
+    - Include edge cases, error paths, and boundary conditions
+    - For bug fixes, include a test that reproduces the original bug
+    - Follow the project&#x27;s existing test naming conventions and file structure
+    - Unit tests should be focused and test one behavior each
+    - E2E tests should cover complete user flows
+    - Specify which existing test files need updates (not just new tests)
+
+14. **Present the test plan to the developer for review:**
+
+    Display the test planner&#x27;s complete test plan to the developer and use `AskUserQuestion`:
+
+    &gt; The team has prepared the following test plan. Please review the proposed tests.
+    &gt; Would you like to proceed with these tests?
+
+    - **Approve** — test plan is accepted, proceed to step 15
+    - **Request changes** — the developer provides feedback on what to add, remove, or modify
+    - **Reject** — stop the skill execution entirely
+
+    **If &quot;Request changes&quot;:**
+    - Use `AskUserQuestion` to collect the developer&#x27;s feedback
+    - Re-spawn the test planner agent with the original context plus the developer&#x27;s feedback, asking it to revise the test plan
+    - Present the revised test plan again for approval
+    - Repeat until the developer approves or rejects
+
+    **Do NOT proceed to step 15 until the developer explicitly approves the test plan.**
+
+15. **Implement tests (TDD red phase):**
+
+    Spawn 1–2 test author agents using the `Task` tool with `run_in_background: true`. These agents write the actual test code based on the approved test plan. No production code is written at this stage.
+
+    **a) Prompt each test author agent with:**
+    - The approved test plan (the exact list of tests to implement)
+    - The full approved requirements and acceptance criteria
+    - The project&#x27;s test setup, conventions, existing test files, and helper utilities
+    - The design guide (if designers produced one)
+    - Explicit instruction: **write only test code — do NOT write or modify any production code**
+    - For unit tests: write tests that import the modules/functions that will be created or modified, and assert the expected behavior
+    - For e2e tests: write tests that perform user actions and assert expected outcomes
+
+    **b) Partition test work across agents:**
+    - By test type: one agent handles unit tests, another handles e2e tests
+    - Or by feature area: each agent handles all tests (unit + e2e) for a specific area
+    - For simple tickets, 1 test author agent is sufficient
+
+    **c) Wait for all test author agents to complete.**
+
+    **d) Verify tests are correctly written:**
+    - Run the tests to confirm they fail for the expected reasons (missing implementations, not syntax errors or import failures that indicate broken test code)
+    - If tests fail due to test code errors (syntax, wrong imports, incorrect setup), fix the test code before proceeding
+    - The goal is: tests are syntactically correct and structurally sound, but fail because the production code they test doesn&#x27;t exist or doesn&#x27;t have the expected behavior yet
+
+16. **Implement production code (TDD green phase):**
+
+    Spawn 2–3 developer agents using the `Task` tool with `run_in_background: true`. Their sole objective is to write the production code that makes all the previously written tests pass.
 
     **a) Partition the work:**
-    - Analyze the approved implementation plan and group steps by independence &mdash; steps that touch different files or non-overlapping code regions can run in parallel
+    - Analyze the approved implementation plan and group steps by independence — steps that touch different files or non-overlapping code regions can run in parallel
     - Common partitioning strategies:
       - By feature area (e.g., one agent does the API changes, another does the UI)
       - By layer (e.g., one agent does the backend, another does the frontend)
       - By file group (e.g., one agent modifies existing files, another creates new files)
-    - For simple tickets where parallelization isn&#x27;t beneficial (e.g., a single-file change), 2 agents is fine &mdash; one implements, the other reviews and assists
+    - For simple tickets where parallelization isn&#x27;t beneficial (e.g., a single-file change), 2 agents is fine — one implements, the other reviews and assists
     - If steps have dependencies (e.g., one change depends on another being written first), note this and have the dependent agent wait
 
     **b) Prompt each developer agent with:**
     - The full approved requirements and acceptance criteria
+    - The test files written in step 15 (so developers can see exactly what the tests expect)
     - Their specific assigned steps from the implementation plan
     - The relevant file paths and what changes are needed
     - The coding conventions and patterns observed in the codebase (from step 6)
     - The design guide (if designers produced one)
     - Instructions to follow existing project patterns and not introduce new dependencies or abstractions unless specified in the plan
+    - Explicit instruction: **do NOT modify any test files — only write production code to make the existing tests pass**
 
     **c) Wait for all developer agents to complete.**
 
@@ -2536,31 +2637,21 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - If conflicts exist, resolve them by reading both agents&#x27; changes and merging intelligently
     - Run a quick sanity check: ensure the codebase compiles/lints after all changes are applied
 
-14. **Spawn tester agents:**
+17. **Verify all tests pass:**
 
-    Spawn 1&ndash;2 tester agents using the `Task` tool with `run_in_background: true`. Testers work AFTER developers so they can test the actual implementation.
+    Run the full test suite (unit + e2e if applicable) to confirm everything passes.
 
-    **a) Prompt each tester agent with:**
-    - The full approved requirements and acceptance criteria
-    - The list of files modified/created by the developer agents
-    - The unit test and e2e test plans from the requirements
-    - The project&#x27;s test setup, conventions, and existing test files
-    - Instructions to:
-      - Write or update unit tests covering the acceptance criteria
-      - Write or update e2e tests for user-facing changes (if applicable)
-      - Run the tests and fix any failures
-      - Ensure existing tests still pass (no regressions)
+    **a)** If tests fail, analyze the failures:
+    - If a test fails because the production code is incorrect, spawn 1 additional developer agent to fix the production code (not the tests — the tests define the expected behavior)
+    - If a test fails because of a genuine test defect (e.g., flaky assertion, incorrect setup that doesn&#x27;t match the approved test plan), fix the test code
 
-    **b) Wait for all tester agents to complete.**
+    **b)** If tests still fail after the fix attempt, report the remaining failures to the developer
 
-    **c) Verify test results:**
-    - Run the full test suite (unit + e2e if applicable) to confirm everything passes
-    - If tests fail, spawn 1 additional tester agent to fix the failures
-    - If tests still fail after the fix attempt, report the remaining failures to the developer
+    **c)** Ensure existing tests (that were not part of this change) still pass — no regressions
 
-## Phase 4 &mdash; Suggest JIRA Ticket Updates
+## Phase 4 — Suggest JIRA Ticket Updates
 
-15. **Suggest ticket edits based on requirements and acceptance criteria:**
+18. **Suggest ticket edits based on requirements and acceptance criteria:**
 
     After the team finishes, suggest improvements to the original JIRA ticket based on the requirements and acceptance criteria written during this skill&#x27;s execution.
 
@@ -2579,7 +2670,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - Add or improve:
       - **Clear problem statement** or feature rationale
       - **Acceptance criteria** from the PO&#x27;s document
-      - **Technical notes** on the approach taken (briefly &mdash; just enough for future readers)
+      - **Technical notes** on the approach taken (briefly — just enough for future readers)
       - **Files/areas affected** (high-level, e.g., &quot;Authentication module&quot;, &quot;Settings page&quot;)
     - Keep the tone consistent with existing ticket descriptions in the project
 
@@ -2599,10 +2690,10 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
       ```
     - Use `AskUserQuestion` to ask the developer:
       &gt; Would you like to update the JIRA ticket description with the proposed improvements?
-    - Options: **Yes &mdash; update the ticket**, **No &mdash; skip**
+    - Options: **Yes — update the ticket**, **No — skip**
 
     **d) Update the ticket (if approved):**
-    - If the developer approves, write the description as an ADF JSON payload and use `--from-json` to update (see ADF Format Reference below):
+    - If the developer approves, write the description as an ADF JSON payload and use `--from-json` to update (see [ADF Format Reference](#adf-format-reference) below):
       ```bash
       acli jira workitem edit --from-json &lt;temp-file.json&gt; --yes
       ```
@@ -2623,7 +2714,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
       ```
     - If the update fails, show the error and provide the proposed description as copyable text so the developer can update it manually
 
-16. **Final report:**
+19. **Final report:**
 
     Present a comprehensive summary to the developer:
 
@@ -2633,9 +2724,9 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
     ### Team
     - PO: requirements and acceptance criteria written
-    - Designers: &lt;N&gt; (or &quot;None &mdash; no design work needed&quot;)
-    - Developers: &lt;N&gt;
-    - Testers: &lt;N&gt;
+    - Designers: &lt;N&gt; (or &quot;None — no design work needed&quot;)
+    - Test authors: &lt;N&gt; (wrote tests before implementation)
+    - Developers: &lt;N&gt; (wrote production code to pass tests)
 
     ### Implementation
     - Files modified: &lt;N&gt;
@@ -2645,7 +2736,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     ### Tests
     - Unit tests: &lt;N&gt; passing
     - E2E tests: &lt;N&gt; passing (or &quot;N/A&quot;)
-    - Test fixes needed: &lt;yes/no &mdash; how many rounds&gt;
+    - Test fixes needed: &lt;yes/no — how many rounds&gt;
 
     ### Acceptance Criteria
     - [x] &lt;Criterion 1&gt;
@@ -2660,15 +2751,79 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - &lt;Any issues that need human judgment&gt;
     ```
 
-17. **Handle edge cases:**
+20. **Handle edge cases:**
     - If the ticket description is empty, note it and the PO should base requirements on the summary and comments only
     - If there are no comments, skip that section in the analysis
     - If the codebase exploration reveals the ticket may already be addressed, inform the developer before spawning the PO
     - If the ticket is too vague, the PO should list what is understood and flag open questions for the developer to answer during the approval step
-    - If the project has no test framework, note it and skip tester agents
+    - If the project has no test framework, note it and skip the TDD phases (steps 13–17) — spawn developers directly to implement the code
     - If designer agents produce conflicting recommendations, present both to the developer and let them choose
-    - If developer agents produce conflicting changes to the same file, resolve the conflicts before spawning testers
-    - If test fixes loop (fix &rarr; fail &rarr; fix &rarr; fail), stop after 2 attempts and report remaining issues to the developer</pre>
+    - If developer agents produce conflicting changes to the same file, resolve the conflicts before running the test suite
+    - If tests fail after the green phase and fixes loop (fix -&gt; fail -&gt; fix -&gt; fail), stop after 2 attempts and report remaining failures to the developer
+    - If the test planner produces tests that cannot be written without production code scaffolding (e.g., type definitions, interfaces), note this and have test authors create minimal type stubs — not implementations
+
+---
+
+## ADF Format Reference
+
+JIRA does **not** render Markdown. Descriptions must use **Atlassian Document Format (ADF)** — a JSON-based document format. The `--description-file` flag treats file content as a plain text string, so it cannot be used for rich descriptions. Use `--from-json` instead.
+
+**Important:** `--from-json` expects a structured JSON file with the full edit payload. The `description` field must be an ADF object, not a string. You can run `acli jira workitem edit --generate-json` to see the expected schema.
+
+**Edit payload format (`--from-json`):**
+
+```json
+{
+  &quot;issues&quot;: [&quot;&lt;JIRA-ID&gt;&quot;],
+  &quot;description&quot;: {
+    &quot;version&quot;: 1,
+    &quot;type&quot;: &quot;doc&quot;,
+    &quot;content&quot;: [
+      {
+        &quot;type&quot;: &quot;heading&quot;,
+        &quot;attrs&quot;: { &quot;level&quot;: 2 },
+        &quot;content&quot;: [{ &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;Description&quot; }]
+      },
+      {
+        &quot;type&quot;: &quot;paragraph&quot;,
+        &quot;content&quot;: [{ &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;What was implemented.&quot; }]
+      },
+      {
+        &quot;type&quot;: &quot;heading&quot;,
+        &quot;attrs&quot;: { &quot;level&quot;: 2 },
+        &quot;content&quot;: [{ &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;Acceptance Criteria&quot; }]
+      },
+      {
+        &quot;type&quot;: &quot;taskList&quot;,
+        &quot;attrs&quot;: { &quot;localId&quot;: &quot;ac-list&quot; },
+        &quot;content&quot;: [
+          {
+            &quot;type&quot;: &quot;taskItem&quot;,
+            &quot;attrs&quot;: { &quot;localId&quot;: &quot;ac-1&quot;, &quot;state&quot;: &quot;TODO&quot; },
+            &quot;content&quot;: [{ &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;First criterion&quot; }]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Common ADF node types:**
+
+| Markdown | ADF `type` | Notes |
+|----------|-----------|-------|
+| `## Heading` | `heading` with `attrs.level` | Levels 1–6 |
+| Plain text | `paragraph` with `text` children | |
+| `**bold**` | `text` with `marks: [{&quot;type&quot;: &quot;strong&quot;}]` | |
+| `*italic*` | `text` with `marks: [{&quot;type&quot;: &quot;em&quot;}]` | |
+| `- item` | `bulletList` &gt; `listItem` &gt; `paragraph` | |
+| `1. item` | `orderedList` &gt; `listItem` &gt; `paragraph` | |
+| `- [ ] task` | `taskList` &gt; `taskItem` (state: `TODO`/`DONE`) | |
+| `` `code` `` | `text` with `marks: [{&quot;type&quot;: &quot;code&quot;}]` | Inline code |
+| Code block | `codeBlock` with `attrs.language` | |
+| `---` | `rule` | Horizontal rule |
+| `[link](url)` | `text` with `marks: [{&quot;type&quot;: &quot;link&quot;, &quot;attrs&quot;: {&quot;href&quot;: &quot;url&quot;}}]` | |</pre>
                             </div>
                         </div>
                     </div>

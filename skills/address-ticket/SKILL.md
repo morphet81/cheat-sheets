@@ -1,11 +1,11 @@
 ---
 name: address-ticket
-version: 3.4.0
-description: End-to-end ticket implementation with a multi-agent team. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then ramps up designers (if needed), developers, and testers to implement everything.
+version: 3.5.0
+description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green).
 argument-hint: ""
 ---
 
-Read the JIRA ticket for the current branch and drive it to completion using a multi-agent team: a PO writes requirements, the developer approves, then designers, developers, and testers execute the work.
+Read the JIRA ticket for the current branch and drive it to completion using a multi-agent team with TDD: a PO writes requirements, the developer approves, then a test plan is proposed and reviewed. Once confirmed, tests are written first (red), then production code is implemented to make them pass (green).
 
 **Usage:**
 - `/address-ticket` - Retrieve the ticket and drive it to full implementation with a team
@@ -297,24 +297,26 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
    **Do NOT proceed to Phase 3 until the developer explicitly approves.**
 
-## Phase 3 — Implementation Team
+## Phase 3 — Implementation Team (TDD)
+
+The team follows a strict **Test-Driven Development** workflow: tests are proposed and approved before any code is written, then implemented so they fail (red), and only then is the production code written to make them pass (green).
 
 11. **Determine team composition:**
 
-    Based on the approved requirements, decide which agents to spawn. The team always includes developers and testers, but designers are conditional.
+    Based on the approved requirements, decide which agents to spawn. The team always includes test authors and developers, but designers are conditional.
 
     **a) Designers — conditional:**
     - If the requirements' "Design Needs" section says **No**: skip designers entirely
     - If the requirements say **Yes** and Figma designs were provided (step 4): spawn **1 designer** agent
     - If the requirements say **Yes** and no Figma designs are available: spawn **2 designer** agents
 
-    **b) Developers:** always spawn **2–3 developer** agents (based on the scope of implementation work)
+    **b) Test authors:** always spawn **1–2 test author** agents (they write the tests before any production code exists)
 
-    **c) Testers:** always spawn **1–2 tester** agents (based on the amount of test work needed)
+    **c) Developers:** always spawn **2–3 developer** agents (they write production code to make the tests pass)
 
 12. **Spawn designer agents (if needed):**
 
-    If designers are needed, spawn them FIRST and wait for them to complete before spawning developers and testers.
+    If designers are needed, spawn them FIRST and wait for them to complete before proceeding to the test plan.
 
     **If 1 designer (design assets provided):**
     - Spawn 1 designer agent using the `Task` tool
@@ -331,11 +333,105 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - **Designer 2 — Propose:** Based on the requirements and the existing design patterns (share Designer 1's findings once available), propose a UI/UX approach: component structure, layout, interactions, and visual design decisions.
     - Wait for both to complete and consolidate their output into a design guide for the developers.
 
-    **Pass the design guide to the developer and tester agents** as additional context.
+    **Pass the design guide to subsequent agents** as additional context.
 
-13. **Spawn developer agents:**
+13. **Propose the test plan:**
 
-    Spawn 2–3 developer agents using the `Task` tool with `run_in_background: true`. Partition the work so agents work on independent areas and don't conflict.
+    Spawn 1 test planner agent using the `Task` tool. This agent does NOT write test code — it produces a complete list of tests that verify the expected behavior.
+
+    **a) Prompt the test planner agent with:**
+    - The full approved requirements and acceptance criteria
+    - The implementation plan (files to modify, new files, expected behavior)
+    - The codebase analysis (existing test files, test framework, conventions, directory structure)
+    - The design guide (if designers produced one)
+
+    **b) The test planner must produce a structured test plan:**
+
+    ```
+    ## Test Plan
+
+    ### Unit Tests
+
+    #### <test-file-path> (new / existing)
+    - `<test name>` — <what it verifies, expected input → expected output>
+    - `<test name>` — <what it verifies>
+    ...
+
+    #### <another-test-file-path> (new / existing)
+    - `<test name>` — <what it verifies>
+    ...
+
+    ### E2E Tests
+
+    #### <e2e-test-file-path> (new / existing)
+    - `<test name>` — <user flow: step-by-step actions and expected outcomes>
+    ...
+
+    (or "None — changes are not user-facing" if e2e tests are not applicable)
+
+    ### Coverage Summary
+    - Total unit tests: <N>
+    - Total e2e tests: <N>
+    - Acceptance criteria covered: <list which criteria each test addresses>
+    - Edge cases covered: <list edge cases>
+    ```
+
+    **c) Test plan guidelines:**
+    - Every acceptance criterion must be covered by at least one test
+    - Include edge cases, error paths, and boundary conditions
+    - For bug fixes, include a test that reproduces the original bug
+    - Follow the project's existing test naming conventions and file structure
+    - Unit tests should be focused and test one behavior each
+    - E2E tests should cover complete user flows
+    - Specify which existing test files need updates (not just new tests)
+
+14. **Present the test plan to the developer for review:**
+
+    Display the test planner's complete test plan to the developer and use `AskUserQuestion`:
+
+    > The team has prepared the following test plan. Please review the proposed tests.
+    > Would you like to proceed with these tests?
+
+    - **Approve** — test plan is accepted, proceed to step 15
+    - **Request changes** — the developer provides feedback on what to add, remove, or modify
+    - **Reject** — stop the skill execution entirely
+
+    **If "Request changes":**
+    - Use `AskUserQuestion` to collect the developer's feedback
+    - Re-spawn the test planner agent with the original context plus the developer's feedback, asking it to revise the test plan
+    - Present the revised test plan again for approval
+    - Repeat until the developer approves or rejects
+
+    **Do NOT proceed to step 15 until the developer explicitly approves the test plan.**
+
+15. **Implement tests (TDD red phase):**
+
+    Spawn 1–2 test author agents using the `Task` tool with `run_in_background: true`. These agents write the actual test code based on the approved test plan. No production code is written at this stage.
+
+    **a) Prompt each test author agent with:**
+    - The approved test plan (the exact list of tests to implement)
+    - The full approved requirements and acceptance criteria
+    - The project's test setup, conventions, existing test files, and helper utilities
+    - The design guide (if designers produced one)
+    - Explicit instruction: **write only test code — do NOT write or modify any production code**
+    - For unit tests: write tests that import the modules/functions that will be created or modified, and assert the expected behavior
+    - For e2e tests: write tests that perform user actions and assert expected outcomes
+
+    **b) Partition test work across agents:**
+    - By test type: one agent handles unit tests, another handles e2e tests
+    - Or by feature area: each agent handles all tests (unit + e2e) for a specific area
+    - For simple tickets, 1 test author agent is sufficient
+
+    **c) Wait for all test author agents to complete.**
+
+    **d) Verify tests are correctly written:**
+    - Run the tests to confirm they fail for the expected reasons (missing implementations, not syntax errors or import failures that indicate broken test code)
+    - If tests fail due to test code errors (syntax, wrong imports, incorrect setup), fix the test code before proceeding
+    - The goal is: tests are syntactically correct and structurally sound, but fail because the production code they test doesn't exist or doesn't have the expected behavior yet
+
+16. **Implement production code (TDD green phase):**
+
+    Spawn 2–3 developer agents using the `Task` tool with `run_in_background: true`. Their sole objective is to write the production code that makes all the previously written tests pass.
 
     **a) Partition the work:**
     - Analyze the approved implementation plan and group steps by independence — steps that touch different files or non-overlapping code regions can run in parallel
@@ -348,11 +444,13 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
     **b) Prompt each developer agent with:**
     - The full approved requirements and acceptance criteria
+    - The test files written in step 15 (so developers can see exactly what the tests expect)
     - Their specific assigned steps from the implementation plan
     - The relevant file paths and what changes are needed
     - The coding conventions and patterns observed in the codebase (from step 6)
     - The design guide (if designers produced one)
     - Instructions to follow existing project patterns and not introduce new dependencies or abstractions unless specified in the plan
+    - Explicit instruction: **do NOT modify any test files — only write production code to make the existing tests pass**
 
     **c) Wait for all developer agents to complete.**
 
@@ -361,31 +459,21 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - If conflicts exist, resolve them by reading both agents' changes and merging intelligently
     - Run a quick sanity check: ensure the codebase compiles/lints after all changes are applied
 
-14. **Spawn tester agents:**
+17. **Verify all tests pass:**
 
-    Spawn 1–2 tester agents using the `Task` tool with `run_in_background: true`. Testers work AFTER developers so they can test the actual implementation.
+    Run the full test suite (unit + e2e if applicable) to confirm everything passes.
 
-    **a) Prompt each tester agent with:**
-    - The full approved requirements and acceptance criteria
-    - The list of files modified/created by the developer agents
-    - The unit test and e2e test plans from the requirements
-    - The project's test setup, conventions, and existing test files
-    - Instructions to:
-      - Write or update unit tests covering the acceptance criteria
-      - Write or update e2e tests for user-facing changes (if applicable)
-      - Run the tests and fix any failures
-      - Ensure existing tests still pass (no regressions)
+    **a)** If tests fail, analyze the failures:
+    - If a test fails because the production code is incorrect, spawn 1 additional developer agent to fix the production code (not the tests — the tests define the expected behavior)
+    - If a test fails because of a genuine test defect (e.g., flaky assertion, incorrect setup that doesn't match the approved test plan), fix the test code
 
-    **b) Wait for all tester agents to complete.**
+    **b)** If tests still fail after the fix attempt, report the remaining failures to the developer
 
-    **c) Verify test results:**
-    - Run the full test suite (unit + e2e if applicable) to confirm everything passes
-    - If tests fail, spawn 1 additional tester agent to fix the failures
-    - If tests still fail after the fix attempt, report the remaining failures to the developer
+    **c)** Ensure existing tests (that were not part of this change) still pass — no regressions
 
 ## Phase 4 — Suggest JIRA Ticket Updates
 
-15. **Suggest ticket edits based on requirements and acceptance criteria:**
+18. **Suggest ticket edits based on requirements and acceptance criteria:**
 
     After the team finishes, suggest improvements to the original JIRA ticket based on the requirements and acceptance criteria written during this skill's execution.
 
@@ -448,7 +536,7 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
       ```
     - If the update fails, show the error and provide the proposed description as copyable text so the developer can update it manually
 
-16. **Final report:**
+19. **Final report:**
 
     Present a comprehensive summary to the developer:
 
@@ -459,8 +547,8 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     ### Team
     - PO: requirements and acceptance criteria written
     - Designers: <N> (or "None — no design work needed")
-    - Developers: <N>
-    - Testers: <N>
+    - Test authors: <N> (wrote tests before implementation)
+    - Developers: <N> (wrote production code to pass tests)
 
     ### Implementation
     - Files modified: <N>
@@ -485,15 +573,16 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
     - <Any issues that need human judgment>
     ```
 
-17. **Handle edge cases:**
+20. **Handle edge cases:**
     - If the ticket description is empty, note it and the PO should base requirements on the summary and comments only
     - If there are no comments, skip that section in the analysis
     - If the codebase exploration reveals the ticket may already be addressed, inform the developer before spawning the PO
     - If the ticket is too vague, the PO should list what is understood and flag open questions for the developer to answer during the approval step
-    - If the project has no test framework, note it and skip tester agents
+    - If the project has no test framework, note it and skip the TDD phases (steps 13–17) — spawn developers directly to implement the code
     - If designer agents produce conflicting recommendations, present both to the developer and let them choose
-    - If developer agents produce conflicting changes to the same file, resolve the conflicts before spawning testers
-    - If test fixes loop (fix -> fail -> fix -> fail), stop after 2 attempts and report remaining issues to the developer
+    - If developer agents produce conflicting changes to the same file, resolve the conflicts before running the test suite
+    - If tests fail after the green phase and fixes loop (fix -> fail -> fix -> fail), stop after 2 attempts and report remaining failures to the developer
+    - If the test planner produces tests that cannot be written without production code scaffolding (e.g., type definitions, interfaces), note this and have test authors create minimal type stubs — not implementations
 
 ---
 

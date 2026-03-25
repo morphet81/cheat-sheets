@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.5.0
+version: 3.5.1
 description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green).
 argument-hint: ""
 ---
@@ -46,18 +46,24 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
      acli jira workitem view <JIRA-ID> --fields '*all' --json
      ```
    - This fetches **all available fields** on the ticket. Beyond the standard fields (summary, description, issue type, priority, comments), use every field that provides useful context — for example, bugs often have "Expected Behavior" and "Actual Behavior" fields, stories may have "Acceptance Criteria" fields, etc. Custom fields vary by project, so read whatever the ticket provides.
-   - **Attachments**: The JSON response includes an `attachment` array with metadata for each attached file. Download all attachments and use them as context throughout the skill.
+   - **Attachments**: The JSON response includes an `attachment` array with metadata for each attached file (`id`, `filename`, `content`, `mimeType`, `size`). The `acli` CLI does not have a built-in download command for attachments, so use the **Jira REST API** directly with the `acli` auth token to download them.
 
      **a) Create a local directory for attachments:**
      ```bash
      mkdir -p /tmp/<JIRA-ID>-attachments
      ```
 
-     **b) Download each attachment** using the `content` URL from the attachment metadata:
+     **b) Download each attachment** via the Jira REST API. Each attachment object contains a `content` field — this is the REST API download URL (format: `https://<site>.atlassian.net/rest/api/3/attachment/content/<id>`). Use `acli auth token` to authenticate:
      ```bash
      curl -s -L -H "Authorization: Bearer $(acli auth token)" \
        -o "/tmp/<JIRA-ID>-attachments/<filename>" \
        "<content-url>"
+     ```
+     If the `content` URL is missing from the response, construct it manually from the site URL (extracted from the `self` field) and the attachment `id`:
+     ```bash
+     curl -s -L -H "Authorization: Bearer $(acli auth token)" \
+       -o "/tmp/<JIRA-ID>-attachments/<filename>" \
+       "https://<site>.atlassian.net/rest/api/3/attachment/content/<attachment-id>"
      ```
      Repeat for every attachment in the array. Download all of them — images (screenshots, mockups, diagrams), documents (PDFs, CSVs), data files (JSON, XML), logs, config files, etc.
 

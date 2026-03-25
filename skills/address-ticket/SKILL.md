@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.5.2
+version: 3.5.3
 description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green).
 argument-hint: ""
 ---
@@ -374,6 +374,7 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - The codebase analysis (existing test files, test framework, conventions, directory structure)
     - The downloaded attachment file paths from step 3 (so the planner can reference screenshots, data files, or logs when designing test scenarios)
     - The design guide (if designers produced one)
+    - The epic lore file content (if any) — so the planner knows what sibling tickets exist and what behavior is planned for future tasks
 
     **b) The test planner must produce a structured test plan:**
 
@@ -415,6 +416,7 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - E2E tests should cover complete user flows
     - Specify which existing test files need updates (not just new tests)
     - **Localization:** Never assert against a translated/localized string (e.g., `"Submit"`, `"Enregistrer"`). Always assert against the translation key (e.g., `"common.submit"`) so tests do not break when translations change or when running in a different locale
+    - **No intermediate-state tests:** Do not write tests that assert on a temporary state that only exists because a later task hasn't been implemented yet. Tests must verify behavior that is correct in the final state of the epic, not just the current task. Use the epic lore and sibling tickets to understand the full picture. For example, if an epic creates a button with label "Hello" and it is split into task A ("Create the button") and task B ("Add the label"), task A must NOT include a test asserting the button has no text — that assertion would break when task B is implemented. Instead, task A should test what it adds (the button exists, it is clickable, etc.) and leave the label test for task B.
 
 14. **Present the test plan to the developer for review:**
 

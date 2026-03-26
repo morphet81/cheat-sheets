@@ -24,7 +24,7 @@ Automation skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 | **address-pr-comments** | Retrieve PR comments, propose fixes, and implement them |
 | **review-changes** | Spawn 8 specialized reviewer agents for code/PR review |
 | **create-pr** | Push branch and create a GitHub PR from JIRA ticket context |
-| **create-ticket** | Create JIRA tickets with optional Figma design links |
+| **create-jira-ticket** | Create a JIRA ticket with epic inference, ADF, Figma, and confirmation via `acli` |
 | **update-jira-ticket** | Sync JIRA ticket descriptions with branch changes |
 | **setup-branch** | Create branch + worktree from a JIRA ID or URL |
 | **merge-base-branch** | Pick base branch, merge, resolve conflicts, lint, 100% coverage tests, build |

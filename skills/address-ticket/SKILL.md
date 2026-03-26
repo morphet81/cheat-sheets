@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.5.3
+version: 3.6.0
 description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green).
 argument-hint: ""
 ---
@@ -84,45 +84,99 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 4. **Retrieve Figma designs (if referenced):**
 
-   Figma design links can appear in two places: directly as URLs in ticket fields, or as issue-level entity properties set by the Figma for Jira app ("Add Design" button). Check both sources.
+   Figma design links can appear in two places: directly as URLs in ticket fields, or as associated designs set by the Figma for Jira app ("Add Design" button). Check both sources.
 
    **a) Check ticket fields for Figma URLs:**
    - Search all ticket fields (description, comments, attachments, custom fields) for Figma URLs (e.g., `https://www.figma.com/design/...`, `https://www.figma.com/file/...`, `https://www.figma.com/proto/...`)
 
-   **b) Check issue-level entity properties (Figma for Jira app):**
-   - Figma designs added via the "Add Design" button are **not** stored in standard issue fields, remote links, or attachments. They are stored as **issue-level entity properties** — a separate data layer that the standard issue view does not return.
-   - Retrieve the Atlassian site URL from `acli config list` or the authenticated site context, then hit the REST API directly using the Bash tool:
-     1. **List the issue's entity properties:**
-        ```bash
-        acli jira workitem view <JIRA-ID> --json
-        ```
-        Extract the site URL from the `self` link in the response, then:
-        ```bash
-        curl -s -H "Authorization: Bearer $(acli auth token)" \
-          "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/"
-        ```
-     2. **Identify the Figma property key:** In the response, look for a property key related to Figma (the exact key name varies by installation, but typically contains "figma" or "design").
-     3. **Fetch the Figma URL data:**
-        ```bash
-        curl -s -H "Authorization: Bearer $(acli auth token)" \
-          "https://<site>.atlassian.net/rest/api/3/issue/<JIRA-ID>/properties/<figma-property-key>"
-        ```
-        The response will contain the Figma design URL(s) and metadata.
-   - If the REST API calls fail (auth issues, no properties found, etc.), **continue** with the remaining information — this is a best-effort retrieval.
+   **b) Check associated designs via Atlassian GraphQL API:**
+   - Figma designs added via the "Add Design" button are **not** stored in standard issue fields, remote links, or attachments. They are stored as **associated designs** — a separate data layer accessible only through the Atlassian GraphQL API with basic auth.
+   - **OAuth tokens (from `acli`) do NOT work** for this query — the `designs` field is restricted to first-party clients. Basic auth with a personal API token through the tenanted endpoint is treated as first-party.
 
-   **c) Request design assets from the user:**
-   - If Figma URLs are found from either source:
-     - Display the Figma URLs to the developer and use `AskUserQuestion` to request design assets:
-       > Figma design link(s) found in the ticket:
-       > - <URL 1>
-       > - <URL 2>
+   - **Get credentials:**
+     - Check the `ATLASSIAN_EMAIL` and `ATLASSIAN_TOKEN` environment variables
+     - If either is missing, use `AskUserQuestion` to request them:
+       > To retrieve Figma designs linked to this ticket, I need your Atlassian credentials (basic auth — not OAuth).
        >
-       > Please export the relevant screens/components as PNG or SVG files and provide the file path(s).
-       > You can drag and drop the files into the chat, or provide absolute paths to already-exported files.
-     - Options: **"I've provided the files"**, **"Skip — no design assets needed"**
-     - If the developer provides file paths, read and analyze the PNG/SVG files to understand the design (layout, components, spacing, colors, typography, visual hierarchy, interaction states)
-     - Store the design data extracted from the images — it will be passed to the PO and design agents
-     - If the developer chooses to skip, **continue** with the remaining ticket information and note that Figma designs were referenced but no assets were provided
+       > - **Email**: Your Atlassian account email
+       > - **API Token**: A personal API token from https://id.atlassian.com/manage/api-tokens
+       >
+       > You can also set `ATLASSIAN_EMAIL` and `ATLASSIAN_TOKEN` environment variables to skip this step in the future.
+
+   - **Get the issue's numeric ID:**
+     - From the `acli jira workitem view <JIRA-ID> --json` response (already fetched in step 3), extract the numeric `id` field (not the key — e.g., `150983`, not `PROJ-123`)
+
+   - **Query the GraphQL API:**
+     ```bash
+     CLOUD_ID="d5b2094b-04bb-467d-b98e-f39df372f11b"
+     ISSUE_ID="<numeric-id>"
+     ISSUE_ARI="ari:cloud:jira:${CLOUD_ID}:issue/${ISSUE_ID}"
+     SITE_ARI="ari:cloud:jira::site/${CLOUD_ID}"
+     curl -s -u "${ATLASSIAN_EMAIL}:${ATLASSIAN_TOKEN}" \
+       -X POST \
+       -H "Content-Type: application/json" \
+       -H "X-Query-Context: ${SITE_ARI}" \
+       "https://tablecheck.atlassian.net/gateway/api/graphql" \
+       -d "{
+         \"query\": \"query GetDesigns { jira_issuesByIds(ids: [\\\"${ISSUE_ARI}\\\"]) { key designs @optIn(to: \\\"GraphStoreIssueAssociatedDesign\\\") { edges { node { ... on DevOpsDesign { displayName designUrl: url } } } } } }\"
+       }"
+     ```
+   - Extract all `designUrl` values from the response — these are the Figma URLs
+   - If the GraphQL call fails (auth issues, no designs found, etc.), **continue** with the remaining information — this is a best-effort retrieval
+
+   **c) Extract design information using `fcli`:**
+   - If Figma URLs are found from either source (step 4a or 4b):
+     1. **Validate that `fcli` is available:**
+        - Run `fcli auth status` to check if the CLI is installed and authenticated
+        - If `fcli` is not found, display the Figma URLs to the developer and use `AskUserQuestion` to request manual design assets (PNG/SVG files), then continue
+        - If `fcli` is not authenticated, try setting `FIGMA_ACCESS_TOKEN` env var if available, otherwise inform the developer and fall back to manual asset request
+
+     2. **For each Figma URL, extract design data:**
+
+        **File metadata:**
+        ```bash
+        fcli file info --url "<FIGMA_URL>" --json
+        ```
+        Retrieves file name, last modified date, and version info.
+
+        **Document tree (structure and layout):**
+        ```bash
+        fcli file inspect --url "<FIGMA_URL>" --depth 5
+        ```
+        Returns a human-readable tree showing the component hierarchy: `TYPE name [id]` with 2-space indentation per level. Use `--depth` to control tree depth (default is 3 for full files). For a specific node (URL with `node-id` param), the depth is unlimited by default.
+
+        For full structural detail (to understand exact properties, constraints, auto-layout settings):
+        ```bash
+        fcli file inspect --url "<FIGMA_URL>" --depth 5 --json
+        ```
+
+        **Export screenshots:**
+        ```bash
+        mkdir -p /tmp/<JIRA-ID>-figma
+        fcli file export --url "<FIGMA_URL>" --scale 2 --output /tmp/<JIRA-ID>-figma/
+        ```
+        Exports the node(s) referenced in the URL as PNG files (default format). If the URL contains a `node-id` query parameter, that specific node is exported. Use `--ids` to export multiple nodes: `--ids "1:2,3:4"`. Output files are named `{node-id}.png` (colons replaced with hyphens).
+
+        **List components (if the file is a component library or contains reusable components):**
+        ```bash
+        fcli components list --url "<FIGMA_URL>" --json
+        ```
+        Returns component names, node IDs, and descriptions — useful for mapping Figma components to codebase components.
+
+        **List styles (colors, typography, effects):**
+        ```bash
+        fcli styles list --url "<FIGMA_URL>" --json
+        ```
+        Returns style names, types (FILL, TEXT, EFFECT, GRID), and node IDs.
+
+     3. **Analyze the extracted design data:**
+        - Read the exported PNG screenshots to understand the visual design (layout, spacing, colors, typography, component structure, interaction states)
+        - Use the document tree to understand the component hierarchy and naming
+        - Use components and styles lists to map design tokens to existing codebase patterns
+        - Note: `fcli` uses `--url` to avoid shell quoting issues with Figma URLs containing `?` and `&`
+
+     4. **Store the design data** — the tree structure, screenshots paths, components, and styles will be passed to the PO, designer, test planner, and developer agents
+
    - If no Figma URLs are found from either source, skip this step silently
 
 5. **Determine the conventional commit prefix:**

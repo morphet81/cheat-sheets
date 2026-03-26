@@ -1,7 +1,7 @@
 ---
 name: verify-test-cases
-version: 1.3.0
-description: Verify test cases in all test files modified since branching out from base branch. Checks that test cases make sense, have no duplications, and provide meaningful coverage. Spawns parallel agents for multi-file analysis.
+version: 1.4.0
+description: Verify test cases in all test files modified since branching out from base branch. Checks that test cases make sense, have no duplications, and provide meaningful coverage. Spawns parallel agents for multi-file analysis. After the user confirms test-case changes, runs coverage and fixes tests until coverage passes.
 argument-hint: ""
 ---
 
@@ -126,7 +126,14 @@ Verify the quality and correctness of test cases in all test files modified sinc
 - Verdict: PASS / NEEDS ATTENTION
 ```
 
-7. **Handle edge cases:**
+7. **Coverage gate (mandatory after test-case changes are final):**
+   - Wait for the user to explicitly confirm that test-case work is done: either they approve your proposed edits (after you apply them), they confirm they applied changes themselves, or they confirm the report required no test changes and they are ready to proceed.
+   - From the repository root, run **`npm run test:coverage`**.
+   - If `npm run test:coverage` fails (non-zero exit, failing tests, or coverage thresholds not met per the project’s configuration), fix the tests (or adjust tests only when production code is correct and the test is wrong). Re-run **`npm run test:coverage`**. **Iterate until `npm run test:coverage` exits successfully.**
+   - Do not treat the verification report as complete until this step succeeds.
+   - If there is no `package.json` or no `test:coverage` script, tell the user the command is unavailable and STOP after the report (do not substitute a different command unless the user directs you to).
+
+8. **Handle edge cases:**
    - If there are no commits on the branch compared to the base branch, inform the user and STOP
    - If modified files include both test and source files, use the source files for context but only report on the test files
    - If a test file imports from files you can't find, note it but continue analysis

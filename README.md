@@ -27,7 +27,7 @@ Automation skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-co
 | **create-ticket** | Create JIRA tickets with optional Figma design links |
 | **update-jira-ticket** | Sync JIRA ticket descriptions with branch changes |
 | **setup-branch** | Create branch + worktree from a JIRA ID or URL |
-| **merge-base-branch** | Merge the parent branch into the current branch |
+| **merge-base-branch** | Pick base branch, merge, resolve conflicts, lint, 100% coverage tests, build |
 | **cleanup** | Review changes, fix lint/audit, ensure coverage, then commit |
 | **pre-push** | Parallel pre-push checks (tests, linting) |
 | **verify-test-cases** | Check test quality, duplications, and coverage |

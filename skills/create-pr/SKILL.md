@@ -1,11 +1,11 @@
 ---
 name: create-pr
-version: 1.6.0
-description: Push the current branch and create a pull request on GitHub. Derives PR title and description from the JIRA ticket found in the branch name. Draft by default, use --no-draft for a ready PR.
+version: 1.7.0
+description: Push the current branch and create a pull request on GitHub. When a JIRA ID is in the branch name, derives title and description from the ticket; otherwise still pushes and offers PR title options. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
 
-Push the current branch and create a GitHub pull request with title and description derived from the JIRA ticket in the branch name.
+Push the current branch and create a GitHub pull request. When the branch name contains a JIRA ID and the ticket can be loaded, the PR title and description follow the ticket. When there is no JIRA ID or the ticket cannot be fetched, still push the branch, propose several PR title options for the developer to choose from (or a custom title), then create the PR.
 
 **Usage:**
 - `/create-pr` - Push and create a draft PR
@@ -13,22 +13,7 @@ Push the current branch and create a GitHub pull request with title and descript
 
 **Instructions:**
 
-1. **Check prerequisites:**
-   - **Atlassian CLI (`acli`):** Run `acli auth status` to check if the CLI is installed and authenticated.
-     - If the command is not found, display the following message and **STOP**:
-       ```
-       ## Missing Prerequisite: Atlassian CLI
-
-       The `acli` command is not installed. This skill requires the Atlassian CLI to fetch JIRA issue details.
-
-       Install it with: brew tap atlassian/acli && brew install acli
-       ```
-     - If the command fails with an authentication error, display the following message and **STOP**:
-       ```
-       ## Missing Prerequisite: Atlassian CLI Authentication
-
-       The Atlassian CLI is not authenticated. Please run `acli auth login` to authenticate before using this skill.
-       ```
+1. **Check prerequisites (GitHub — always):**
    - **GitHub CLI (`gh`):** Run `gh --version`. If not found, display the following message and **STOP**:
      ```
      ## Missing Prerequisite: GitHub CLI
@@ -53,19 +38,30 @@ Push the current branch and create a GitHub pull request with title and descript
    - Extract the JIRA ID by matching the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
    - The JIRA ID can appear anywhere in the branch name (e.g., `fix/proj-123`, `feat/PROJ-123`, `PROJ-123-some-description`)
    - The match should be case-insensitive — normalize the extracted ID to uppercase for the JIRA API lookup
-   - If no JIRA ID is found, display the following message and **STOP**:
-     ```
-     No JIRA ID found in branch name: "<current-branch>"
-     Expected a branch name containing a JIRA ID (e.g., fix/proj-123, feat/MYAPP-456).
-     ```
+   - If no JIRA ID is found, continue without stopping — you will use the **no-JIRA-ticket path** after pushing (see step 7)
 
-4. **Fetch the JIRA ticket details:**
+4. **Fetch JIRA ticket details (only if a JIRA ID was found in step 3):**
+   - **Atlassian CLI (`acli`):** Run `acli auth status` to check if the CLI is installed and authenticated.
+     - If the command is not found, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI
+
+       The `acli` command is not installed. A JIRA ID was found in the branch name; install the CLI to load the ticket, or rename the branch to remove the JIRA ID if you want a PR without JIRA.
+
+       Install it with: brew tap atlassian/acli && brew install acli
+       ```
+     - If the command fails with an authentication error, display the following message and **STOP**:
+       ```
+       ## Missing Prerequisite: Atlassian CLI Authentication
+
+       The Atlassian CLI is not authenticated. Please run `acli auth login` to authenticate, or fix the branch/ticket access before continuing.
+       ```
    - Use the Atlassian CLI to retrieve the issue by its JIRA ID:
      ```bash
      acli jira workitem view <JIRA-ID> --fields summary,description,issuetype --json
      ```
-   - Extract: **summary**, **description**, **issue type** (Bug, Story, Task, etc.)
-   - If the fetch fails, ask the developer to provide the issue type and summary manually using `AskUserQuestion`
+   - If the command succeeds, extract **summary**, **description**, **issue type** (Bug, Story, Task, etc.) — you have **JIRA context** for step 7
+   - If the command fails (ticket missing, permission, network, etc.), inform the developer briefly and continue on the **no-JIRA-ticket path** in step 7 (do **not** stop). You may still know the raw `JIRA-ID` string for an optional link in the description if you can form a correct browse URL; otherwise omit it
 
 5. **Determine the base branch:**
    - Check if a `.agent` file exists in the current directory
@@ -108,6 +104,8 @@ Push the current branch and create a GitHub pull request with title and descript
    - If the push fails for any other reason (not a pre-push hook), show the error and **STOP**
 
 7. **Create the pull request:**
+
+   **If you have JIRA context from step 4 (successful fetch):**
    - Build the PR title using the commit prefix convention based on issue type, followed by a concise summary derived from the JIRA ticket summary:
      - Bug → `fix: <summary>` (e.g., `fix: resolve null pointer in user lookup`)
      - All other types → `feat: <summary>` (e.g., `feat: add bulk export for reports`)
@@ -115,25 +113,39 @@ Push the current branch and create a GitHub pull request with title and descript
    - Build the PR description from the JIRA ticket details:
      - Start with a `## Summary` section with a brief description based on the JIRA ticket description
      - Add a `## JIRA` section with a link to the ticket: `[PROJ-123](https://<site>.atlassian.net/browse/PROJ-123)`
-   - Run the `gh pr create` command:
-     - Use `--draft` flag unless `--no-draft` was passed. **Exception:** if the push in step 6 used `--no-verify`, always use `--draft` regardless of the `--no-draft` option, and inform the developer:
-       ```
-       ⚠️ PR created as draft because pre-push checks were skipped (--no-verify).
-       Mark it as ready for review after ensuring all checks pass.
-       ```
-     - Use `--base <base-branch>` with the branch determined in step 5
-     - Use a HEREDOC to pass the body
+   - Run `gh pr create` with that title and body (see below for shared flags)
+
+   **If you do not have JIRA context (no JIRA ID in branch, or fetch failed in step 4):**
+   - Gather hints: branch name (without remote prefixes), and the latest commit subject (e.g. `git log -1 --pretty=%s`); optionally the first line of the commit body
+   - Use `AskUserQuestion` so the developer **chooses a PR title** before `gh pr create`. Present **at least three distinct options**, for example:
+     - A conventional title derived from the branch slug (imperative, lowercase phrase after `feat:`, `fix:`, or `chore:` — pick `fix:` if the branch suggests a bugfix, else prefer `feat:` unless the change is clearly chore/docs-only, then `chore:`)
+     - A title based on the latest commit subject (adjust to conventional form if needed)
+     - A shorter or alternative wording
+     - Plus an option for the developer to **enter a custom title** (free text), if your tool supports it
+   - After the developer selects a title, build the PR description:
+     - `## Summary` — brief explanation from the branch name and recent commit message(s); if a JIRA ID was known but the ticket could not be loaded, you may add a sentence noting the intended ticket key
+     - Omit the `## JIRA` section unless you have a reliable browse URL for a known key
+   - Run `gh pr create` with the chosen title and that body
+
+   **Shared `gh pr create` behavior:**
+   - Use `--draft` flag unless `--no-draft` was passed. **Exception:** if the push in step 6 used `--no-verify`, always use `--draft` regardless of the `--no-draft` option, and inform the developer:
+     ```
+     ⚠️ PR created as draft because pre-push checks were skipped (--no-verify).
+     Mark it as ready for review after ensuring all checks pass.
+     ```
+   - Use `--base <base-branch>` with the branch determined in step 5
+   - Use a HEREDOC to pass the body
    - If PR creation fails, show the error and **STOP**
 
 8. **Show success message:**
 
-   Display a summary with all relevant information:
+   Display a summary with all relevant information. When JIRA context was used, include the ticket key and link. When it was not, state that no JIRA ticket was attached (or list the key only if you referenced it in the description without a full ticket load):
 
    ```
    ## PR Created
 
-   - JIRA: PROJ-123
-   - Branch: fix/proj-123 → main
+   - JIRA: PROJ-123 (or "none" / key only if applicable)
+   - Branch: my-branch → main
    - PR: https://github.com/org/repo/pull/42 (draft)
-   - Title: fix: resolve null pointer in user lookup
+   - Title: <chosen title>
    ```

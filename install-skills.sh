@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Claude Code & Cursor Skills & Scripts Installer
-# Downloads skills from the cheat-sheets repository to ~/.claude/skills and ~/.cursor/skills
+# Downloads skills from the cheat-sheets repository to ~/.claude/skills and ~/.cursor/skills-cursor
 # Downloads scripts to ~/.scripts and symlinks them into /usr/local/bin
 # Skills are auto-discovered by Claude Code and Cursor - no CLAUDE.md references needed
 
@@ -12,7 +12,7 @@ REPO_OWNER="morphet81"
 REPO_NAME="cheat-sheets"
 BRANCH="main"
 SKILLS_DIR="$HOME/.claude/skills"
-CURSOR_SKILLS_DIR="$HOME/.cursor/skills"
+CURSOR_SKILLS_DIR="$HOME/.cursor/skills-cursor"
 SCRIPTS_DIR="$HOME/.scripts"
 SYMLINK_DIR="/usr/local/bin"
 GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"

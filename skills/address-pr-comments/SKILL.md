@@ -1,7 +1,7 @@
 ---
 name: address-pr-comments
-version: 1.1.0
-description: Retrieve unresolved PR review comments and general conversation comments, explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes. After committing, respond to each comment on GitHub with resolution details.
+version: 1.2.0
+description: Retrieve unresolved PR review comments and general conversation comments (including actionable notes from the PR author), explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes. After committing, respond to each comment on GitHub with resolution details.
 argument-hint: ""
 ---
 
@@ -22,7 +22,7 @@ Retrieve unresolved review comments and general conversation comments from the c
 
 2. **Identify the PR for the current branch:**
    - Run `git branch --show-current` to get the current branch name
-   - Run `gh pr view --json number,title,url,state,baseRefName` to find the PR associated with the current branch
+   - Run `gh pr view --json number,title,url,state,baseRefName,author` to find the PR associated with the current branch and record the PR author's login (`author.login`) for step 3b
    - If no PR exists, display the following and **STOP**:
      ```
      No pull request found for branch "<current-branch>".
@@ -79,9 +79,10 @@ Retrieve unresolved review comments and general conversation comments from the c
      gh api repos/{owner}/{repo}/issues/{pr_number}/comments --paginate
      ```
    - **Filter out** comments that should NOT be addressed:
-     - Comments by the PR author (they wrote the PR — these are self-notes or responses)
      - Comments by bots (author `type` is `"Bot"`, or login ends with `[bot]`)
      - Comments that are purely approval/acknowledgement (e.g., "LGTM", "Looks good", ":+1:")
+   - **PR author comments:** Do **not** exclude the PR author by default. Authors often leave **actionable** conversation notes for collaborators or automation (e.g. re-run CI, regenerate visual snapshots, "please review X"). Include those.
+   - **Optional skip for author noise:** If the comment's `user.login` matches the PR author's `author.login` from step 2 **and** the body is clearly non-actionable, skip it — e.g. only a commit URL, only "Done" / "Fixed" / "Pushed" with no remaining ask, or empty/emoji-only.
    - For each remaining general comment, record:
      - Comment ID (for replying later — `id` field)
      - Author
@@ -132,7 +133,7 @@ Retrieve unresolved review comments and general conversation comments from the c
    ```
    ## Comment <N>/<total> — [General] — @<author>
 
-   ### Reviewer said:
+   ### Comment:
    > <full comment body>
 
    ### Context:
@@ -339,3 +340,4 @@ Retrieve unresolved review comments and general conversation comments from the c
     - If a developer agent fails or produces incorrect changes, attempt the fix directly or ask the developer for guidance
     - If a general comment is vague or doesn't clearly reference any code (e.g., "Can we discuss the approach?"), categorize it as **Discussion** and propose a reply addressing the concern based on the PR's changes
     - If a general comment has already been answered by another comment in the thread (someone else replied), skip it and note it as already addressed
+    - If a PR author comment is **workflow-only** (e.g. update snapshots, re-run visual tests, trigger CI), treat it as **Code change** or **Suggestion** depending on the repo: propose the exact commands or test targets (e.g. Playwright `--update-snapshots`, Percy, etc.) after checking `package.json` / CI config

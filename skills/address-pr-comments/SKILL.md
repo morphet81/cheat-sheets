@@ -1,6 +1,6 @@
 ---
 name: address-pr-comments
-version: 1.2.0
+version: 1.3.0
 description: Retrieve unresolved PR review comments and general conversation comments (including actionable notes from the PR author), explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes. After committing, respond to each comment on GitHub with resolution details.
 argument-hint: ""
 ---
@@ -72,6 +72,7 @@ Retrieve unresolved review comments and general conversation comments from the c
      - Full comment thread (original comment + all replies)
      - Author(s)
      - The URL of the first comment in the thread (for linking in replies)
+   - Within each thread, ignore replies whose body ends with `[Agent response]` — these are prior agent responses, not reviewer comments to address. However, the thread itself still needs to be addressed if it remains unresolved.
 
    **b) Retrieve general conversation comments:**
    - Fetch general PR comments (issue comments) using the REST API:
@@ -80,6 +81,7 @@ Retrieve unresolved review comments and general conversation comments from the c
      ```
    - **Filter out** comments that should NOT be addressed:
      - Comments by bots (author `type` is `"Bot"`, or login ends with `[bot]`)
+     - Comments whose body ends with `[Agent response]` (prior agent responses — not new comments to address)
      - Comments that are purely approval/acknowledgement (e.g., "LGTM", "Looks good", ":+1:")
    - **PR author comments:** Do **not** exclude the PR author by default. Authors often leave **actionable** conversation notes for collaborators or automation (e.g. re-run CI, regenerate visual snapshots, "please review X"). Include those.
    - **Optional skip for author noise:** If the comment's `user.login` matches the PR author's `author.login` from step 2 **and** the body is clearly non-actionable, skip it — e.g. only a commit URL, only "Done" / "Fixed" / "Pushed" with no remaining ask, or empty/emoji-only.
@@ -154,6 +156,11 @@ Retrieve unresolved review comments and general conversation comments from the c
    identify the files and describe exactly what will change. If it's a question or discussion,
    draft the reply. If no action is needed, explain why.>
    ```
+
+   **For comments that appear already addressed or invalid:**
+   - If the issue described in the comment has already been fixed in the current code, categorize as **Already addressed** and note the existing code that resolves it
+   - If the comment is invalid (references outdated code, misunderstands the implementation, etc.), categorize as **Invalid** and explain why
+   - These comments still require a response on GitHub (step 10) — the response should acknowledge the comment and explain why no further action is needed
 
    After presenting **all** comments, use `AskUserQuestion` to ask:
    > I've presented all <N> unresolved comments with proposed fixes. You can:
@@ -306,6 +313,9 @@ Retrieve unresolved review comments and general conversation comments from the c
     - Keep replies professional and concise
     - Start with a brief summary (e.g., "Fixed — ...", "Good catch — ...", "No change needed — ...")
     - Include code references with line numbers when relevant
+    - **Always append `[Agent response]` on a new line at the end of every reply.** This tag identifies automated responses and allows future runs to skip already-handled comments
+    - For already-addressed comments, reply explaining that the issue was already resolved (reference the relevant code or commit)
+    - For invalid comments, reply respectfully explaining why the comment does not apply
 
 11. **Clean up and report:**
 

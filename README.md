@@ -18,8 +18,25 @@ Interactive HTML reference pages for keyboard shortcuts and commands:
 
 Automation skills for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), stored in `skills/<name>/SKILL.md`. Full documentation available in [claude-skills.html](claude-skills.html).
 
+### Install via [`skills`](https://www.npmjs.com/package/skills) CLI
+
+```bash
+# List available skills
+npx skills add morphet81/cheat-sheets --list
+
+# Install all skills
+npx skills add morphet81/cheat-sheets --all
+
+# Install specific skills
+npx skills add morphet81/cheat-sheets --skill create-pr --skill cleanup
+
+# Install globally (available across all projects)
+npx skills add morphet81/cheat-sheets --all -g
+```
+
 | Skill | Description |
 |-------|-------------|
+| **address-github-issue** | Retrieve a GitHub issue, analyze it, and spawn a PM + developer team |
 | **address-ticket** | End-to-end ticket implementation with TDD using a multi-agent team |
 | **address-pr-comments** | Retrieve PR comments, propose fixes, and implement them |
 | **review-changes** | Spawn 8 specialized reviewer agents for code/PR review |

@@ -1,25 +1,29 @@
 ---
 name: review-changes
-version: 3.6.0
-description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). Spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
-argument-hint: "[base-branch] or <PR number or URL> [repository]"
+version: 3.7.0
+description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). By default, performs a solo review covering all focus areas. With `--team`, spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
+argument-hint: "[--team] [base-branch] or <PR number or URL> [repository]"
 ---
 
 Review code changes in two modes: **local branch review** or **PR review**.
 
 **Usage:**
-- `/review-changes` — Compare current branch against `main`
-- `/review-changes <branch>` — Compare current branch against specified branch
-- `/review-changes <PR-number>` — Review PR in current repo
-- `/review-changes <PR-number> <owner/repo>` — Review PR in specific repo
-- `/review-changes <PR-URL>` — Review PR by URL
+- `/review-changes` — Compare current branch against `main` (solo review)
+- `/review-changes <branch>` — Compare current branch against specified branch (solo review)
+- `/review-changes --team` — Compare current branch against `main` with a team of 8 specialist agents
+- `/review-changes --team <branch>` — Compare against specified branch with a team
+- `/review-changes <PR-number>` — Review PR in current repo (solo review)
+- `/review-changes <PR-number> <owner/repo>` — Review PR in specific repo (solo review)
+- `/review-changes <PR-URL>` — Review PR by URL (solo review)
+- Add `--team` to any command above to spawn a specialized review team instead of reviewing solo
 
 **Instructions:**
 
 1. **Parse arguments and determine mode:**
 
-   - If `$ARGUMENTS` contains a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
-   - If `$ARGUMENTS` is a pure number (e.g., `1654`) → **PR mode** (use as PR number; if a second argument is provided, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
+   - First, check if `$ARGUMENTS` contains `--team`. If so, set **team mode = true** and remove `--team` from the arguments before further parsing. Otherwise, set **team mode = false** (solo review).
+   - If the remaining arguments contain a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
+   - If the remaining arguments are a pure number (e.g., `1654`) → **PR mode** (use as PR number; if a second argument is provided, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
    - Otherwise → **local branch mode**:
      - If an argument is provided, use it as the base branch
      - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=<value>` line, use that value
@@ -36,15 +40,16 @@ Review code changes in two modes: **local branch review** or **PR review**.
    - Run `git log <base-branch>..HEAD --oneline` to see commit history
    - Run `git diff --name-only <base-branch>...HEAD` to get the list of changed files
 
-3. **Spawn the review team** (see [Step 3: Spawn the review team](#step-3-spawn-the-review-team) below)
+3. **Review the changes:**
 
-4. **Review, consolidation, output** (see [Steps 4-6](#steps-4-6-review-consolidation-output) below)
+   - **If team mode:** Spawn the review team (see [Step 3: Spawn the review team](#step-3-spawn-the-review-team) below), then follow [Steps 4-6](#steps-4-6-review-consolidation-output) for review, consolidation, and output.
+   - **If solo mode:** Perform the review yourself (see [Solo Review](#solo-review) below).
 
-5. **Address findings locally:**
+4. **Address findings locally:**
 
-   After presenting the consolidated review, ask the user which findings they want addressed using `AskUserQuestion`. The team fixes the selected issues locally in the code.
+   After presenting the review, ask the user which findings they want addressed using `AskUserQuestion`. If in team mode, the team fixes the selected issues locally. If in solo mode, fix them yourself.
 
-6. **Cleanup** (see [Step 8: Cleanup](#step-8-cleanup) below)
+5. **Cleanup** (team mode only) (see [Step 8: Cleanup](#step-8-cleanup) below)
 
 ---
 
@@ -119,17 +124,21 @@ Review code changes in two modes: **local branch review** or **PR review**.
    - **Compile the exclusion list** with: file path + line (if applicable), summary of the issue raised, author.
    - **Store all unresolved threads** (with their thread IDs) separately — these will be used in step 5b to post replies.
 
-3. **Spawn the review team** (see [Step 3: Spawn the review team](#step-3-spawn-the-review-team) below)
+3. **Review the changes:**
 
-   **PR mode additions:**
+   - **If team mode:** Spawn the review team (see [Step 3: Spawn the review team](#step-3-spawn-the-review-team) below), then follow [Steps 4-6](#steps-4-6-review-consolidation-output) for review, consolidation, and output.
+   - **If solo mode:** Perform the review yourself (see [Solo Review](#solo-review) below), incorporating the exclusion list to avoid duplicating existing review comments.
+
+   **PR mode additions (team mode only):**
    - All reviewers also receive the exclusion list with instructions: "Do NOT report these issues — they have already been raised in existing reviews or unresolved comments. However, for each excluded comment relevant to your focus area, provide a brief assessment: do you agree with the comment, and is the issue still present in the current code? Report these assessments to `senior-lead` separately from your new findings."
    - If a Jira ticket was found, spawn a 9th agent: `ticket-compliance` (see table below)
 
-4. **Review, consolidation, output** (see [Steps 4-6](#steps-4-6-review-consolidation-output) below)
+4. **Review, consolidation, output** (team mode: see [Steps 4-6](#steps-4-6-review-consolidation-output) below; solo mode: see [Solo Review](#solo-review) below)
 
    **PR mode additions to consolidation:**
    - Re-check all findings against the exclusion list — remove any finding that overlaps with existing reviews or unresolved comments
-   - If a `ticket-compliance` agent participated, include a "Ticket Compliance" section in the report noting any gaps between the code changes and the Jira ticket requirements
+   - If a `ticket-compliance` agent participated (team mode), include a "Ticket Compliance" section in the report noting any gaps between the code changes and the Jira ticket requirements
+   - In solo mode with a Jira ticket, include a "Ticket Compliance" section yourself by comparing the changes against the ticket requirements
 
 5. **Post findings as PR review comments:**
 
@@ -289,11 +298,32 @@ Review code changes in two modes: **local branch review** or **PR review**.
    ...
    ```
 
-6. **Cleanup** (see [Step 8: Cleanup](#step-8-cleanup) below)
+6. **Cleanup** (team mode only) (see [Step 8: Cleanup](#step-8-cleanup) below)
 
 ---
 
 ## Shared Steps
+
+### Solo Review
+
+When **team mode is false**, perform the review yourself without spawning any agents or teams. Cover all focus areas in a single pass:
+
+- **Code Quality**: Bugs, edge cases, error handling issues. Think about data conflicts and overlaps — what happens when two items occupy the same slot, time range, or index?
+- **Security**: Vulnerabilities — injection, XSS, secrets exposure, auth issues
+- **Performance**: Inefficiencies, bottlenecks, unnecessary allocations, resource usage
+- **Best Practices**: Coding standards, design patterns, conventions, code consistency. Check new code against conventions in sibling files. Flag hardcoded values that should use existing constants/variables. Flag dead or unreachable code.
+- **Testing**: Missing tests for new or changed functionality. Check that test descriptions describe behavior, assertions are resilient, and there are no duplicate test cases.
+- **Documentation**: Missing or outdated documentation, inline comment gaps
+
+**Convention check:** Before reporting findings, scan the directory of each changed file to identify sibling files. Note any conventions (naming, patterns, utilities, shared variables) that the new code should follow but doesn't.
+
+**Only report potential issues.** Do NOT include findings that conclude with "no action needed" or "looks good". Every finding must identify a concrete problem, risk, or improvement opportunity.
+
+Use the same output format as the team mode (see [Steps 4-6](#steps-4-6-review-consolidation-output) output format).
+
+In PR mode, also incorporate the exclusion list — do not report issues already raised in existing reviews or unresolved comments.
+
+---
 
 ### Step 3: Spawn the review team
 

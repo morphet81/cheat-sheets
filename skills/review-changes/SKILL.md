@@ -1,6 +1,6 @@
 ---
 name: review-changes
-version: 3.7.0
+version: 3.7.1
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). By default, performs a solo review covering all focus areas. With `--team`, spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: "[--team] [base-branch] or <PR number or URL> [repository]"
 ---
@@ -21,13 +21,13 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
 1. **Parse arguments and determine mode:**
 
-   - First, check if `$ARGUMENTS` contains `--team`. If so, set **team mode = true** and remove `--team` from the arguments before further parsing. Otherwise, set **team mode = false** (solo review).
-   - If the remaining arguments contain a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
-   - If the remaining arguments are a pure number (e.g., `1654`) → **PR mode** (use as PR number; if a second argument is provided, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
+   - If `$1` is `--team`, set **team mode = true** and treat `$2` as the target argument. Otherwise, set **team mode = false** (solo review) and treat `$1` as the target argument.
+   - If the target argument is a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
+   - If the target argument is a pure number (e.g., `1654`) → **PR mode** (use as PR number; if an additional argument is provided after it, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
    - Otherwise → **local branch mode**:
-     - If an argument is provided, use it as the base branch
+     - If the target argument is provided, use it as the base branch
      - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=<value>` line, use that value
-     - If no argument and no `.agent` file, default to `main`
+     - If no target argument and no `.agent` file, default to `main`
 
 ---
 

@@ -425,7 +425,7 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v3.7.0</span>
+                            <span class="skill-version">v3.7.1</span>
                         </div>
                         <p class="skill-description">
                             Review code changes in two modes — local branch review or PR review.
@@ -457,7 +457,7 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 3.7.0
+version: 3.7.1
 description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). By default, performs a solo review covering all focus areas. With `--team`, spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
 argument-hint: &quot;[--team] [base-branch] or &lt;PR number or URL&gt; [repository]&quot;
 ---
@@ -478,13 +478,13 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
 1. **Parse arguments and determine mode:**
 
-   - First, check if `$ARGUMENTS` contains `--team`. If so, set **team mode = true** and remove `--team` from the arguments before further parsing. Otherwise, set **team mode = false** (solo review).
-   - If the remaining arguments contain a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
-   - If the remaining arguments are a pure number (e.g., `1654`) → **PR mode** (use as PR number; if a second argument is provided, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
+   - If `$1` is `--team`, set **team mode = true** and treat `$2` as the target argument. Otherwise, set **team mode = false** (solo review) and treat `$1` as the target argument.
+   - If the target argument is a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
+   - If the target argument is a pure number (e.g., `1654`) → **PR mode** (use as PR number; if an additional argument is provided after it, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
    - Otherwise → **local branch mode**:
-     - If an argument is provided, use it as the base branch
+     - If the target argument is provided, use it as the base branch
      - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=&lt;value&gt;` line, use that value
-     - If no argument and no `.agent` file, default to `main`
+     - If no target argument and no `.agent` file, default to `main`
 
 ---
 
@@ -1591,7 +1591,7 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                         <div class="skill-title">
                             <h3>Create PR</h3>
                             <code>/create-pr</code>
-                            <span class="skill-version">v1.7.0</span>
+                            <span class="skill-version">v1.7.1</span>
                         </div>
                         <p class="skill-description">
                             Push the current branch and create a GitHub pull request.
@@ -1621,9 +1621,9 @@ Create a new git branch and worktree from a JIRA ticket. Automatically names the
                             <div class="file-content">
                                 <pre id="create-pr-content">---
 name: create-pr
-version: 1.7.0
+version: 1.7.1
 description: Push the current branch and create a pull request on GitHub. When a JIRA ID is in the branch name, derives title and description from the ticket; otherwise still pushes and offers PR title options. Draft by default, use --no-draft for a ready PR.
-argument-hint: "[--no-draft]"
+argument-hint: &quot;[--no-draft]&quot;
 ---
 
 Push the current branch and create a GitHub pull request. When the branch name contains a JIRA ID and the ticket can be loaded, the PR title and description follow the ticket. When there is no JIRA ID or the ticket cannot be fetched, still push the branch, propose several PR title options for the developer to choose from (or a custom title), then create the PR.
@@ -1634,7 +1634,7 @@ Push the current branch and create a GitHub pull request. When the branch name c
 
 **Instructions:**
 
-1. **Check prerequisites (GitHub &mdash; always):**
+1. **Check prerequisites (GitHub — always):**
    - **GitHub CLI (`gh`):** Run `gh --version`. If not found, display the following message and **STOP**:
      ```
      ## Missing Prerequisite: GitHub CLI
@@ -1650,16 +1650,16 @@ Push the current branch and create a GitHub pull request. When the branch name c
      The GitHub CLI is not authenticated. Please run `gh auth login` to authenticate before using this skill.
      ```
 
-2. **Parse options from $ARGUMENTS:**
-   - If `--no-draft` is present, the PR will be created as ready for review
-   - Otherwise (default), the PR will be created as a draft
+2. **Parse options:**
+   - If `$1` is `--no-draft`, the PR will be created as ready for review
+   - Otherwise (default, no arguments), the PR will be created as a draft
 
 3. **Get the current branch and extract the JIRA ID:**
    - Run `git branch --show-current` to get the current branch name
    - Extract the JIRA ID by matching the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
    - The JIRA ID can appear anywhere in the branch name (e.g., `fix/proj-123`, `feat/PROJ-123`, `PROJ-123-some-description`)
-   - The match should be case-insensitive &mdash; normalize the extracted ID to uppercase for the JIRA API lookup
-   - If no JIRA ID is found, continue without stopping &mdash; you will use the **no-JIRA-ticket path** after pushing (see step 7)
+   - The match should be case-insensitive — normalize the extracted ID to uppercase for the JIRA API lookup
+   - If no JIRA ID is found, continue without stopping — you will use the **no-JIRA-ticket path** after pushing (see step 7)
 
 4. **Fetch JIRA ticket details (only if a JIRA ID was found in step 3):**
    - **Atlassian CLI (`acli`):** Run `acli auth status` to check if the CLI is installed and authenticated.
@@ -1681,16 +1681,16 @@ Push the current branch and create a GitHub pull request. When the branch name c
      ```bash
      acli jira workitem view &lt;JIRA-ID&gt; --fields summary,description,issuetype --json
      ```
-   - If the command succeeds, extract **summary**, **description**, **issue type** (Bug, Story, Task, etc.) &mdash; you have **JIRA context** for step 7
+   - If the command succeeds, extract **summary**, **description**, **issue type** (Bug, Story, Task, etc.) — you have **JIRA context** for step 7
    - If the command fails (ticket missing, permission, network, etc.), inform the developer briefly and continue on the **no-JIRA-ticket path** in step 7 (do **not** stop). You may still know the raw `JIRA-ID` string for an optional link in the description if you can form a correct browse URL; otherwise omit it
 
 5. **Determine the base branch:**
    - Check if a `.agent` file exists in the current directory
    - If it exists, read it and look for a `baseBranch=&lt;value&gt;` line to extract the base branch
    - Use `AskUserQuestion` to let the developer choose the base branch:
-     - If a base branch was found in `.agent`: first option is that branch with "(from .agent)" suffix, second option is `main` (if different)
+     - If a base branch was found in `.agent`: first option is that branch with &quot;(from .agent)&quot; suffix, second option is `main` (if different)
      - If no `.agent` file or no `baseBranch` key: first option is `main`
-     - The developer can type a different branch name via the "Other" option if the PR targets a different base branch
+     - The developer can type a different branch name via the &quot;Other&quot; option if the PR targets a different base branch
 
 6. **Push the branch:**
 
@@ -1698,18 +1698,18 @@ Push the current branch and create a GitHub pull request. When the branch name c
 
    **If creating a draft PR (no `--no-draft` option):**
    - Run `git push -u origin &lt;branch-name&gt; --no-verify`
-   - Since this is a draft PR, pre-push checks can be skipped &mdash; they will run in CI and the developer will address any issues before marking the PR as ready
+   - Since this is a draft PR, pre-push checks can be skipped — they will run in CI and the developer will address any issues before marking the PR as ready
    - If the push fails, show the error and **STOP**
 
    **If creating a ready-for-review PR (`--no-draft` was passed):**
    - Run `git push -u origin &lt;branch-name&gt;`
-   - If the branch is already up to date on the remote, that's fine &mdash; continue to the next step
+   - If the branch is already up to date on the remote, that&#x27;s fine — continue to the next step
    - If the push fails due to a **pre-push hook** (look for signs like `husky`, `pre-push`, hook script output, or interactive prompts in the error output):
 
      **a) Offer to bypass with `--no-verify`:**
      - Use `AskUserQuestion` to ask the developer:
        &gt; The push was blocked by a pre-push hook. Would you like to bypass it with `--no-verify`?
-     - Options: **Yes &mdash; push with --no-verify** and **No &mdash; resolve the pre-push hook**
+     - Options: **Yes — push with --no-verify** and **No — resolve the pre-push hook**
 
      **b) If the developer chooses `--no-verify`:**
      - Run `git push -u origin &lt;branch-name&gt; --no-verify`
@@ -1718,7 +1718,7 @@ Push the current branch and create a GitHub pull request. When the branch name c
 
      **c) If the developer chooses to resolve the hook:**
      - Show the full pre-push hook output to the developer so they can see what is being asked or what failed
-     - If the hook output contains a prompt or question (e.g., "Do you want to continue? [y/n]"), present the options to the developer using `AskUserQuestion` and use their answer to interact with the hook
+     - If the hook output contains a prompt or question (e.g., &quot;Do you want to continue? [y/n]&quot;), present the options to the developer using `AskUserQuestion` and use their answer to interact with the hook
      - Re-run `git push -u origin &lt;branch-name&gt;` after resolving
      - If the push still fails, show the error and **STOP**
 
@@ -1728,8 +1728,8 @@ Push the current branch and create a GitHub pull request. When the branch name c
 
    **If you have JIRA context from step 4 (successful fetch):**
    - Build the PR title using the commit prefix convention based on issue type, followed by a concise summary derived from the JIRA ticket summary:
-     - Bug &rarr; `fix: &lt;summary&gt;` (e.g., `fix: resolve null pointer in user lookup`)
-     - All other types &rarr; `feat: &lt;summary&gt;` (e.g., `feat: add bulk export for reports`)
+     - Bug → `fix: &lt;summary&gt;` (e.g., `fix: resolve null pointer in user lookup`)
+     - All other types → `feat: &lt;summary&gt;` (e.g., `feat: add bulk export for reports`)
      - The summary part should be lowercase, imperative mood, and concise
    - Build the PR description from the JIRA ticket details:
      - Start with a `## Summary` section with a brief description based on the JIRA ticket description
@@ -1739,12 +1739,12 @@ Push the current branch and create a GitHub pull request. When the branch name c
    **If you do not have JIRA context (no JIRA ID in branch, or fetch failed in step 4):**
    - Gather hints: branch name (without remote prefixes), and the latest commit subject (e.g. `git log -1 --pretty=%s`); optionally the first line of the commit body
    - Use `AskUserQuestion` so the developer **chooses a PR title** before `gh pr create`. Present **at least three distinct options**, for example:
-     - A conventional title derived from the branch slug (imperative, lowercase phrase after `feat:`, `fix:`, or `chore:` &mdash; pick `fix:` if the branch suggests a bugfix, else prefer `feat:` unless the change is clearly chore/docs-only, then `chore:`)
+     - A conventional title derived from the branch slug (imperative, lowercase phrase after `feat:`, `fix:`, or `chore:` — pick `fix:` if the branch suggests a bugfix, else prefer `feat:` unless the change is clearly chore/docs-only, then `chore:`)
      - A title based on the latest commit subject (adjust to conventional form if needed)
      - A shorter or alternative wording
      - Plus an option for the developer to **enter a custom title** (free text), if your tool supports it
    - After the developer selects a title, build the PR description:
-     - `## Summary` &mdash; brief explanation from the branch name and recent commit message(s); if a JIRA ID was known but the ticket could not be loaded, you may add a sentence noting the intended ticket key
+     - `## Summary` — brief explanation from the branch name and recent commit message(s); if a JIRA ID was known but the ticket could not be loaded, you may add a sentence noting the intended ticket key
      - Omit the `## JIRA` section unless you have a reliable browse URL for a known key
    - Run `gh pr create` with the chosen title and that body
 
@@ -1765,8 +1765,8 @@ Push the current branch and create a GitHub pull request. When the branch name c
    ```
    ## PR Created
 
-   - JIRA: PROJ-123 (or "none" / key only if applicable)
-   - Branch: my-branch &rarr; main
+   - JIRA: PROJ-123 (or &quot;none&quot; / key only if applicable)
+   - Branch: my-branch → main
    - PR: https://github.com/org/repo/pull/42 (draft)
    - Title: &lt;chosen title&gt;
    ```
@@ -2165,7 +2165,7 @@ Take screenshots of components affected by recent changes, either from the runni
                         <div class="skill-title">
                             <h3>Address Ticket</h3>
                             <code>/address-ticket</code>
-                            <span class="skill-version">v3.7.0</span>
+                            <span class="skill-version">v3.9.0</span>
                         </div>
                         <p class="skill-description">
                             Read the JIRA ticket associated with the current branch and drive it to full implementation
@@ -2197,7 +2197,7 @@ Take screenshots of components affected by recent changes, either from the runni
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
-version: 3.7.0
+version: 3.9.0
 description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green). Use --no-jira to skip JIRA retrieval and use inline instructions instead.
 argument-hint: &quot;[--no-jira] [instructions]&quot;
 ---
@@ -2212,21 +2212,20 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 ## Phase 0 — Check for `--no-jira` mode
 
-0. **Parse the arguments for `--no-jira`:**
-   - Check if the user passed `--no-jira` as an argument
-   - If `--no-jira` is present:
-     - Extract all remaining text after `--no-jira` as the **user instructions** — this is the ticket context (what to build, fix, or change)
-     - If no instructions are provided after `--no-jira`, use `AskUserQuestion` to ask the developer to describe the task:
+0. **Check if `$1` is `--no-jira`:**
+   - If `$1` is `--no-jira`:
+     - `$2` is the **user instructions** — the ticket context (what to build, fix, or change)
+     - If `$2` is empty, use `AskUserQuestion` to ask the developer to describe the task:
        &gt; You used `--no-jira` but didn&#x27;t provide instructions. Please describe what needs to be implemented.
      - **Skip the following steps entirely:** steps 1 (acli validation), 2 (JIRA ID extraction), 3 (JIRA ticket fetch), 4 (Figma retrieval), 8 (lore file maintenance), and all of Phase 4 (steps 18–19&#x27;s JIRA update parts)
-     - **Continue with:** step 5 (conventional commit prefix — deduce from the user instructions and branch name), step 6 (codebase analysis — use the user instructions as the ticket context), step 7 (splitting evaluation — use the user instructions)
-     - For all subsequent phases, use the **user instructions** wherever the skill normally references &quot;the JIRA ticket content&quot; or &quot;ticket fields&quot;
+     - **Continue with:** step 5 (conventional commit prefix — deduce from `$2` and the branch name), step 6 (codebase analysis — use `$2` as the ticket context), step 7 (splitting evaluation — use `$2`)
+     - For all subsequent phases, use `$2` wherever the skill normally references &quot;the JIRA ticket content&quot; or &quot;ticket fields&quot;
      - In the final report (step 19), replace the &quot;JIRA Ticket&quot; section with:
        ```
        ### Source
        - Mode: --no-jira (user instructions)
        ```
-   - If `--no-jira` is NOT present, proceed normally to step 1
+   - If `$1` is not `--no-jira` (or no arguments were provided), proceed normally to step 1
 
 ## Phase 1 — Gather Context
 
@@ -2952,7 +2951,7 @@ JIRA does **not** render Markdown. Descriptions must use **Atlassian Document Fo
 | Code block | `codeBlock` with `attrs.language` | |
 | `---` | `rule` | Horizontal rule |
 | `[link](url)` | `text` with `marks: [{&quot;type&quot;: &quot;link&quot;, &quot;attrs&quot;: {&quot;href&quot;: &quot;url&quot;}}]` | |
-
+</pre>
                             </div>
                         </div>
                     </div>
@@ -2964,7 +2963,7 @@ JIRA does **not** render Markdown. Descriptions must use **Atlassian Document Fo
                         <div class="skill-title">
                             <h3>Localise</h3>
                             <code>/localise</code>
-                            <span class="skill-version">v1.1.0</span>
+                            <span class="skill-version">v1.1.1</span>
                         </div>
                         <p class="skill-description">
                             Generate an interactive HTML translation page and a companion Markdown table for Lokalise
@@ -2992,7 +2991,7 @@ JIRA does **not** render Markdown. Descriptions must use **Atlassian Document Fo
                             <div class="file-content">
                                 <pre id="localise-content">---
 name: localise
-version: 1.1.0
+version: 1.1.1
 description: Generate an HTML translation helper page for Lokalise. Use when the user provides English text (singular/plural) and wants translations across all 23 supported languages, rendered as an interactive HTML page with copy buttons. Triggers on phrases like &quot;translate for Lokalise&quot;, &quot;generate translations&quot;, &quot;translation table&quot;, or when the user provides English strings and mentions languages/i18n/localization.
 argument-hint: &quot;&lt;english singular&gt; [| &lt;english plural&gt;]&quot;
 ---
@@ -3009,13 +3008,15 @@ Generate an interactive HTML translation page for pasting translations into Loka
 
 ## Input
 
-The user provides:
-1. **Key name** (optional): e.g. `tables::selected_count`. If not given, derive from the English string.
-2. **English singular**: e.g. `%{count} table selected`
-3. **English plural** (optional): e.g. `%{count} tables selected`
-4. **Variables**: Strings may contain `%{variable_name}` interpolation tokens. Preserve these exactly in all translations.
+Parse `$ARGUMENTS` as the English text to translate. The format is `&lt;english singular&gt; [| &lt;english plural&gt;]`.
 
-If the user provides only one English string with no plural, treat it as the `other` form for all languages.
+- If `$ARGUMENTS` contains a `|` separator, split into singular (before `|`) and plural (after `|`)
+- If `$ARGUMENTS` has no `|`, treat the entire string as the singular (`other`) form for all languages
+- If `$ARGUMENTS` is empty, use `AskUserQuestion` to ask the user for the English text
+
+The user may also provide:
+1. **Key name** (optional): e.g. `tables::selected_count`. If not given, derive from the English string.
+2. **Variables**: Strings may contain `%{variable_name}` interpolation tokens. Preserve these exactly in all translations.
 
 ## Target Languages (in this exact order)
 
@@ -3567,7 +3568,7 @@ The file MUST follow this exact structure:
 ## Checklist Before Saving
 
 1. All 23 languages present in the exact order specified
-2. Correct plural forms per language (not generic CLDR &mdash; use the Lokalise forms table above)
+2. Correct plural forms per language (not generic CLDR — use the Lokalise forms table above)
 3. `%{...}` variables preserved exactly in all translations
 4. `data-copy` attributes contain plain text (no HTML)
 5. Display content has `&lt;span class=&quot;var&quot;&gt;` around variables
@@ -3575,7 +3576,8 @@ The file MUST follow this exact structure:
 7. Row numbers sequential 1-23
 8. Copy buttons on every translation row
 9. Both HTML and Markdown files saved to `.tmp/` folder
-10. HTML file opened in default browser after generation</pre>
+10. HTML file opened in default browser after generation
+</pre>
                             </div>
                         </div>
                     </div>

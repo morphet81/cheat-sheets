@@ -1,6 +1,6 @@
 ---
 name: create-pr
-version: 1.7.0
+version: 1.7.1
 description: Push the current branch and create a pull request on GitHub. When a JIRA ID is in the branch name, derives title and description from the ticket; otherwise still pushes and offers PR title options. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
@@ -29,9 +29,9 @@ Push the current branch and create a GitHub pull request. When the branch name c
      The GitHub CLI is not authenticated. Please run `gh auth login` to authenticate before using this skill.
      ```
 
-2. **Parse options from $ARGUMENTS:**
-   - If `--no-draft` is present, the PR will be created as ready for review
-   - Otherwise (default), the PR will be created as a draft
+2. **Parse options:**
+   - If `$1` is `--no-draft`, the PR will be created as ready for review
+   - Otherwise (default, no arguments), the PR will be created as a draft
 
 3. **Get the current branch and extract the JIRA ID:**
    - Run `git branch --show-current` to get the current branch name

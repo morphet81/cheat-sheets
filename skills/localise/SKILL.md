@@ -1,6 +1,6 @@
 ---
 name: localise
-version: 1.1.0
+version: 1.1.1
 description: Generate an HTML translation helper page for Lokalise. Use when the user provides English text (singular/plural) and wants translations across all 23 supported languages, rendered as an interactive HTML page with copy buttons. Triggers on phrases like "translate for Lokalise", "generate translations", "translation table", or when the user provides English strings and mentions languages/i18n/localization.
 argument-hint: "<english singular> [| <english plural>]"
 ---
@@ -17,13 +17,15 @@ Generate an interactive HTML translation page for pasting translations into Loka
 
 ## Input
 
-The user provides:
-1. **Key name** (optional): e.g. `tables::selected_count`. If not given, derive from the English string.
-2. **English singular**: e.g. `%{count} table selected`
-3. **English plural** (optional): e.g. `%{count} tables selected`
-4. **Variables**: Strings may contain `%{variable_name}` interpolation tokens. Preserve these exactly in all translations.
+Parse `$ARGUMENTS` as the English text to translate. The format is `<english singular> [| <english plural>]`.
 
-If the user provides only one English string with no plural, treat it as the `other` form for all languages.
+- If `$ARGUMENTS` contains a `|` separator, split into singular (before `|`) and plural (after `|`)
+- If `$ARGUMENTS` has no `|`, treat the entire string as the singular (`other`) form for all languages
+- If `$ARGUMENTS` is empty, use `AskUserQuestion` to ask the user for the English text
+
+The user may also provide:
+1. **Key name** (optional): e.g. `tables::selected_count`. If not given, derive from the English string.
+2. **Variables**: Strings may contain `%{variable_name}` interpolation tokens. Preserve these exactly in all translations.
 
 ## Target Languages (in this exact order)
 

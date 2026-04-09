@@ -1,6 +1,6 @@
 ---
 name: translate-pdf
-version: 1.1.0
+version: 1.1.1
 description: Translate a PDF document from one language to another. Extracts text to structured Markdown, translates it, and builds a new translated PDF. Requires a Python environment with pymupdf, markdown, and weasyprint.
 argument-hint: "<path-to-pdf> <source-language> <target-language>"
 ---
@@ -14,12 +14,11 @@ Translate a PDF document end-to-end: extract structured Markdown from the source
 
 **Instructions:**
 
-1. **Parse arguments from $ARGUMENTS:**
-   - Expect exactly three arguments: `<path-to-pdf>` `<source-language>` `<target-language>`
-   - `<path-to-pdf>` is the path to the source PDF file
-   - `<source-language>` is the language the PDF is currently written in
-   - `<target-language>` is the language to translate into
-   - If fewer than three arguments are provided, display the following and **STOP**:
+1. **Parse positional arguments:**
+   - `$1` = path to the source PDF file
+   - `$2` = the language the PDF is currently written in
+   - `$3` = the language to translate into
+   - If any of `$1`, `$2`, or `$3` is missing, display the following and **STOP**:
      ```
      ## Missing Arguments
 

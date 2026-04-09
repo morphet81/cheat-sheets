@@ -1,6 +1,6 @@
 ---
 name: release-review
-version: 1.1.0
+version: 1.1.1
 description: Compare two git tags or commits and analyze all changes for deployment readiness. Produces two separate reports — one for manual QA (no code details) and one for developers (technical details with code where needed).
 argument-hint: "<base-ref> <target-ref>"
 ---
@@ -14,12 +14,10 @@ Compare two git tags or commits and produce two deployment readiness reports: a 
 
 **Instructions:**
 
-1. **Parse arguments from $ARGUMENTS:**
-   - Expect exactly two arguments: `<base-ref>` and `<target-ref>`
-   - Both can be git tags, commit SHAs, branch names, or `HEAD`
-   - `<base-ref>` is the starting point (exclusive) — typically the last deployed version
-   - `<target-ref>` is the endpoint (inclusive) — typically the version about to be deployed
-   - If fewer than two arguments are provided, display the following message and **STOP**:
+1. **Parse positional arguments:**
+   - `$1` = the starting point (exclusive) — typically the last deployed version. Can be a git tag, commit SHA, branch name, or `HEAD`
+   - `$2` = the endpoint (inclusive) — typically the version about to be deployed. Can be a git tag, commit SHA, branch name, or `HEAD`
+   - If either `$1` or `$2` is missing, display the following message and **STOP**:
      ```
      ## Missing Arguments
 

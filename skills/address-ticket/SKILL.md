@@ -1,6 +1,6 @@
 ---
 name: address-ticket
-version: 3.7.0
+version: 3.9.0
 description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green). Use --no-jira to skip JIRA retrieval and use inline instructions instead.
 argument-hint: "[--no-jira] [instructions]"
 ---
@@ -15,21 +15,20 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
 ## Phase 0 — Check for `--no-jira` mode
 
-0. **Parse the arguments for `--no-jira`:**
-   - Check if the user passed `--no-jira` as an argument
-   - If `--no-jira` is present:
-     - Extract all remaining text after `--no-jira` as the **user instructions** — this is the ticket context (what to build, fix, or change)
-     - If no instructions are provided after `--no-jira`, use `AskUserQuestion` to ask the developer to describe the task:
+0. **Check if `$1` is `--no-jira`:**
+   - If `$1` is `--no-jira`:
+     - `$2` is the **user instructions** — the ticket context (what to build, fix, or change)
+     - If `$2` is empty, use `AskUserQuestion` to ask the developer to describe the task:
        > You used `--no-jira` but didn't provide instructions. Please describe what needs to be implemented.
      - **Skip the following steps entirely:** steps 1 (acli validation), 2 (JIRA ID extraction), 3 (JIRA ticket fetch), 4 (Figma retrieval), 8 (lore file maintenance), and all of Phase 4 (steps 18–19's JIRA update parts)
-     - **Continue with:** step 5 (conventional commit prefix — deduce from the user instructions and branch name), step 6 (codebase analysis — use the user instructions as the ticket context), step 7 (splitting evaluation — use the user instructions)
-     - For all subsequent phases, use the **user instructions** wherever the skill normally references "the JIRA ticket content" or "ticket fields"
+     - **Continue with:** step 5 (conventional commit prefix — deduce from `$2` and the branch name), step 6 (codebase analysis — use `$2` as the ticket context), step 7 (splitting evaluation — use `$2`)
+     - For all subsequent phases, use `$2` wherever the skill normally references "the JIRA ticket content" or "ticket fields"
      - In the final report (step 19), replace the "JIRA Ticket" section with:
        ```
        ### Source
        - Mode: --no-jira (user instructions)
        ```
-   - If `--no-jira` is NOT present, proceed normally to step 1
+   - If `$1` is not `--no-jira` (or no arguments were provided), proceed normally to step 1
 
 ## Phase 1 — Gather Context
 

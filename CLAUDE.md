@@ -18,3 +18,8 @@
   - **Major** (`X.0.0`): Breaking changes to the skill's interface, arguments, or fundamental workflow.
 - When creating, modifying, or deleting a skill, **always** update `claude-skills.html` to reflect the change (including the version badge). The HTML page documents all available skills with their descriptions, usage instructions, and raw file content.
 - Follow the existing skill card structure in `claude-skills.html` (skill-card div with header, version badge, description, usage, collapsible raw content).
+- **Skill arguments** must use the standard `$ARGUMENTS` / `$1`, `$2`, ... syntax:
+  - `$ARGUMENTS` — the entire input string after the command name. Use when parsing flags, when there's a single free-form argument, or when the argument count is variable.
+  - `$1`, `$2`, `$3`, ... — positional arguments. Use when the skill expects a fixed number of distinct parameters.
+  - Declare expected args in frontmatter via `argument-hint` (display only).
+  - When `$ARGUMENTS` (or a positional arg) is empty, degrade gracefully — either ask the user via `AskUserQuestion` or proceed with sensible defaults.

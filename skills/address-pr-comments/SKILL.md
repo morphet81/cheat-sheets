@@ -1,6 +1,6 @@
 ---
 name: address-pr-comments
-version: 1.3.0
+version: 1.4.0
 description: Retrieve unresolved PR review comments and general conversation comments (including actionable notes from the PR author), explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes. After committing, respond to each comment on GitHub with resolution details.
 argument-hint: ""
 ---
@@ -74,7 +74,45 @@ Retrieve unresolved review comments and general conversation comments from the c
      - The URL of the first comment in the thread (for linking in replies)
    - Within each thread, ignore replies whose body ends with `[Agent response]` — these are prior agent responses, not reviewer comments to address. However, the thread itself still needs to be addressed if it remains unresolved.
 
-   **b) Retrieve general conversation comments:**
+   **b) Retrieve review body comments (global review comments):**
+   - When a reviewer submits a review (Approve, Request Changes, or Comment), they can include a top-level body comment that is NOT attached to any specific line. These are "global" review comments.
+   - Fetch all reviews using the GraphQL API:
+     ```bash
+     gh api graphql -f query='
+       query($owner: String!, $repo: String!, $pr: Int!) {
+         repository(owner: $owner, name: $repo) {
+           pullRequest(number: $pr) {
+             reviews(first: 100) {
+               nodes {
+                 id
+                 databaseId
+                 body
+                 state
+                 author { login }
+                 createdAt
+                 url
+               }
+             }
+           }
+         }
+       }
+     ' -f owner='{owner}' -f repo='{repo}' -F pr={pr_number}
+     ```
+   - **Filter:** Only include reviews where:
+     - `body` is non-empty (reviews with no body text have nothing to address)
+     - `body` does NOT end with `[Agent response]` (prior agent responses)
+     - `state` is `CHANGES_REQUESTED` or `COMMENTED` (skip `APPROVED` reviews with body text that is purely congratulatory, e.g., "Looks great!", "LGTM". If an `APPROVED` review has a substantive body with actionable content, include it)
+     - Author is not a bot
+   - For each remaining review body comment, record:
+     - Review ID (`databaseId` — for replying later)
+     - Review state (CHANGES_REQUESTED, COMMENTED, APPROVED)
+     - Author
+     - Comment body
+     - Created date
+     - The `url` of the review (for linking in replies)
+   - **Note:** These comments do not have file/line references. They are top-level feedback about the PR as a whole.
+
+   **c) Retrieve general conversation comments:**
    - Fetch general PR comments (issue comments) using the REST API:
      ```bash
      gh api repos/{owner}/{repo}/issues/{pr_number}/comments --paginate
@@ -93,9 +131,9 @@ Retrieve unresolved review comments and general conversation comments from the c
      - The `html_url` of the comment (for linking in replies)
    - **Note:** General comments do not have file/line references and have no resolution status. Include all that pass the filters above.
 
-   **c) Combine and check:**
-   - Merge both lists into a single ordered list, sorted chronologically by creation date
-   - Tag each entry with its **source**: `review` (from step 3a) or `general` (from step 3b)
+   **d) Combine and check:**
+   - Merge all three lists into a single ordered list, sorted chronologically by creation date
+   - Tag each entry with its **source**: `review` (from step 3a), `review-body` (from step 3b), or `general` (from step 3c)
    - If there are no comments from either source, display the following and **STOP**:
      ```
      No unresolved review comments or actionable general comments on PR #<number>. Nothing to address!
@@ -128,6 +166,33 @@ Retrieve unresolved review comments and general conversation comments from the c
    <Describe the concrete approach to address this comment. If it's a code change,
    describe exactly what will change and where. If it's a question, draft the reply.
    If no fix is needed, explain why.>
+   ```
+
+   **For review body comments** (global review feedback, not attached to a line), use this format:
+
+   ```
+   ## Comment <N>/<total> — [Review Body] <state> — @<author>
+
+   ### Reviewer said:
+   > <full review body>
+
+   ### Context:
+   <Identify what the reviewer is commenting on. Review body comments often address the PR
+   as a whole — architecture, approach, missing considerations, or cross-cutting concerns.
+   Read the PR diff and relevant files to understand the context.>
+
+   ### Analysis:
+   <Explain what the reviewer is asking for and why. Categorize as one of:>
+   - **Code change** — specific modifications needed
+   - **Question** — reviewer asks for clarification; may not need a code change
+   - **Suggestion** — an optional improvement worth considering
+   - **Concern** — a potential issue that needs investigation
+   - **Discussion** — a broader topic about approach or architecture
+
+   ### Proposed fix:
+   <Describe the concrete approach to address this comment. If it requires code changes,
+   identify the files and describe exactly what will change. If it's a question or discussion,
+   draft the reply. If no action is needed, explain why.>
    ```
 
    **For general comments** (PR conversation), use this format:
@@ -298,7 +363,18 @@ Retrieve unresolved review comments and general conversation comments from the c
     - Post the approved reply explaining why no code change was necessary
     - Be specific: reference the existing code, design decisions, or documentation that addresses the reviewer's concern
 
-    **c) For general comments — reply on the PR conversation:**
+    **c) For review body comments — reply to the review:**
+    - Post a comment on the review using the REST API:
+      ```bash
+      gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews/{review_id}/comments -f body='<reply>'
+      ```
+    - Format the reply to address the reviewer's top-level feedback:
+      > Regarding your review:
+      >
+      > <reply body>
+    - If a code fix was made, include the same details as inline review comment replies (file paths, line numbers, or short code blocks)
+
+    **d) For general comments — reply on the PR conversation:**
     - Post a new issue comment replying to the original. Quote the original comment for context:
       ```bash
       gh api repos/{owner}/{repo}/issues/{pr_number}/comments -f body='<reply>'
@@ -309,7 +385,7 @@ Retrieve unresolved review comments and general conversation comments from the c
       > <reply body>
     - If a code fix was made, include the same details as review comment replies (file paths, line numbers, or short code blocks)
 
-    **d) Reply format (all comment types):**
+    **e) Reply format (all comment types):**
     - Keep replies professional and concise
     - Start with a brief summary (e.g., "Fixed — ...", "Good catch — ...", "No change needed — ...")
     - Include code references with line numbers when relevant

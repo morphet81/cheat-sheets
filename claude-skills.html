@@ -3684,12 +3684,13 @@ The file MUST follow this exact structure:
                         <div class="skill-title">
                             <h3>Address PR Comments</h3>
                             <code>/address-pr-comments</code>
-                            <span class="skill-version">v1.3.0</span>
+                            <span class="skill-version">v1.4.0</span>
                         </div>
                         <p class="skill-description">
-                            Retrieve unresolved review comments and general conversation comments (including actionable notes from the PR author),
-                            explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes.
-                            After committing, respond to each comment on GitHub with resolution details.
+                            Retrieve all unanswered PR comments — inline review threads, review body comments (global feedback not attached to specific lines),
+                            and general conversation comments (including actionable notes from the PR author).
+                            Explains each issue and proposes fixes interactively, then spawns a coordinated developer team to implement approved fixes.
+                            After committing, responds to each comment on GitHub with resolution details.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -3711,12 +3712,12 @@ The file MUST follow this exact structure:
                             <div class="file-content">
                                 <pre id="address-pr-comments-content">---
 name: address-pr-comments
-version: 1.3.0
+version: 1.4.0
 description: Retrieve unresolved PR review comments and general conversation comments (including actionable notes from the PR author), explain each issue and propose fixes interactively, then spawn a coordinated developer team to implement approved fixes. After committing, respond to each comment on GitHub with resolution details.
-argument-hint: ""
+argument-hint: &quot;&quot;
 ---
 
-Retrieve unresolved review comments and general conversation comments from the current branch's PR, explain each issue to the developer with a proposed fix, allow the developer to discuss and amend proposals, then spawn a coordinated team of developers to implement the fixes. After committing, reply to each comment on GitHub with details on how it was addressed.
+Retrieve unresolved review comments and general conversation comments from the current branch&#x27;s PR, explain each issue to the developer with a proposed fix, allow the developer to discuss and amend proposals, then spawn a coordinated team of developers to implement the fixes. After committing, reply to each comment on GitHub with details on how it was addressed.
 
 **Usage:**
 - `/address-pr-comments` — Fetch and address unresolved PR comments for the current branch
@@ -3733,15 +3734,15 @@ Retrieve unresolved review comments and general conversation comments from the c
 
 2. **Identify the PR for the current branch:**
    - Run `git branch --show-current` to get the current branch name
-   - Run `gh pr view --json number,title,url,state,baseRefName,author` to find the PR associated with the current branch and record the PR author's login (`author.login`) for step 3b
+   - Run `gh pr view --json number,title,url,state,baseRefName,author` to find the PR associated with the current branch and record the PR author&#x27;s login (`author.login`) for step 3b
    - If no PR exists, display the following and **STOP**:
      ```
-     No pull request found for branch "&lt;current-branch>".
+     No pull request found for branch &quot;&lt;current-branch&gt;&quot;.
      Please create a PR first, then run /address-pr-comments.
      ```
    - If the PR is closed or merged, warn the developer:
      ```
-     PR #&lt;number> is &lt;state>. Comments may no longer be actionable.
+     PR #&lt;number&gt; is &lt;state&gt;. Comments may no longer be actionable.
      ```
      Use `AskUserQuestion` to ask if they want to continue anyway.
 
@@ -3750,7 +3751,7 @@ Retrieve unresolved review comments and general conversation comments from the c
    **a) Retrieve unresolved review comments:**
    - Use the GitHub GraphQL API to fetch all review threads and their resolution status:
      ```bash
-     gh api graphql -f query='
+     gh api graphql -f query=&#x27;
        query($owner: String!, $repo: String!, $pr: Int!) {
          repository(owner: $owner, name: $repo) {
            pullRequest(number: $pr) {
@@ -3775,7 +3776,7 @@ Retrieve unresolved review comments and general conversation comments from the c
            }
          }
        }
-     ' -f owner='{owner}' -f repo='{repo}' -F pr={pr_number}
+     &#x27; -f owner=&#x27;{owner}&#x27; -f repo=&#x27;{repo}&#x27; -F pr={pr_number}
      ```
    - Collect only **unresolved** threads. For each, record:
      - Thread ID (for replying later)
@@ -3785,17 +3786,55 @@ Retrieve unresolved review comments and general conversation comments from the c
      - The URL of the first comment in the thread (for linking in replies)
    - Within each thread, ignore replies whose body ends with `[Agent response]` — these are prior agent responses, not reviewer comments to address. However, the thread itself still needs to be addressed if it remains unresolved.
 
-   **b) Retrieve general conversation comments:**
+   **b) Retrieve review body comments (global review comments):**
+   - When a reviewer submits a review (Approve, Request Changes, or Comment), they can include a top-level body comment that is NOT attached to any specific line. These are &quot;global&quot; review comments.
+   - Fetch all reviews using the GraphQL API:
+     ```bash
+     gh api graphql -f query=&#x27;
+       query($owner: String!, $repo: String!, $pr: Int!) {
+         repository(owner: $owner, name: $repo) {
+           pullRequest(number: $pr) {
+             reviews(first: 100) {
+               nodes {
+                 id
+                 databaseId
+                 body
+                 state
+                 author { login }
+                 createdAt
+                 url
+               }
+             }
+           }
+         }
+       }
+     &#x27; -f owner=&#x27;{owner}&#x27; -f repo=&#x27;{repo}&#x27; -F pr={pr_number}
+     ```
+   - **Filter:** Only include reviews where:
+     - `body` is non-empty (reviews with no body text have nothing to address)
+     - `body` does NOT end with `[Agent response]` (prior agent responses)
+     - `state` is `CHANGES_REQUESTED` or `COMMENTED` (skip `APPROVED` reviews with body text that is purely congratulatory, e.g., &quot;Looks great!&quot;, &quot;LGTM&quot;. If an `APPROVED` review has a substantive body with actionable content, include it)
+     - Author is not a bot
+   - For each remaining review body comment, record:
+     - Review ID (`databaseId` — for replying later)
+     - Review state (CHANGES_REQUESTED, COMMENTED, APPROVED)
+     - Author
+     - Comment body
+     - Created date
+     - The `url` of the review (for linking in replies)
+   - **Note:** These comments do not have file/line references. They are top-level feedback about the PR as a whole.
+
+   **c) Retrieve general conversation comments:**
    - Fetch general PR comments (issue comments) using the REST API:
      ```bash
      gh api repos/{owner}/{repo}/issues/{pr_number}/comments --paginate
      ```
    - **Filter out** comments that should NOT be addressed:
-     - Comments by bots (author `type` is `"Bot"`, or login ends with `[bot]`)
+     - Comments by bots (author `type` is `&quot;Bot&quot;`, or login ends with `[bot]`)
      - Comments whose body ends with `[Agent response]` (prior agent responses — not new comments to address)
-     - Comments that are purely approval/acknowledgement (e.g., "LGTM", "Looks good", ":+1:")
-   - **PR author comments:** Do **not** exclude the PR author by default. Authors often leave **actionable** conversation notes for collaborators or automation (e.g. re-run CI, regenerate visual snapshots, "please review X"). Include those.
-   - **Optional skip for author noise:** If the comment's `user.login` matches the PR author's `author.login` from step 2 **and** the body is clearly non-actionable, skip it — e.g. only a commit URL, only "Done" / "Fixed" / "Pushed" with no remaining ask, or empty/emoji-only.
+     - Comments that are purely approval/acknowledgement (e.g., &quot;LGTM&quot;, &quot;Looks good&quot;, &quot;:+1:&quot;)
+   - **PR author comments:** Do **not** exclude the PR author by default. Authors often leave **actionable** conversation notes for collaborators or automation (e.g. re-run CI, regenerate visual snapshots, &quot;please review X&quot;). Include those.
+   - **Optional skip for author noise:** If the comment&#x27;s `user.login` matches the PR author&#x27;s `author.login` from step 2 **and** the body is clearly non-actionable, skip it — e.g. only a commit URL, only &quot;Done&quot; / &quot;Fixed&quot; / &quot;Pushed&quot; with no remaining ask, or empty/emoji-only.
    - For each remaining general comment, record:
      - Comment ID (for replying later — `id` field)
      - Author
@@ -3804,12 +3843,12 @@ Retrieve unresolved review comments and general conversation comments from the c
      - The `html_url` of the comment (for linking in replies)
    - **Note:** General comments do not have file/line references and have no resolution status. Include all that pass the filters above.
 
-   **c) Combine and check:**
-   - Merge both lists into a single ordered list, sorted chronologically by creation date
-   - Tag each entry with its **source**: `review` (from step 3a) or `general` (from step 3b)
+   **d) Combine and check:**
+   - Merge all three lists into a single ordered list, sorted chronologically by creation date
+   - Tag each entry with its **source**: `review` (from step 3a), `review-body` (from step 3b), or `general` (from step 3c)
    - If there are no comments from either source, display the following and **STOP**:
      ```
-     No unresolved review comments or actionable general comments on PR #&lt;number>. Nothing to address!
+     No unresolved review comments or actionable general comments on PR #&lt;number&gt;. Nothing to address!
      ```
 
 4. **Analyze each comment and propose fixes:**
@@ -3819,43 +3858,43 @@ Retrieve unresolved review comments and general conversation comments from the c
    **For review comments** (attached to code), use this format:
 
    ```
-   ## Comment &lt;N>/&lt;total> — [Review] `&lt;file>:&lt;line>` — @&lt;author>
+   ## Comment &lt;N&gt;/&lt;total&gt; — [Review] `&lt;file&gt;:&lt;line&gt;` — @&lt;author&gt;
 
    ### Reviewer said:
-   > &lt;full comment body>
+   &gt; &lt;full comment body&gt;
 
    ### Context:
    &lt;Read the referenced file and surrounding code. Explain the relevant code context
-   so the developer understands the issue without having to look it up.>
+   so the developer understands the issue without having to look it up.&gt;
 
    ### Analysis:
-   &lt;Explain what the reviewer is asking for and why. Categorize as one of:>
+   &lt;Explain what the reviewer is asking for and why. Categorize as one of:&gt;
    - **Code change** — specific modifications needed
    - **Question** — reviewer asks for clarification; may not need a code change
    - **Suggestion** — an optional improvement worth considering
    - **Concern** — a potential issue that needs investigation
 
    ### Proposed fix:
-   &lt;Describe the concrete approach to address this comment. If it's a code change,
-   describe exactly what will change and where. If it's a question, draft the reply.
-   If no fix is needed, explain why.>
+   &lt;Describe the concrete approach to address this comment. If it&#x27;s a code change,
+   describe exactly what will change and where. If it&#x27;s a question, draft the reply.
+   If no fix is needed, explain why.&gt;
    ```
 
-   **For general comments** (PR conversation), use this format:
+   **For review body comments** (global review feedback, not attached to a line), use this format:
 
    ```
-   ## Comment &lt;N>/&lt;total> — [General] — @&lt;author>
+   ## Comment &lt;N&gt;/&lt;total&gt; — [Review Body] &lt;state&gt; — @&lt;author&gt;
 
-   ### Comment:
-   > &lt;full comment body>
+   ### Reviewer said:
+   &gt; &lt;full review body&gt;
 
    ### Context:
-   &lt;Identify any files, functions, or areas of the codebase the comment refers to.
-   If the comment mentions specific code, read the relevant files. If the comment is
-   about the PR overall (architecture, approach, etc.), summarize the relevant changes.>
+   &lt;Identify what the reviewer is commenting on. Review body comments often address the PR
+   as a whole — architecture, approach, missing considerations, or cross-cutting concerns.
+   Read the PR diff and relevant files to understand the context.&gt;
 
    ### Analysis:
-   &lt;Explain what the reviewer is asking for and why. Categorize as one of:>
+   &lt;Explain what the reviewer is asking for and why. Categorize as one of:&gt;
    - **Code change** — specific modifications needed
    - **Question** — reviewer asks for clarification; may not need a code change
    - **Suggestion** — an optional improvement worth considering
@@ -3864,8 +3903,35 @@ Retrieve unresolved review comments and general conversation comments from the c
 
    ### Proposed fix:
    &lt;Describe the concrete approach to address this comment. If it requires code changes,
-   identify the files and describe exactly what will change. If it's a question or discussion,
-   draft the reply. If no action is needed, explain why.>
+   identify the files and describe exactly what will change. If it&#x27;s a question or discussion,
+   draft the reply. If no action is needed, explain why.&gt;
+   ```
+
+   **For general comments** (PR conversation), use this format:
+
+   ```
+   ## Comment &lt;N&gt;/&lt;total&gt; — [General] — @&lt;author&gt;
+
+   ### Comment:
+   &gt; &lt;full comment body&gt;
+
+   ### Context:
+   &lt;Identify any files, functions, or areas of the codebase the comment refers to.
+   If the comment mentions specific code, read the relevant files. If the comment is
+   about the PR overall (architecture, approach, etc.), summarize the relevant changes.&gt;
+
+   ### Analysis:
+   &lt;Explain what the reviewer is asking for and why. Categorize as one of:&gt;
+   - **Code change** — specific modifications needed
+   - **Question** — reviewer asks for clarification; may not need a code change
+   - **Suggestion** — an optional improvement worth considering
+   - **Concern** — a potential issue that needs investigation
+   - **Discussion** — a broader topic about approach or architecture
+
+   ### Proposed fix:
+   &lt;Describe the concrete approach to address this comment. If it requires code changes,
+   identify the files and describe exactly what will change. If it&#x27;s a question or discussion,
+   draft the reply. If no action is needed, explain why.&gt;
    ```
 
    **For comments that appear already addressed or invalid:**
@@ -3874,12 +3940,12 @@ Retrieve unresolved review comments and general conversation comments from the c
    - These comments still require a response on GitHub (step 10) — the response should acknowledge the comment and explain why no further action is needed
 
    After presenting **all** comments, use `AskUserQuestion` to ask:
-   > I've presented all &lt;N> unresolved comments with proposed fixes. You can:
-   > - Ask questions about any specific comment (e.g., "tell me more about comment 3")
-   > - Request amendments to a proposed fix (e.g., "for comment 2, do X instead of Y")
-   > - Approve all and proceed to implementation
-   >
-   > What would you like to do?
+   &gt; I&#x27;ve presented all &lt;N&gt; unresolved comments with proposed fixes. You can:
+   &gt; - Ask questions about any specific comment (e.g., &quot;tell me more about comment 3&quot;)
+   &gt; - Request amendments to a proposed fix (e.g., &quot;for comment 2, do X instead of Y&quot;)
+   &gt; - Approve all and proceed to implementation
+   &gt;
+   &gt; What would you like to do?
 
 5. **Interactive discussion:**
 
@@ -3887,24 +3953,24 @@ Retrieve unresolved review comments and general conversation comments from the c
    - Ask clarifying questions about any comment or proposed fix
    - Request changes to a proposed approach
    - Disagree with a fix and propose an alternative
-   - Decide that a comment doesn't need a code fix (just a reply)
+   - Decide that a comment doesn&#x27;t need a code fix (just a reply)
 
-   Continue the discussion until the developer explicitly approves the plan by saying something like "go ahead", "approve", "looks good", "implement", etc.
+   Continue the discussion until the developer explicitly approves the plan by saying something like &quot;go ahead&quot;, &quot;approve&quot;, &quot;looks good&quot;, &quot;implement&quot;, etc.
 
    Keep a running record of the final approved approach for each comment:
-   - **Comment #N:** `&lt;approved fix description>` or `&lt;reply only — no code change>`
+   - **Comment #N:** `&lt;approved fix description&gt;` or `&lt;reply only — no code change&gt;`
 
 6. **Create the developer team:**
 
    Once the developer approves, set up a coordinated team to implement the fixes.
 
    **a) Create the team:**
-   - Use `TeamCreate` with name `pr-comments-&lt;pr-number>` (e.g., `pr-comments-142`)
+   - Use `TeamCreate` with name `pr-comments-&lt;pr-number&gt;` (e.g., `pr-comments-142`)
 
    **b) Create a shared task list:**
    - Use `TaskCreate` to create one task per comment that requires a code change, plus one coordination task:
-     - "Fix comment #N: &lt;short description>" for each code change
-     - "Coordination: verify no conflicts between fixes" as a tracking task
+     - &quot;Fix comment #N: &lt;short description&gt;&quot; for each code change
+     - &quot;Coordination: verify no conflicts between fixes&quot; as a tracking task
 
    **c) Determine team size:**
    - Count the number of comments requiring code changes
@@ -3920,25 +3986,25 @@ Retrieve unresolved review comments and general conversation comments from the c
 
    **e) Spawn developers** using the `Task` tool (`subagent_type: general-purpose`) with `run_in_background: true`:
    - Give each developer the team name so they can communicate with each other
-   - Each developer's prompt must include:
+   - Each developer&#x27;s prompt must include:
      - The team name for inter-agent communication
      - Their assigned comment(s) with the full approved fix description
      - The relevant file paths and current code context
      - **Coordination instructions:**
-       > You are Developer &lt;N> on team `&lt;team-name>`. You are responsible for fixing comment(s) &lt;list>.
-       > Other developers on this team are working on other comments in parallel.
-       >
-       > **Before making changes:**
-       > - Read the latest version of any file you plan to edit (another developer may have already modified it)
-       > - Check team messages via `SendMessage` for any coordination notes from other developers
-       >
-       > **After making changes:**
-       > - Send a message to the team describing exactly which files and line ranges you modified
-       > - Format: "Developer &lt;N> completed: edited &lt;file> lines &lt;start>-&lt;end> for comment #&lt;X>"
-       > - If you notice your changes overlap with or affect another developer's assignment, send an alert immediately
-       >
-       > **Do NOT commit.** Only make the code changes. The team lead will handle committing.
-       > Mark your task(s) as completed via `TaskUpdate` when done.
+       &gt; You are Developer &lt;N&gt; on team `&lt;team-name&gt;`. You are responsible for fixing comment(s) &lt;list&gt;.
+       &gt; Other developers on this team are working on other comments in parallel.
+       &gt;
+       &gt; **Before making changes:**
+       &gt; - Read the latest version of any file you plan to edit (another developer may have already modified it)
+       &gt; - Check team messages via `SendMessage` for any coordination notes from other developers
+       &gt;
+       &gt; **After making changes:**
+       &gt; - Send a message to the team describing exactly which files and line ranges you modified
+       &gt; - Format: &quot;Developer &lt;N&gt; completed: edited &lt;file&gt; lines &lt;start&gt;-&lt;end&gt; for comment #&lt;X&gt;&quot;
+       &gt; - If you notice your changes overlap with or affect another developer&#x27;s assignment, send an alert immediately
+       &gt;
+       &gt; **Do NOT commit.** Only make the code changes. The team lead will handle committing.
+       &gt; Mark your task(s) as completed via `TaskUpdate` when done.
 
 7. **Monitor and coordinate:**
 
@@ -3956,12 +4022,12 @@ Retrieve unresolved review comments and general conversation comments from the c
    ```
    ## Fixes Implemented
 
-   ### Comment #1 — `&lt;file>:&lt;line>` — @&lt;author>
-   **Fix:** &lt;description of what was changed>
-   **Files modified:** `&lt;file>` (lines &lt;start>-&lt;end>)
+   ### Comment #1 — `&lt;file&gt;:&lt;line&gt;` — @&lt;author&gt;
+   **Fix:** &lt;description of what was changed&gt;
+   **Files modified:** `&lt;file&gt;` (lines &lt;start&gt;-&lt;end&gt;)
 
-   ### Comment #2 — `&lt;file>:&lt;line>` — @&lt;author>
-   **Fix:** &lt;description> (or "Reply only — no code change")
+   ### Comment #2 — `&lt;file&gt;:&lt;line&gt;` — @&lt;author&gt;
+   **Fix:** &lt;description&gt; (or &quot;Reply only — no code change&quot;)
 
    ...
 
@@ -3971,24 +4037,24 @@ Retrieve unresolved review comments and general conversation comments from the c
    ```
 
    Then display:
-   > All fixes have been implemented. Please review the changes and confirm when ready to commit.
-   > You can also ask me to adjust any fix before committing.
+   &gt; All fixes have been implemented. Please review the changes and confirm when ready to commit.
+   &gt; You can also ask me to adjust any fix before committing.
 
    **Wait for the developer to explicitly confirm before committing.** Do not commit automatically.
 
 9. **Commit the changes:**
 
    Once the developer confirms:
-   - Stage only the files that were modified as part of the fixes (use `git add &lt;file1> &lt;file2> ...`, not `git add -A`)
-   - Create a commit with a message following the repo's existing style. Suggested format:
+   - Stage only the files that were modified as part of the fixes (use `git add &lt;file1&gt; &lt;file2&gt; ...`, not `git add -A`)
+   - Create a commit with a message following the repo&#x27;s existing style. Suggested format:
      ```
-     Address PR #&lt;number> review comments
+     Address PR #&lt;number&gt; review comments
 
-     - &lt;Comment #1 short description>
-     - &lt;Comment #2 short description>
+     - &lt;Comment #1 short description&gt;
+     - &lt;Comment #2 short description&gt;
      - ...
 
-     Co-Authored-By: Claude Opus 4.6 &lt;noreply@anthropic.com>
+     Co-Authored-By: Claude Opus 4.6 &lt;noreply@anthropic.com&gt;
      ```
 
 10. **Respond to comments on GitHub:**
@@ -3997,32 +4063,43 @@ Retrieve unresolved review comments and general conversation comments from the c
 
     **a) For review comments — if a code fix was made:**
     - Reply to the review comment thread with details on how it was addressed
-    - Include the fixing code if it's short (under ~20 lines) as a fenced code block
+    - Include the fixing code if it&#x27;s short (under ~20 lines) as a fenced code block
     - If the fix is longer, reference the file path and line numbers:
-      > Fixed in `&lt;file>` (lines &lt;start>–&lt;end>). &lt;Brief description of the change.>
+      &gt; Fixed in `&lt;file&gt;` (lines &lt;start&gt;–&lt;end&gt;). &lt;Brief description of the change.&gt;
     - Use the `gh api` command to reply:
       ```bash
-      gh api repos/{owner}/{repo}/pulls/{pr_number}/comments -f body='&lt;reply>' -f in_reply_to=&lt;comment_id>
+      gh api repos/{owner}/{repo}/pulls/{pr_number}/comments -f body=&#x27;&lt;reply&gt;&#x27; -f in_reply_to=&lt;comment_id&gt;
       ```
 
     **b) For review comments — if no code fix was needed (question/reply-only):**
     - Post the approved reply explaining why no code change was necessary
-    - Be specific: reference the existing code, design decisions, or documentation that addresses the reviewer's concern
+    - Be specific: reference the existing code, design decisions, or documentation that addresses the reviewer&#x27;s concern
 
-    **c) For general comments — reply on the PR conversation:**
+    **c) For review body comments — reply to the review:**
+    - Post a comment on the review using the REST API:
+      ```bash
+      gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews/{review_id}/comments -f body=&#x27;&lt;reply&gt;&#x27;
+      ```
+    - Format the reply to address the reviewer&#x27;s top-level feedback:
+      &gt; Regarding your review:
+      &gt;
+      &gt; &lt;reply body&gt;
+    - If a code fix was made, include the same details as inline review comment replies (file paths, line numbers, or short code blocks)
+
+    **d) For general comments — reply on the PR conversation:**
     - Post a new issue comment replying to the original. Quote the original comment for context:
       ```bash
-      gh api repos/{owner}/{repo}/issues/{pr_number}/comments -f body='&lt;reply>'
+      gh api repos/{owner}/{repo}/issues/{pr_number}/comments -f body=&#x27;&lt;reply&gt;&#x27;
       ```
     - Format the reply to reference the original author and comment:
-      > Regarding @&lt;author>'s [comment](&lt;html_url>):
-      >
-      > &lt;reply body>
+      &gt; Regarding @&lt;author&gt;&#x27;s [comment](&lt;html_url&gt;):
+      &gt;
+      &gt; &lt;reply body&gt;
     - If a code fix was made, include the same details as review comment replies (file paths, line numbers, or short code blocks)
 
-    **d) Reply format (all comment types):**
+    **e) Reply format (all comment types):**
     - Keep replies professional and concise
-    - Start with a brief summary (e.g., "Fixed — ...", "Good catch — ...", "No change needed — ...")
+    - Start with a brief summary (e.g., &quot;Fixed — ...&quot;, &quot;Good catch — ...&quot;, &quot;No change needed — ...&quot;)
     - Include code references with line numbers when relevant
     - **Always append `[Agent response]` on a new line at the end of every reply.** This tag identifies automated responses and allows future runs to skip already-handled comments
     - For already-addressed comments, reply explaining that the issue was already resolved (reference the relevant code or commit)
@@ -4037,13 +4114,13 @@ Retrieve unresolved review comments and general conversation comments from the c
       ```
       ## PR Comments Addressed
 
-      **PR:** #&lt;number> — &lt;title>
-      **Comments addressed:** &lt;N>
-      **Commit:** &lt;short SHA>
+      **PR:** #&lt;number&gt; — &lt;title&gt;
+      **Comments addressed:** &lt;N&gt;
+      **Commit:** &lt;short SHA&gt;
 
       ### Fixes
-      - Comment #1 (`&lt;file>:&lt;line>`) — &lt;brief description> — replied on GitHub
-      - Comment #2 (`&lt;file>:&lt;line>`) — &lt;brief description> — replied on GitHub
+      - Comment #1 (`&lt;file&gt;:&lt;line&gt;`) — &lt;brief description&gt; — replied on GitHub
+      - Comment #2 (`&lt;file&gt;:&lt;line&gt;`) — &lt;brief description&gt; — replied on GitHub
       ...
 
       ### Next Steps
@@ -4059,7 +4136,7 @@ Retrieve unresolved review comments and general conversation comments from the c
     - If a comment is ambiguous or unclear, present your best interpretation and ask the developer to confirm during step 5
     - If the developer rejects all proposed fixes, skip implementation and optionally post replies explaining the decisions
     - If a developer agent fails or produces incorrect changes, attempt the fix directly or ask the developer for guidance
-    - If a general comment is vague or doesn't clearly reference any code (e.g., "Can we discuss the approach?"), categorize it as **Discussion** and propose a reply addressing the concern based on the PR's changes
+    - If a general comment is vague or doesn&#x27;t clearly reference any code (e.g., &quot;Can we discuss the approach?&quot;), categorize it as **Discussion** and propose a reply addressing the concern based on the PR&#x27;s changes
     - If a general comment has already been answered by another comment in the thread (someone else replied), skip it and note it as already addressed
     - If a PR author comment is **workflow-only** (e.g. update snapshots, re-run visual tests, trigger CI), treat it as **Code change** or **Suggestion** depending on the repo: propose the exact commands or test targets (e.g. Playwright `--update-snapshots`, Percy, etc.) after checking `package.json` / CI config
 </pre>

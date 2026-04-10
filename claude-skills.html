@@ -425,13 +425,14 @@
                         <div class="skill-title">
                             <h3>Review Changes</h3>
                             <code>/review-changes</code>
-                            <span class="skill-version">v3.7.1</span>
+                            <span class="skill-version">v3.8.0</span>
                         </div>
                         <p class="skill-description">
                             Review code changes in two modes — local branch review or PR review.
                             By default, performs a solo review covering all focus areas.
                             With <code>--team</code>, spawns a specialized team of 8 reviewer agents.
                             In PR mode, builds an exclusion list from existing reviews and posts findings as pending review comments.
+                            Use <code>--headless</code> for fully autonomous execution where a challenger agent validates findings instead of asking the developer.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
@@ -441,6 +442,7 @@
                                 <li><code>/review-changes --team</code> — Compare against <code>main</code> with a team of 8 specialist agents</li>
                                 <li><code>/review-changes &lt;PR-number&gt;</code> — Review PR in current repo (solo review)</li>
                                 <li>Add <code>--team</code> to any command to spawn a specialized review team</li>
+                                <li>Add <code>--headless</code> to any command for autonomous execution (challenger agent validates findings)</li>
                             </ul>
                         </div>
                         <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
@@ -457,9 +459,9 @@
                             <div class="file-content">
                                 <pre id="review-changes-content">---
 name: review-changes
-version: 3.7.1
-description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). By default, performs a solo review covering all focus areas. With `--team`, spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
-argument-hint: &quot;[--team] [base-branch] or &lt;PR number or URL&gt; [repository]&quot;
+version: 3.8.0
+description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). By default, performs a solo review covering all focus areas. With `--team`, spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually). Use `--headless` for fully autonomous execution where a challenger agent validates findings instead of asking the developer.
+argument-hint: &quot;[--team] [--headless] [base-branch] or &lt;PR number or URL&gt; [repository]&quot;
 ---
 
 Review code changes in two modes: **local branch review** or **PR review**.
@@ -473,14 +475,18 @@ Review code changes in two modes: **local branch review** or **PR review**.
 - `/review-changes &lt;PR-number&gt; &lt;owner/repo&gt;` — Review PR in specific repo (solo review)
 - `/review-changes &lt;PR-URL&gt;` — Review PR by URL (solo review)
 - Add `--team` to any command above to spawn a specialized review team instead of reviewing solo
+- Add `--headless` to any command above for fully autonomous execution (a challenger agent validates findings instead of asking the developer)
 
 **Instructions:**
 
 1. **Parse arguments and determine mode:**
 
-   - If `$1` is `--team`, set **team mode = true** and treat `$2` as the target argument. Otherwise, set **team mode = false** (solo review) and treat `$1` as the target argument.
+   Scan `$1`, `$2`, `$3` for flags (`--team`, `--headless`). The first non-flag argument is the **target argument**; the second non-flag argument (if any) is the **extra argument** (used as `owner/repo` in PR mode).
+
+   - If any argument is `--team`, set **team mode = true**. Otherwise, set **team mode = false** (solo review).
+   - If any argument is `--headless`, set **headless = true**. Otherwise, set **headless = false**.
    - If the target argument is a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
-   - If the target argument is a pure number (e.g., `1654`) → **PR mode** (use as PR number; if an additional argument is provided after it, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
+   - If the target argument is a pure number (e.g., `1654`) → **PR mode** (use as PR number; if the extra argument is provided, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
    - Otherwise → **local branch mode**:
      - If the target argument is provided, use it as the base branch
      - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=&lt;value&gt;` line, use that value
@@ -504,7 +510,26 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
 4. **Address findings locally:**
 
+   **If headless = false (default):**
+
    After presenting the review, ask the user which findings they want addressed using `AskUserQuestion`. If in team mode, the team fixes the selected issues locally. If in solo mode, fix them yourself.
+
+   **If headless = true:**
+
+   Instead of asking the developer, spawn a **challenger agent** to validate the review findings. The challenger acts as a skeptical second opinion.
+
+   **a) Spawn the challenger agent** with:
+   - The consolidated review findings
+   - The full diff and changed files
+   - The instruction: &quot;You are a senior engineer challenging a code review. For each finding, assess whether it is a real issue or a false positive. Check that severities are appropriate — is a 🔴 Critical truly critical? Is a 🔵 Suggestion actually a warning? Are any findings nitpicks that would add noise? Be concise: for each finding, state &#x27;valid&#x27;, &#x27;false positive&#x27;, or &#x27;severity should be X&#x27; with a brief rationale.&quot;
+
+   **b) Collect the challenger&#x27;s assessment.** The lead agent (you) reads both the original findings and the challenger&#x27;s assessment, then decides:
+   - Dismiss findings flagged as false positives (if the rationale is convincing)
+   - Adjust severities where the challenger makes a good case
+   - Select all remaining validated findings (🔴 Critical and 🟡 Warning) to fix automatically
+   - 🔵 Suggestions are noted in the output but not auto-fixed
+
+   **c)** Fix the selected findings. If in team mode, the team fixes them. If in solo mode, fix them yourself.
 
 5. **Cleanup** (team mode only) (see [Step 8: Cleanup](#step-8-cleanup) below)
 
@@ -599,6 +624,8 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
 5. **Post findings as PR review comments:**
 
+   **If headless = false (default):**
+
    After presenting the consolidated review, ask the user which findings they want posted as PR review comments using `AskUserQuestion`:
 
    &gt; Here are the findings from the review. Which ones would you like me to post as review comments on the PR?
@@ -609,6 +636,22 @@ Review code changes in two modes: **local branch review** or **PR review**.
    - If the user says &quot;all&quot;, select every finding
    - Otherwise, parse the comma-separated list of finding numbers
    - Confirm the selection back to the user before proceeding
+
+   **If headless = true:**
+
+   Instead of asking the developer, spawn a **challenger agent** to validate the review findings before posting.
+
+   **a) Spawn the challenger agent** with:
+   - The consolidated review findings
+   - The full diff, changed files, and exclusion list
+   - The instruction: &quot;You are a senior engineer challenging a code review before it is posted on a pull request. For each finding, assess whether it is a real issue or a false positive. Check that severities are appropriate. Flag any finding that is a nitpick, already covered by existing comments, or unlikely to be actionable. Be concise: for each finding, state &#x27;post&#x27;, &#x27;skip&#x27; (with rationale), or &#x27;adjust severity to X&#x27;.&quot;
+
+   **b) Collect the challenger&#x27;s assessment.** The lead agent (you) reads both the original findings and the challenger&#x27;s assessment, then decides:
+   - Skip findings the challenger convincingly flagged as false positives or duplicates
+   - Adjust severities where the challenger makes a good case
+   - Select all remaining validated findings to post as PR comments
+
+   **c)** Proceed to post the selected findings (steps 5a–5h below).
 
    **a) Determine the authenticated user:**
    ```bash
@@ -2165,7 +2208,7 @@ Take screenshots of components affected by recent changes, either from the runni
                         <div class="skill-title">
                             <h3>Address Ticket</h3>
                             <code>/address-ticket</code>
-                            <span class="skill-version">v3.9.0</span>
+                            <span class="skill-version">v4.0.0</span>
                         </div>
                         <p class="skill-description">
                             Read the JIRA ticket associated with the current branch and drive it to full implementation
@@ -2175,12 +2218,15 @@ Take screenshots of components affected by recent changes, either from the runni
                             Reads all available ticket fields (including custom fields like expected/actual behavior) for full context.
                             Automatically deduces the conventional commit prefix from the ticket content.
                             Use <code>--no-jira</code> to skip JIRA retrieval and provide instructions directly.
+                            Use <code>--headless</code> for fully autonomous execution where a reviewer agent replaces human approval.
                         </p>
                         <div class="skill-usage">
                             <strong>Usage:</strong>
                             <ul>
                                 <li><code>/address-ticket</code> &mdash; Analyze the current branch's JIRA ticket and propose a plan</li>
                                 <li><code>/address-ticket --no-jira &lt;instructions&gt;</code> &mdash; Skip JIRA and use inline instructions as context</li>
+                                <li><code>/address-ticket --headless</code> &mdash; Fully autonomous: reviewer agent validates plans instead of asking the developer</li>
+                                <li><code>/address-ticket --no-jira --headless &lt;instructions&gt;</code> &mdash; Both flags combined</li>
                             </ul>
                         </div>
                         <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
@@ -2197,9 +2243,9 @@ Take screenshots of components affected by recent changes, either from the runni
                             <div class="file-content">
                                 <pre id="address-ticket-content">---
 name: address-ticket
-version: 3.9.0
-description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green). Use --no-jira to skip JIRA retrieval and use inline instructions instead.
-argument-hint: &quot;[--no-jira] [instructions]&quot;
+version: 4.0.0
+description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green). Use --no-jira to skip JIRA retrieval and use inline instructions instead. Use --headless for fully autonomous execution where a reviewer agent replaces human approval.
+argument-hint: &quot;[--no-jira] [--headless] [instructions]&quot;
 ---
 
 Read the JIRA ticket for the current branch and drive it to completion using a multi-agent team with TDD: a PO writes requirements, the developer approves, then a test plan is proposed and reviewed. Once confirmed, tests are written first (red), then production code is implemented to make them pass (green).
@@ -2207,25 +2253,31 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 **Usage:**
 - `/address-ticket` - Retrieve the ticket and drive it to full implementation with a team
 - `/address-ticket --no-jira &lt;instructions&gt;` - Skip JIRA retrieval and use the provided instructions as the ticket context
+- `/address-ticket --headless` - Fully autonomous: a reviewer agent validates the requirements and test plan instead of asking the developer
+- `/address-ticket --no-jira --headless &lt;instructions&gt;` - Both flags can be combined
 
 **Instructions:**
 
-## Phase 0 — Check for `--no-jira` mode
+## Phase 0 — Parse flags
 
-0. **Check if `$1` is `--no-jira`:**
-   - If `$1` is `--no-jira`:
-     - `$2` is the **user instructions** — the ticket context (what to build, fix, or change)
-     - If `$2` is empty, use `AskUserQuestion` to ask the developer to describe the task:
+0. **Scan `$1`, `$2`, `$3` for flags:**
+
+   Two optional flags can appear in any order: `--no-jira` and `--headless`. Any remaining (non-flag) argument is the **user instructions**.
+
+   - **`--headless` mode:** If any of `$1`, `$2`, `$3` is `--headless`, set **headless = true**. In headless mode, the developer is never asked for approval. Instead, a reviewer sub-agent validates the requirements and test plan autonomously (see steps 10 and 14).
+   - **`--no-jira` mode:** If any of `$1`, `$2`, `$3` is `--no-jira`:
+     - The first non-flag argument is the **user instructions** — the ticket context (what to build, fix, or change)
+     - If no user instructions are provided, use `AskUserQuestion` to ask the developer to describe the task:
        &gt; You used `--no-jira` but didn&#x27;t provide instructions. Please describe what needs to be implemented.
      - **Skip the following steps entirely:** steps 1 (acli validation), 2 (JIRA ID extraction), 3 (JIRA ticket fetch), 4 (Figma retrieval), 8 (lore file maintenance), and all of Phase 4 (steps 18–19&#x27;s JIRA update parts)
-     - **Continue with:** step 5 (conventional commit prefix — deduce from `$2` and the branch name), step 6 (codebase analysis — use `$2` as the ticket context), step 7 (splitting evaluation — use `$2`)
-     - For all subsequent phases, use `$2` wherever the skill normally references &quot;the JIRA ticket content&quot; or &quot;ticket fields&quot;
+     - **Continue with:** step 5 (conventional commit prefix — deduce from the user instructions and the branch name), step 6 (codebase analysis — use the user instructions as the ticket context), step 7 (splitting evaluation — use the user instructions)
+     - For all subsequent phases, use the **user instructions** wherever the skill normally references &quot;the JIRA ticket content&quot; or &quot;ticket fields&quot;
      - In the final report (step 19), replace the &quot;JIRA Ticket&quot; section with:
        ```
        ### Source
        - Mode: --no-jira (user instructions)
        ```
-   - If `$1` is not `--no-jira` (or no arguments were provided), proceed normally to step 1
+   - If neither flag is present, proceed normally to step 1
 
 ## Phase 1 — Gather Context
 
@@ -2578,22 +2630,43 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
    **c) Wait for the PO agent to complete** and collect its requirements document.
 
-10. **Present requirements to the developer for approval:**
+10. **Approve the requirements:**
 
-   Display the PO&#x27;s requirements document to the developer and use `AskUserQuestion` to ask for confirmation:
-   &gt; The Product Owner has prepared the following requirements and acceptance criteria. Would you like to proceed?
+    **If headless = false (default):**
 
-   - **Approve** — requirements are accepted, proceed to Phase 3
-   - **Request changes** — the developer provides feedback on what to adjust
-   - **Reject** — stop the skill execution entirely
+    Display the PO&#x27;s requirements document to the developer and use `AskUserQuestion` to ask for confirmation:
+    &gt; The Product Owner has prepared the following requirements and acceptance criteria. Would you like to proceed?
 
-   **If &quot;Request changes&quot;:**
-   - Use `AskUserQuestion` to collect the developer&#x27;s feedback
-   - Re-spawn the PO agent with the original context plus the developer&#x27;s feedback, asking it to revise the requirements
-   - Present the revised requirements again for approval
-   - Repeat until the developer approves or rejects
+    - **Approve** — requirements are accepted, proceed to Phase 3
+    - **Request changes** — the developer provides feedback on what to adjust
+    - **Reject** — stop the skill execution entirely
 
-   **Do NOT proceed to Phase 3 until the developer explicitly approves.**
+    **If &quot;Request changes&quot;:**
+    - Use `AskUserQuestion` to collect the developer&#x27;s feedback
+    - Re-spawn the PO agent with the original context plus the developer&#x27;s feedback, asking it to revise the requirements
+    - Present the revised requirements again for approval
+    - Repeat until the developer approves or rejects
+
+    **Do NOT proceed to Phase 3 until the developer explicitly approves.**
+
+    ---
+
+    **If headless = true:**
+
+    Instead of asking the developer, spawn a **reviewer agent** to challenge the PO&#x27;s requirements. The reviewer acts as a critical second pair of eyes.
+
+    **a) Spawn the reviewer agent** with:
+    - The PO&#x27;s requirements document
+    - All context from Phase 1 (ticket content, codebase analysis, attachments, Figma data, lore)
+    - The instruction: &quot;You are a senior engineer reviewing a requirements document. Your job is to find gaps, ambiguities, missing edge cases, incorrect assumptions, or over-engineering. Be concise and specific. For each issue, state what is wrong and suggest a fix. If the requirements are solid, say so.&quot;
+
+    **b) Collect the reviewer&#x27;s findings.** If the reviewer identifies issues:
+    - Re-spawn the PO agent with the original context plus the reviewer&#x27;s feedback, asking it to revise
+    - The lead agent (you) reads both the revised requirements and the reviewer&#x27;s original concerns, then decides whether the revisions adequately address them
+    - If the revised requirements are satisfactory, approve and proceed
+    - If critical issues remain after one revision round, do one more round (max 2 revision rounds), then approve the best version and note any unresolved concerns in the final report
+
+    **c) If the reviewer found no issues**, approve the requirements immediately and proceed.
 
 ## Phase 3 — Implementation Team (TDD)
 
@@ -2687,7 +2760,9 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - **Localization:** Never assert against a translated/localized string (e.g., `&quot;Submit&quot;`, `&quot;Enregistrer&quot;`). Always assert against the translation key (e.g., `&quot;common.submit&quot;`) so tests do not break when translations change or when running in a different locale
     - **No intermediate-state tests:** Do not write tests that assert on a temporary state that only exists because a later task hasn&#x27;t been implemented yet. Tests must verify behavior that is correct in the final state of the epic, not just the current task. Use the epic lore and sibling tickets to understand the full picture. For example, if an epic creates a button with label &quot;Hello&quot; and it is split into task A (&quot;Create the button&quot;) and task B (&quot;Add the label&quot;), task A must NOT include a test asserting the button has no text — that assertion would break when task B is implemented. Instead, task A should test what it adds (the button exists, it is clickable, etc.) and leave the label test for task B.
 
-14. **Present the test plan to the developer for review:**
+14. **Approve the test plan:**
+
+    **If headless = false (default):**
 
     Display the test planner&#x27;s complete test plan to the developer and use `AskUserQuestion`:
 
@@ -2705,6 +2780,26 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - Repeat until the developer approves or rejects
 
     **Do NOT proceed to step 15 until the developer explicitly approves the test plan.**
+
+    ---
+
+    **If headless = true:**
+
+    Instead of asking the developer, spawn a **reviewer agent** to challenge the test plan.
+
+    **a) Spawn the reviewer agent** with:
+    - The test planner&#x27;s complete test plan
+    - The approved requirements and acceptance criteria
+    - The codebase analysis (existing tests, conventions, framework)
+    - The instruction: &quot;You are a senior QA engineer reviewing a test plan. Check for: missing coverage of acceptance criteria, redundant or overlapping tests, missing edge cases and error paths, unrealistic test scenarios, and tests that assert on intermediate state rather than final behavior. Be concise and specific. For each issue, state what is wrong and suggest a fix. If the plan is solid, say so.&quot;
+
+    **b) Collect the reviewer&#x27;s findings.** If the reviewer identifies issues:
+    - Re-spawn the test planner agent with the original context plus the reviewer&#x27;s feedback, asking it to revise
+    - The lead agent (you) reads both the revised test plan and the reviewer&#x27;s original concerns, then decides whether the revisions adequately address them
+    - If the revised plan is satisfactory, approve and proceed
+    - If critical issues remain after one revision round, do one more round (max 2 revision rounds), then approve the best version and note any unresolved concerns in the final report
+
+    **c) If the reviewer found no issues**, approve the test plan immediately and proceed.
 
 15. **Implement tests (TDD red phase):**
 

@@ -1,8 +1,8 @@
 ---
 name: address-ticket
-version: 3.9.0
-description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green). Use --no-jira to skip JIRA retrieval and use inline instructions instead.
-argument-hint: "[--no-jira] [instructions]"
+version: 4.0.0
+description: End-to-end ticket implementation with a multi-agent team using TDD. Retrieves JIRA ticket details and Figma designs, spawns a PO to write requirements, gets developer approval, then proposes a test plan for review. Once tests are approved, implements tests first (red), then production code to pass them (green). Use --no-jira to skip JIRA retrieval and use inline instructions instead. Use --headless for fully autonomous execution where a reviewer agent replaces human approval.
+argument-hint: "[--no-jira] [--headless] [instructions]"
 ---
 
 Read the JIRA ticket for the current branch and drive it to completion using a multi-agent team with TDD: a PO writes requirements, the developer approves, then a test plan is proposed and reviewed. Once confirmed, tests are written first (red), then production code is implemented to make them pass (green).
@@ -10,25 +10,31 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 **Usage:**
 - `/address-ticket` - Retrieve the ticket and drive it to full implementation with a team
 - `/address-ticket --no-jira <instructions>` - Skip JIRA retrieval and use the provided instructions as the ticket context
+- `/address-ticket --headless` - Fully autonomous: a reviewer agent validates the requirements and test plan instead of asking the developer
+- `/address-ticket --no-jira --headless <instructions>` - Both flags can be combined
 
 **Instructions:**
 
-## Phase 0 — Check for `--no-jira` mode
+## Phase 0 — Parse flags
 
-0. **Check if `$1` is `--no-jira`:**
-   - If `$1` is `--no-jira`:
-     - `$2` is the **user instructions** — the ticket context (what to build, fix, or change)
-     - If `$2` is empty, use `AskUserQuestion` to ask the developer to describe the task:
+0. **Scan `$1`, `$2`, `$3` for flags:**
+
+   Two optional flags can appear in any order: `--no-jira` and `--headless`. Any remaining (non-flag) argument is the **user instructions**.
+
+   - **`--headless` mode:** If any of `$1`, `$2`, `$3` is `--headless`, set **headless = true**. In headless mode, the developer is never asked for approval. Instead, a reviewer sub-agent validates the requirements and test plan autonomously (see steps 10 and 14).
+   - **`--no-jira` mode:** If any of `$1`, `$2`, `$3` is `--no-jira`:
+     - The first non-flag argument is the **user instructions** — the ticket context (what to build, fix, or change)
+     - If no user instructions are provided, use `AskUserQuestion` to ask the developer to describe the task:
        > You used `--no-jira` but didn't provide instructions. Please describe what needs to be implemented.
      - **Skip the following steps entirely:** steps 1 (acli validation), 2 (JIRA ID extraction), 3 (JIRA ticket fetch), 4 (Figma retrieval), 8 (lore file maintenance), and all of Phase 4 (steps 18–19's JIRA update parts)
-     - **Continue with:** step 5 (conventional commit prefix — deduce from `$2` and the branch name), step 6 (codebase analysis — use `$2` as the ticket context), step 7 (splitting evaluation — use `$2`)
-     - For all subsequent phases, use `$2` wherever the skill normally references "the JIRA ticket content" or "ticket fields"
+     - **Continue with:** step 5 (conventional commit prefix — deduce from the user instructions and the branch name), step 6 (codebase analysis — use the user instructions as the ticket context), step 7 (splitting evaluation — use the user instructions)
+     - For all subsequent phases, use the **user instructions** wherever the skill normally references "the JIRA ticket content" or "ticket fields"
      - In the final report (step 19), replace the "JIRA Ticket" section with:
        ```
        ### Source
        - Mode: --no-jira (user instructions)
        ```
-   - If `$1` is not `--no-jira` (or no arguments were provided), proceed normally to step 1
+   - If neither flag is present, proceed normally to step 1
 
 ## Phase 1 — Gather Context
 
@@ -381,22 +387,43 @@ Read the JIRA ticket for the current branch and drive it to completion using a m
 
    **c) Wait for the PO agent to complete** and collect its requirements document.
 
-10. **Present requirements to the developer for approval:**
+10. **Approve the requirements:**
 
-   Display the PO's requirements document to the developer and use `AskUserQuestion` to ask for confirmation:
-   > The Product Owner has prepared the following requirements and acceptance criteria. Would you like to proceed?
+    **If headless = false (default):**
 
-   - **Approve** — requirements are accepted, proceed to Phase 3
-   - **Request changes** — the developer provides feedback on what to adjust
-   - **Reject** — stop the skill execution entirely
+    Display the PO's requirements document to the developer and use `AskUserQuestion` to ask for confirmation:
+    > The Product Owner has prepared the following requirements and acceptance criteria. Would you like to proceed?
 
-   **If "Request changes":**
-   - Use `AskUserQuestion` to collect the developer's feedback
-   - Re-spawn the PO agent with the original context plus the developer's feedback, asking it to revise the requirements
-   - Present the revised requirements again for approval
-   - Repeat until the developer approves or rejects
+    - **Approve** — requirements are accepted, proceed to Phase 3
+    - **Request changes** — the developer provides feedback on what to adjust
+    - **Reject** — stop the skill execution entirely
 
-   **Do NOT proceed to Phase 3 until the developer explicitly approves.**
+    **If "Request changes":**
+    - Use `AskUserQuestion` to collect the developer's feedback
+    - Re-spawn the PO agent with the original context plus the developer's feedback, asking it to revise the requirements
+    - Present the revised requirements again for approval
+    - Repeat until the developer approves or rejects
+
+    **Do NOT proceed to Phase 3 until the developer explicitly approves.**
+
+    ---
+
+    **If headless = true:**
+
+    Instead of asking the developer, spawn a **reviewer agent** to challenge the PO's requirements. The reviewer acts as a critical second pair of eyes.
+
+    **a) Spawn the reviewer agent** with:
+    - The PO's requirements document
+    - All context from Phase 1 (ticket content, codebase analysis, attachments, Figma data, lore)
+    - The instruction: "You are a senior engineer reviewing a requirements document. Your job is to find gaps, ambiguities, missing edge cases, incorrect assumptions, or over-engineering. Be concise and specific. For each issue, state what is wrong and suggest a fix. If the requirements are solid, say so."
+
+    **b) Collect the reviewer's findings.** If the reviewer identifies issues:
+    - Re-spawn the PO agent with the original context plus the reviewer's feedback, asking it to revise
+    - The lead agent (you) reads both the revised requirements and the reviewer's original concerns, then decides whether the revisions adequately address them
+    - If the revised requirements are satisfactory, approve and proceed
+    - If critical issues remain after one revision round, do one more round (max 2 revision rounds), then approve the best version and note any unresolved concerns in the final report
+
+    **c) If the reviewer found no issues**, approve the requirements immediately and proceed.
 
 ## Phase 3 — Implementation Team (TDD)
 
@@ -490,7 +517,9 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - **Localization:** Never assert against a translated/localized string (e.g., `"Submit"`, `"Enregistrer"`). Always assert against the translation key (e.g., `"common.submit"`) so tests do not break when translations change or when running in a different locale
     - **No intermediate-state tests:** Do not write tests that assert on a temporary state that only exists because a later task hasn't been implemented yet. Tests must verify behavior that is correct in the final state of the epic, not just the current task. Use the epic lore and sibling tickets to understand the full picture. For example, if an epic creates a button with label "Hello" and it is split into task A ("Create the button") and task B ("Add the label"), task A must NOT include a test asserting the button has no text — that assertion would break when task B is implemented. Instead, task A should test what it adds (the button exists, it is clickable, etc.) and leave the label test for task B.
 
-14. **Present the test plan to the developer for review:**
+14. **Approve the test plan:**
+
+    **If headless = false (default):**
 
     Display the test planner's complete test plan to the developer and use `AskUserQuestion`:
 
@@ -508,6 +537,26 @@ The team follows a strict **Test-Driven Development** workflow: tests are propos
     - Repeat until the developer approves or rejects
 
     **Do NOT proceed to step 15 until the developer explicitly approves the test plan.**
+
+    ---
+
+    **If headless = true:**
+
+    Instead of asking the developer, spawn a **reviewer agent** to challenge the test plan.
+
+    **a) Spawn the reviewer agent** with:
+    - The test planner's complete test plan
+    - The approved requirements and acceptance criteria
+    - The codebase analysis (existing tests, conventions, framework)
+    - The instruction: "You are a senior QA engineer reviewing a test plan. Check for: missing coverage of acceptance criteria, redundant or overlapping tests, missing edge cases and error paths, unrealistic test scenarios, and tests that assert on intermediate state rather than final behavior. Be concise and specific. For each issue, state what is wrong and suggest a fix. If the plan is solid, say so."
+
+    **b) Collect the reviewer's findings.** If the reviewer identifies issues:
+    - Re-spawn the test planner agent with the original context plus the reviewer's feedback, asking it to revise
+    - The lead agent (you) reads both the revised test plan and the reviewer's original concerns, then decides whether the revisions adequately address them
+    - If the revised plan is satisfactory, approve and proceed
+    - If critical issues remain after one revision round, do one more round (max 2 revision rounds), then approve the best version and note any unresolved concerns in the final report
+
+    **c) If the reviewer found no issues**, approve the test plan immediately and proceed.
 
 15. **Implement tests (TDD red phase):**
 

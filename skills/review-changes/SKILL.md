@@ -1,8 +1,8 @@
 ---
 name: review-changes
-version: 3.7.1
-description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). By default, performs a solo review covering all focus areas. With `--team`, spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually).
-argument-hint: "[--team] [base-branch] or <PR number or URL> [repository]"
+version: 3.8.0
+description: Review code changes in two modes — local branch review (compare current branch against a base branch) or PR review (review an open pull request on GitHub). By default, performs a solo review covering all focus areas. With `--team`, spawns a specialized team of 8 reviewer agents covering code quality, security, performance, best practices, testing, and documentation. In PR mode, builds an exclusion list from existing reviews, optionally spawns a 9th ticket-compliance agent if a Jira ticket is referenced, and posts findings as pending review comments (never submits the review — the developer submits it manually). Use `--headless` for fully autonomous execution where a challenger agent validates findings instead of asking the developer.
+argument-hint: "[--team] [--headless] [base-branch] or <PR number or URL> [repository]"
 ---
 
 Review code changes in two modes: **local branch review** or **PR review**.
@@ -16,14 +16,18 @@ Review code changes in two modes: **local branch review** or **PR review**.
 - `/review-changes <PR-number> <owner/repo>` — Review PR in specific repo (solo review)
 - `/review-changes <PR-URL>` — Review PR by URL (solo review)
 - Add `--team` to any command above to spawn a specialized review team instead of reviewing solo
+- Add `--headless` to any command above for fully autonomous execution (a challenger agent validates findings instead of asking the developer)
 
 **Instructions:**
 
 1. **Parse arguments and determine mode:**
 
-   - If `$1` is `--team`, set **team mode = true** and treat `$2` as the target argument. Otherwise, set **team mode = false** (solo review) and treat `$1` as the target argument.
+   Scan `$1`, `$2`, `$3` for flags (`--team`, `--headless`). The first non-flag argument is the **target argument**; the second non-flag argument (if any) is the **extra argument** (used as `owner/repo` in PR mode).
+
+   - If any argument is `--team`, set **team mode = true**. Otherwise, set **team mode = false** (solo review).
+   - If any argument is `--headless`, set **headless = true**. Otherwise, set **headless = false**.
    - If the target argument is a GitHub PR URL (matches `https://github.com/.../pull/\d+`) → **PR mode** (extract owner, repo, and PR number from the URL)
-   - If the target argument is a pure number (e.g., `1654`) → **PR mode** (use as PR number; if an additional argument is provided after it, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
+   - If the target argument is a pure number (e.g., `1654`) → **PR mode** (use as PR number; if the extra argument is provided, use it as `owner/repo`, otherwise run `gh repo view --json nameWithOwner -q .nameWithOwner` to get the current repo)
    - Otherwise → **local branch mode**:
      - If the target argument is provided, use it as the base branch
      - Otherwise, check if a `.agent` file exists in the current directory. If it contains a `baseBranch=<value>` line, use that value
@@ -47,7 +51,26 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
 4. **Address findings locally:**
 
+   **If headless = false (default):**
+
    After presenting the review, ask the user which findings they want addressed using `AskUserQuestion`. If in team mode, the team fixes the selected issues locally. If in solo mode, fix them yourself.
+
+   **If headless = true:**
+
+   Instead of asking the developer, spawn a **challenger agent** to validate the review findings. The challenger acts as a skeptical second opinion.
+
+   **a) Spawn the challenger agent** with:
+   - The consolidated review findings
+   - The full diff and changed files
+   - The instruction: "You are a senior engineer challenging a code review. For each finding, assess whether it is a real issue or a false positive. Check that severities are appropriate — is a 🔴 Critical truly critical? Is a 🔵 Suggestion actually a warning? Are any findings nitpicks that would add noise? Be concise: for each finding, state 'valid', 'false positive', or 'severity should be X' with a brief rationale."
+
+   **b) Collect the challenger's assessment.** The lead agent (you) reads both the original findings and the challenger's assessment, then decides:
+   - Dismiss findings flagged as false positives (if the rationale is convincing)
+   - Adjust severities where the challenger makes a good case
+   - Select all remaining validated findings (🔴 Critical and 🟡 Warning) to fix automatically
+   - 🔵 Suggestions are noted in the output but not auto-fixed
+
+   **c)** Fix the selected findings. If in team mode, the team fixes them. If in solo mode, fix them yourself.
 
 5. **Cleanup** (team mode only) (see [Step 8: Cleanup](#step-8-cleanup) below)
 
@@ -142,6 +165,8 @@ Review code changes in two modes: **local branch review** or **PR review**.
 
 5. **Post findings as PR review comments:**
 
+   **If headless = false (default):**
+
    After presenting the consolidated review, ask the user which findings they want posted as PR review comments using `AskUserQuestion`:
 
    > Here are the findings from the review. Which ones would you like me to post as review comments on the PR?
@@ -152,6 +177,22 @@ Review code changes in two modes: **local branch review** or **PR review**.
    - If the user says "all", select every finding
    - Otherwise, parse the comma-separated list of finding numbers
    - Confirm the selection back to the user before proceeding
+
+   **If headless = true:**
+
+   Instead of asking the developer, spawn a **challenger agent** to validate the review findings before posting.
+
+   **a) Spawn the challenger agent** with:
+   - The consolidated review findings
+   - The full diff, changed files, and exclusion list
+   - The instruction: "You are a senior engineer challenging a code review before it is posted on a pull request. For each finding, assess whether it is a real issue or a false positive. Check that severities are appropriate. Flag any finding that is a nitpick, already covered by existing comments, or unlikely to be actionable. Be concise: for each finding, state 'post', 'skip' (with rationale), or 'adjust severity to X'."
+
+   **b) Collect the challenger's assessment.** The lead agent (you) reads both the original findings and the challenger's assessment, then decides:
+   - Skip findings the challenger convincingly flagged as false positives or duplicates
+   - Adjust severities where the challenger makes a good case
+   - Select all remaining validated findings to post as PR comments
+
+   **c)** Proceed to post the selected findings (steps 5a–5h below).
 
    **a) Determine the authenticated user:**
    ```bash

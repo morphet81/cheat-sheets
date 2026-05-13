@@ -1,11 +1,11 @@
 ---
 name: create-pr
-version: 1.7.1
-description: Push the current branch and create a pull request on GitHub. When a JIRA ID is in the branch name, derives title and description from the ticket; otherwise still pushes and offers PR title options. Draft by default, use --no-draft for a ready PR.
+version: 1.8.0
+description: Push the current branch and create a pull request on GitHub. Derives the title and description from any JIRA ticket referenced by the branch, and references every issue (JIRA, GitHub, etc.) the PR actually fixes — never related items. Draft by default, use --no-draft for a ready PR.
 argument-hint: "[--no-draft]"
 ---
 
-Push the current branch and create a GitHub pull request. When the branch name contains a JIRA ID and the ticket can be loaded, the PR title and description follow the ticket. When there is no JIRA ID or the ticket cannot be fetched, still push the branch, propose several PR title options for the developer to choose from (or a custom title), then create the PR.
+Push the current branch and create a GitHub pull request. When the branch name contains a JIRA ID and the ticket can be loaded, the PR title and description follow the ticket. When there is no JIRA ID or the ticket cannot be fetched, still push the branch, propose several PR title options for the developer to choose from (or a custom title), then create the PR. The PR description always references every issue this PR actually fixes — JIRA tickets, GitHub issues, etc. — and only those, never related-but-not-addressed items.
 
 **Usage:**
 - `/create-pr` - Push and create a draft PR
@@ -38,7 +38,7 @@ Push the current branch and create a GitHub pull request. When the branch name c
    - Extract the JIRA ID by matching the pattern `[A-Z][A-Z0-9]+-[0-9]+` (e.g., `PROJ-123`, `AB-1`, `MYAPP-4567`)
    - The JIRA ID can appear anywhere in the branch name (e.g., `fix/proj-123`, `feat/PROJ-123`, `PROJ-123-some-description`)
    - The match should be case-insensitive — normalize the extracted ID to uppercase for the JIRA API lookup
-   - If no JIRA ID is found, continue without stopping — you will use the **no-JIRA-ticket path** after pushing (see step 7)
+   - If no JIRA ID is found, continue without stopping — you will use the **no-JIRA-ticket path** after pushing (see step 8)
 
 4. **Fetch JIRA ticket details (only if a JIRA ID was found in step 3):**
    - **Atlassian CLI (`acli`):** Run `acli auth status` to check if the CLI is installed and authenticated.
@@ -60,8 +60,8 @@ Push the current branch and create a GitHub pull request. When the branch name c
      ```bash
      acli jira workitem view <JIRA-ID> --fields summary,description,issuetype --json
      ```
-   - If the command succeeds, extract **summary**, **description**, **issue type** (Bug, Story, Task, etc.) — you have **JIRA context** for step 7
-   - If the command fails (ticket missing, permission, network, etc.), inform the developer briefly and continue on the **no-JIRA-ticket path** in step 7 (do **not** stop). You may still know the raw `JIRA-ID` string for an optional link in the description if you can form a correct browse URL; otherwise omit it
+   - If the command succeeds, extract **summary**, **description**, **issue type** (Bug, Story, Task, etc.) — you have **JIRA context** for step 8
+   - If the command fails (ticket missing, permission, network, etc.), inform the developer briefly and continue on the **no-JIRA-ticket path** in step 8 (do **not** stop). You may still know the raw `JIRA-ID` string for an optional link in the description if you can form a correct browse URL; otherwise omit it
 
 5. **Determine the base branch:**
    - Check if a `.agent` file exists in the current directory
@@ -103,16 +103,44 @@ Push the current branch and create a GitHub pull request. When the branch name c
 
    - If the push fails for any other reason (not a pre-push hook), show the error and **STOP**
 
-7. **Create the pull request:**
+7. **Identify the issues this PR fixes or addresses:**
+
+   The goal is to build a list of **only the items this PR actually fixes or addresses** — never related items, dependencies, or items merely mentioned in passing.
+
+   **a) Collect candidate references from all available sources:**
+   - **Branch name:** any JIRA ID from step 3, and any GitHub issue-number hints — patterns like `issue-123`, `gh-123`, a leading numeric segment such as `123-some-description`, or `#123`.
+   - **Commit messages on this branch:** run `git log <base-branch>..HEAD --pretty=%B` and scan the output for:
+     - GitHub issue refs: `#NNN`, `GH-NNN`, or cross-repo `owner/repo#NNN`
+     - Closing-keyword refs: `Fixes #NNN`, `Closes #NNN`, `Resolves #NNN` (any case)
+     - Additional JIRA keys matching `[A-Z][A-Z0-9]+-[0-9]+`
+   - **PR title (if from JIRA):** the JIRA key is already a candidate.
+
+   **b) Filter to items this PR actually fixes/addresses:**
+   - Include a reference only when the PR's changes resolve or implement that item. Use these signals:
+     - Branch name's primary JIRA ID (from step 3) and any GitHub issue number embedded in the branch name → almost always being addressed by this PR; include them.
+     - A reference appearing with a closing keyword (`Fixes`, `Closes`, `Resolves`) in a commit on this branch → include it.
+     - A bare `#NNN` mention in a commit message → only include if the commit body clearly indicates the PR resolves that issue; otherwise treat as related and **exclude**.
+     - Additional JIRA keys mentioned in commits without explicit "fixes/addresses" intent → exclude as related context.
+   - **When uncertain whether a candidate is being fixed vs merely related, ask the developer** with `AskUserQuestion` listing the ambiguous candidates, each with options **"This PR fixes it — include"** and **"Just related — exclude"**. Skip the prompt entirely if there are no ambiguous candidates.
+   - Deduplicate the final list.
+
+   **c) Format the references for the PR body:**
+   - **JIRA tickets:** `[PROJ-123](https://<site>.atlassian.net/browse/PROJ-123)` followed by the ticket summary if known (e.g., ` — Add bulk export`). Use the same `<site>` host you confirmed during the `acli` lookup.
+   - **GitHub issues (same repo):** use a closing keyword so GitHub auto-closes on merge — `Fixes #123` (prefer `Fixes` for bugs, `Closes` otherwise; either works for auto-close).
+   - **GitHub issues (cross-repo):** `Fixes owner/repo#123`.
+
+   Keep the result for step 8. If the filtered list is empty, there will be no `## Fixes` section.
+
+8. **Create the pull request:**
 
    **If you have JIRA context from step 4 (successful fetch):**
    - Build the PR title using the commit prefix convention based on issue type, followed by a concise summary derived from the JIRA ticket summary:
      - Bug → `fix: <summary>` (e.g., `fix: resolve null pointer in user lookup`)
      - All other types → `feat: <summary>` (e.g., `feat: add bulk export for reports`)
      - The summary part should be lowercase, imperative mood, and concise
-   - Build the PR description from the JIRA ticket details:
-     - Start with a `## Summary` section with a brief description based on the JIRA ticket description
-     - Add a `## JIRA` section with a link to the ticket: `[PROJ-123](https://<site>.atlassian.net/browse/PROJ-123)`
+   - Build the PR description:
+     - `## Summary` — a brief description based on the JIRA ticket description.
+     - `## Fixes` — list every confirmed reference from step 7, one per line as a bullet. Always include the branch's JIRA ticket here as the first bullet. Omit the section entirely only if step 7 produced an empty list (which should be rare when JIRA context exists).
    - Run `gh pr create` with that title and body (see below for shared flags)
 
    **If you do not have JIRA context (no JIRA ID in branch, or fetch failed in step 4):**
@@ -123,8 +151,8 @@ Push the current branch and create a GitHub pull request. When the branch name c
      - A shorter or alternative wording
      - Plus an option for the developer to **enter a custom title** (free text), if your tool supports it
    - After the developer selects a title, build the PR description:
-     - `## Summary` — brief explanation from the branch name and recent commit message(s); if a JIRA ID was known but the ticket could not be loaded, you may add a sentence noting the intended ticket key
-     - Omit the `## JIRA` section unless you have a reliable browse URL for a known key
+     - `## Summary` — brief explanation from the branch name and recent commit message(s). If a JIRA ID was known but the ticket could not be loaded, you may add a sentence noting the intended ticket key.
+     - `## Fixes` — list every confirmed reference from step 7, one per line as a bullet. Omit the section entirely if step 7 produced an empty list.
    - Run `gh pr create` with the chosen title and that body
 
    **Shared `gh pr create` behavior:**
@@ -137,14 +165,14 @@ Push the current branch and create a GitHub pull request. When the branch name c
    - Use a HEREDOC to pass the body
    - If PR creation fails, show the error and **STOP**
 
-8. **Show success message:**
+9. **Show success message:**
 
-   Display a summary with all relevant information. When JIRA context was used, include the ticket key and link. When it was not, state that no JIRA ticket was attached (or list the key only if you referenced it in the description without a full ticket load):
+   Display a summary with all relevant information. List every reference included in the `## Fixes` section, or state "none" if the section was omitted:
 
    ```
    ## PR Created
 
-   - JIRA: PROJ-123 (or "none" / key only if applicable)
+   - Fixes: PROJ-123, #45 (or "none")
    - Branch: my-branch → main
    - PR: https://github.com/org/repo/pull/42 (draft)
    - Title: <chosen title>

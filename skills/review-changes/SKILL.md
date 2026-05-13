@@ -1,7 +1,7 @@
 ---
 name: review-changes
-version: 4.1.0
-description: Review code changes with a small team — two senior engineers review independently, debate their findings, then a team lead reports a consolidated list. Local mode compares the current branch against a base branch; PR mode (auto-enabled when a PR URL or number is supplied) offers to post the findings as PR review comments. When the developer chooses to address findings, the same two engineers implement the fixes in auto mode. Engineers read the project's AI documentation (architecture first) before reviewing.
+version: 4.2.0
+description: Review code changes with a small team — two senior engineers review independently, debate their findings, then a team lead reports a consolidated list. Local mode compares the current branch against a base branch; PR mode (auto-enabled when a PR URL or number is supplied) offers to post the findings as PR review comments. When the developer chooses to address findings, the same two engineers implement the fixes in auto mode. Engineers read the project's AI documentation (architecture first) before reviewing, and explicitly check for reuse violations and unused established practices.
 argument-hint: "[base-branch] | <PR number or URL>"
 ---
 
@@ -155,6 +155,11 @@ Review code changes with a focused 3-agent team:
    > 3. **No duplicates** — flag tests (or near-duplicate tests) that cover the same scenario.
    > 4. **No cross-component re-testing** — a component that uses another component must not re-test the inner component's behaviour. Each component has its own test suite; the outer test should only verify the integration, not the inner component's internals.
    > 5. **Description matches assertions** — for every test, verify the assertions actually prove what the description claims. Flag missing assertions (claim made, no assertion for it) and extraneous assertions (assertion not described). Flag silent passes (a test that would still pass if the feature it claims to cover were removed).
+   >
+   > **Reuse & Project Practices Checklist** — before approving any new code, verify all of:
+   > 1. **No reinvention of existing components** — flag any new component, hook, helper, or utility that could have been created by **extending or reusing** an existing one. Grep the relevant directories for similar names, props, or responsibilities before assuming something is new. If the diff genuinely needs a new variant, it must come with a clear architectural rationale (in the code, commit message, PR description, or ticket); otherwise flag it as a reuse violation and recommend extending the existing primitive.
+   > 2. **Established practices are used** — identify the project's higher-order patterns (read the AI documentation and skim sibling files for examples): things like a modal-visibility HOC/hook, a permissioned-button wrapper, a form helper, a request-state hook, a feature-flag gate, etc. Verify the new code uses them. **Example:** if the project provides a HOC or hook for managing modal visibility, any new conditionally-visible modal must use it instead of rolling its own `useState(open)` boilerplate. Flag any new code that bypasses an established practice without justification.
+   > 3. **Existing utilities, constants, and shared variables are reused** — flag inline implementations of behaviour already covered by an existing utility, and hardcoded values that have a named constant or shared variable available.
    >
    > **Convention check:** Before reporting findings, scan the directory of each changed file to identify sibling files. Note any conventions (naming, patterns, utilities, shared variables) that the new code should follow but doesn't.
    >

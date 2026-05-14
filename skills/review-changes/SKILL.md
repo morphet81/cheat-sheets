@@ -1,7 +1,7 @@
 ---
 name: review-changes
-version: 4.2.0
-description: Review code changes with a small team — two senior engineers review independently, debate their findings, then a team lead reports a consolidated list. Local mode compares the current branch against a base branch; PR mode (auto-enabled when a PR URL or number is supplied) offers to post the findings as PR review comments. When the developer chooses to address findings, the same two engineers implement the fixes in auto mode. Engineers read the project's AI documentation (architecture first) before reviewing, and explicitly check for reuse violations and unused established practices.
+version: 4.4.0
+description: Review code changes with a small team — two senior engineers review independently, debate their findings, then a team lead reports a consolidated list. Local mode compares the current branch against a base branch; PR mode (auto-enabled when a PR URL or number is supplied) offers to post the findings as PR review comments. PR mode is strictly read-only — no file in the working tree is ever modified, and every developer instruction is interpreted as an update to the comments plan. The agent never checks out a branch in the current working directory; if it needs files at another ref, it creates a temporary worktree and removes it before presenting the report. Local mode lets the developer pick findings to fix, and the same two engineers implement them in auto mode. Engineers read the project's AI documentation (architecture first) before reviewing, and explicitly check for reuse violations and unused established practices.
 argument-hint: "[base-branch] | <PR number or URL>"
 ---
 
@@ -27,6 +27,48 @@ Review code changes with a focused 3-agent team:
    - If `$1` matches a GitHub PR URL (`https://github.com/.../pull/\d+`) → **PR mode**. Extract owner, repo, and PR number from the URL.
    - If `$1` is a pure number → **PR mode**. Use it as the PR number, and run `gh repo view --json nameWithOwner -q .nameWithOwner` to derive the current repo. For a PR in another repo, pass the full PR URL instead.
    - Otherwise → **local mode**. Base branch = `$1` if given, else the `baseBranch=...` value from a `.agent` file in the working directory if present, else `main`.
+
+> ## ⚠️ PR mode is strictly read-only
+>
+> Once the skill is in **PR mode**, neither the team lead nor either engineer may modify any file in the working tree under any circumstances. **Step 9 (Address findings) is skipped entirely in PR mode**, no matter what the developer says.
+>
+> Every developer instruction received in PR mode must be interpreted as a **change to the comments plan** — the set of findings staged to be posted on the PR — *not* as a code-fix request. Examples:
+>
+> | Developer says… | Interpret as… |
+> |---|---|
+> | "Drop #3" | Remove #3 from the comments plan |
+> | "Make #5 critical" | Change #5's severity to 🔴 Critical in the plan |
+> | "Add a note about X to #4" | Edit #4's body in the plan |
+> | "Combine #6 and #7" | Merge those entries in the plan |
+> | "Fix #2" / "Apply #2" | **Plan update**: ask the developer whether they meant *drop #2 because they'll fix it themselves* or *rephrase #2 to suggest a specific fix*. Never run any code-modifying command. |
+>
+> If a developer explicitly insists on fixing code in PR mode, do **not** comply. Reply: "PR mode is read-only. To apply fixes, re-run `/review-changes` without the PR argument while checked out on the PR branch." Then continue refining the comments plan.
+
+> ## ⚠️ Never check out a branch in the current working directory
+>
+> Applies to **both modes**, at all times. The skill must never change which ref is checked out in the developer's working directory. **Do not** run `git checkout <ref>`, `git switch <ref>`, `git reset --hard`, or any equivalent that moves the current working tree's HEAD. The developer may have uncommitted work or staged changes — switching branches under them is unacceptable.
+>
+> **Local mode:** The current branch is already the one being reviewed; just `git diff <base>...HEAD`. No checkout needed.
+>
+> **PR mode:** The diff comes from `gh pr diff <n>` and metadata from `gh pr view <n>`. If the engineers need to read additional files at the **PR's state** (e.g., the PR's `CLAUDE.md`, sibling files for convention checks), prefer `gh api repos/<owner>/<repo>/contents/<path>?ref=<sha>` for a small number of files. If broader directory inspection is required, create a **temporary worktree**:
+>
+> ```bash
+> # Get the PR head SHA
+> SHA=$(gh pr view <n> --repo <owner/repo> --json headRefOid --jq .headRefOid)
+> # Create a worktree at a temp path, detached at that SHA
+> WT_PATH=$(mktemp -d -t review-changes-XXXXXX)
+> rmdir "$WT_PATH"   # mktemp pre-creates; git worktree wants a non-existent path
+> git worktree add --detach "$WT_PATH" "$SHA"
+> ```
+>
+> Engineers may read files from `$WT_PATH` (read-only — never write to it). **The worktree must be removed before the team lead presents the consolidated report to the developer** (i.e., between step 6 and step 7). Cleanup:
+>
+> ```bash
+> git worktree remove --force "$WT_PATH"
+> git worktree list   # verify it is gone
+> ```
+>
+> If cleanup fails (locked, busy, or some other error), the team lead must **not** present the report yet — surface the failure to the developer, list the leftover path, and ask them how to proceed.
 
 ---
 
@@ -165,7 +207,12 @@ Review code changes with a focused 3-agent team:
    >
    > When finished, message `team-lead` with your findings. For each finding, provide: title, `file:line`, severity (🔴 Critical / 🟡 Warning / 🔵 Suggestion), rationale, suggested fix. State "No issues found in <area>" for any clean focus area.
 
+   **Working-directory rule (both modes, applies to both engineers):**
+   - **Never run `git checkout`, `git switch`, `git reset --hard`, or any command that changes which ref is checked out in the developer's working directory.** The developer may have uncommitted work.
+   - To read files at a different ref, either use `gh api repos/<owner>/<repo>/contents/<path>?ref=<sha>` for a few files, or ask the team lead to create a temporary worktree (see the top-level callout). Read from the worktree path; never write to it.
+
    **PR mode additions to the engineers' brief:**
+   - **You must not modify the codebase in PR mode.** Do not run any file-editing, write, or shell command that mutates the working tree (including any worktree the lead creates). Your job is solely to read, review, and report findings to `team-lead`. If you are later asked to "fix" or "apply" something while still in PR mode, refuse and remind the lead that PR mode is read-only.
    - Attach the **exclusion list** with the instruction: "Do NOT report these issues — they have already been raised. For each excluded item that falls in a focus area you reviewed, send the lead a brief assessment: do you agree with the comment, and is the issue still present in the current code?"
    - Attach the **Jira ticket details** if available, with the instruction: "Also compare the changes against the ticket's requirements and acceptance criteria. Flag any missing or partially-addressed items."
 
@@ -176,9 +223,14 @@ Review code changes with a focused 3-agent team:
    > 3. **Discuss & consolidate** — facilitate a short discussion (one round-trip is usually enough) where the engineers converge on a single, deduplicated list of findings with agreed severities. When they genuinely disagree, keep the finding and mark it **Debated** with both perspectives noted.
    > 4. **Filter non-issues** — drop anything that concludes with "no action needed", "looks good", etc. Only actionable findings remain.
    > 5. **Produce the consolidated report** using the format in step 7.
-   > 6. **Deliver the report** to the developer. In PR mode, also propose posting the findings as PR review comments (step 8a). In local mode, ask which findings to address now (step 8b).
-   > 7. When fixes are required, **dispatch the same two engineers in auto mode** to implement them (step 9).
-   > 8. Once all work is done, send `shutdown_request` to both engineers and call `TeamDelete`.
+   > 6. **Clean up any temporary worktree** you created for the engineers (see the working-directory callout at the top of this skill). This must happen **before** you present the report to the developer. If cleanup fails, hold the report and surface the problem.
+   > 7. **Deliver the report** to the developer. In PR mode, also propose posting the findings as PR review comments (step 8a). In local mode, ask which findings to address now (step 8b).
+   > 8. When fixes are required, **dispatch the same two engineers in auto mode** to implement them (step 9). **This applies in local mode only.**
+   > 9. Once all work is done, send `shutdown_request` to both engineers and call `TeamDelete`.
+   >
+   > **Working-directory rule (critical):** Never check out a branch in the developer's working directory, and never instruct an engineer to do so. If files at a different ref are needed, create a temporary worktree with `git worktree add --detach <path> <sha>`, share that path with the engineers, and remove the worktree with `git worktree remove --force <path>` before step 7.
+   >
+   > **PR mode read-only rule (critical):** In PR mode you must never dispatch engineers to modify the codebase. Treat every developer instruction as an update to the comments plan, never as a code-fix request. Do not run any file-editing or shell command that mutates the working tree, and do not allow either engineer to do so. If the developer phrases something ambiguously (e.g., "fix #3"), ask whether they mean "drop #3 because I'll fix it myself" or "rephrase #3 to suggest a fix" — never assume it means modify the code. If the developer insists on fixing code, tell them to re-run `/review-changes` without the PR argument while checked out on the PR branch.
 
 4. **Independent review (parallel):**
 
@@ -246,9 +298,21 @@ Review code changes with a focused 3-agent team:
 
 8. **Handle the findings:**
 
-   **a) PR mode — propose posting comments:**
+   **a) PR mode — propose posting comments (read-only):**
 
-   The team lead suggests posting the consolidated findings as pending PR review comments and asks the developer (via `AskUserQuestion`) which to post: `all`, `none`, or a list of finding numbers (e.g., `1, 3, 5`). After selection:
+   The team lead first presents the consolidated findings as a **comments plan** and **iteratively refines the plan with the developer** before posting anything. Throughout this whole step, no codebase changes are ever made — every developer instruction targets the plan.
+
+   **Refine loop:**
+   1. Show the current comments plan (numbered findings, severities, bodies).
+   2. Ask the developer (via `AskUserQuestion`) what they want to do. Offer at minimum:
+      - `Post all` — post every finding as-is.
+      - `Post a subset` — developer specifies a list of finding numbers (e.g., `1, 3, 5`).
+      - `Edit the plan` — developer specifies changes (drop, rephrase, change severity, merge, split, add a new finding). Apply the edits, then re-show the updated plan and ask again.
+      - `Post nothing` — skip posting and proceed to cleanup.
+   3. If the developer says something that sounds like a code-fix request (e.g., "fix #3"), do **not** modify the codebase. Ask whether they mean "drop #3 because I'll fix it myself" or "rephrase #3 to suggest a concrete fix", and apply the chosen plan update. If they truly want to apply fixes, tell them: "PR mode is read-only — re-run `/review-changes` without the PR argument while checked out on the PR branch to apply fixes."
+   4. Loop until the developer chooses `Post all`, `Post a subset`, or `Post nothing`.
+
+   Once the plan is finalised, post the selected findings to GitHub as follows:
 
    - Determine the authenticated user:
      ```bash
@@ -355,9 +419,11 @@ Review code changes with a focused 3-agent team:
 
    The team lead asks the developer (via `AskUserQuestion`) which findings to address now. Accept `all`, `none`, or a list of finding numbers. Continue to step 9 with the selected findings (skip step 9 entirely if the developer selects `none`).
 
-9. **Address the selected findings (local mode, auto mode):**
+9. **Address the selected findings (LOCAL MODE ONLY, auto mode):**
 
-   When findings are selected for fixing, the team lead dispatches `engineer-1` and `engineer-2` to implement them in **auto mode**:
+   **Skip this step entirely in PR mode**, regardless of what the developer says. PR mode never modifies the codebase — that boundary is enforced at the top of this skill and in every team brief.
+
+   In local mode, when findings are selected for fixing, the team lead dispatches `engineer-1` and `engineer-2` to implement them in **auto mode**:
    - Split the selected findings between the two engineers (roughly by file or focus area) so they work in parallel without stepping on each other.
    - Each engineer implements its assigned fixes directly in the working tree, validating with the relevant tests/lints when sensible.
    - When both engineers report completion, the team lead summarises what changed and lists any follow-up work the developer should review manually.
@@ -365,6 +431,7 @@ Review code changes with a focused 3-agent team:
 
 10. **Cleanup:**
 
+    - Verify no temporary worktree is still attached: `git worktree list`. Anything created by the team for this review must already have been removed before step 7; if one is somehow still present at this point, remove it now with `git worktree remove --force <path>` and tell the developer.
     - The team lead sends `shutdown_request` to `engineer-1` and `engineer-2`.
     - After both confirm, call `TeamDelete`.
     - Present the final summary to the developer.
@@ -373,6 +440,8 @@ Review code changes with a focused 3-agent team:
 
 ## Edge Cases
 
+- **PR mode is read-only — under no circumstance modify the codebase in PR mode.** All developer input in PR mode targets the comments plan, never the working tree. Step 9 is local-mode only.
+- **Never check out a branch in the developer's working directory.** Use a temporary worktree if files at another ref are needed, and remove it before presenting the report. If worktree cleanup fails, hold the report and surface the failure.
 - If the PR diff is empty (PR mode) or there are no commits ahead of base (local mode), report "No changes to review" and **STOP**.
 - If `gh` is not authenticated (PR mode), display setup instructions and **STOP**.
 - If the exclusion list is very large (>30 items), summarise it for the engineers by grouping related items.
